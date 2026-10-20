@@ -1,0 +1,525 @@
+// Central de Atualização do Atendimento Inteligente — Intelite Tecnologia
+// Modelo de dados. Princípio: nada de "status genérico". Autodeclaração do cliente,
+// validação técnica, formato do tutorial e enquadramento têm campos e tabelas próprios.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────── Enums ─────────────────────────
+
+enum EquipmentType {
+  TOTEM
+  PAINEL
+}
+
+enum TutorialFormat {
+  TEXTO
+  VIDEO
+}
+
+enum StepKind {
+  IDENTIFICACAO
+  FORMATO
+  ATUALIZACAO
+  ENQUADRAMENTO
+  FOTOS
+  AVALIACAO
+}
+
+enum ContentStatus {
+  RASCUNHO
+  PUBLICADO
+  ARQUIVADO
+}
+
+/// Estados do enquadramento (autodeclarados pelo cliente, exceto onde indicado).
+enum FramingStatus {
+  NAO_VERIFICADO
+  CORRETO
+  INCORRETO
+  AJUSTE_REALIZADO_AGUARDANDO_VERIFICACAO
+  PRECISA_SUPORTE
+}
+
+enum CorrectionStatus {
+  NAO_APLICAVEL
+  PENDENTE
+  REALIZADA
+}
+
+/// Validação técnica — feita pela equipe Intelite, nunca pelo cliente.
+enum TechnicalValidationStatus {
+  PENDENTE
+  VALIDADO
+  REJEITADO
+}
+
+enum FramingIssueType {
+  TEXTO_CORTADO
+  BOTAO_CORTADO
+  LOGOTIPO_CORTADO
+  INTERFACE_DESLOCADA
+  BARRAS_OU_MARGENS
+  CONTEUDO_FORA_DA_AREA
+  PROPORCAO_INCORRETA
+  SENHA_CORTADA
+  IDENTIFICACAO_CORTADA
+  OUTRO
+}
+
+enum AdjustmentType {
+  RESOLUCAO
+  ESCALA
+  DPI
+  ORIENTACAO
+  PROPORCAO
+  OVERSCAN_ZOOM_MONITOR
+  CONFIG_APLICATIVO
+}
+
+enum EvidenceKind {
+  ATUALIZACAO
+  ENQUADRAMENTO
+}
+
+enum EvidenceReview {
+  PENDENTE
+  ACEITA
+  NOVA_FOTO_SOLICITADA
+}
+
+enum AdminRole {
+  ADMIN
+  TECNICO
+  LEITOR
+}
+
+enum SupportStatus {
+  ABERTO
+  EM_ATENDIMENTO
+  RESOLVIDO
+}
+
+enum SessionStatus {
+  EM_ANDAMENTO
+  CONCLUIDA_PELO_CLIENTE
+}
+
+// ───────────────────────── Cadastro ─────────────────────────
+
+model Unit {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  city      String?
+  createdAt DateTime @default(now())
+
+  equipments    UnitEquipment[]
+  campaignUnits CampaignUnit[]
+}
+
+model EquipmentModel {
+  id     String        @id @default(cuid())
+  name   String
+  type   EquipmentType
+  active Boolean       @default(true)
+
+  equipments UnitEquipment[]
+  criteria   FramingCriterion[]
+  procedures CorrectionProcedure[]
+
+  @@unique([name, type])
+}
+
+model UnitEquipment {
+  id      String          @id @default(cuid())
+  unitId  String
+  type    EquipmentType
+  modelId String?
+  label   String?
+  unit    Unit            @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  model   EquipmentModel? @relation(fields: [modelId], references: [id])
+
+  checks    FramingCheck[]
+  evidences Evidence[]
+
+  @@unique([unitId, type])
+}
+
+model Campaign {
+  id                         String    @id @default(cuid())
+  name                       String
+  startsAt                   DateTime
+  endsAt                     DateTime?
+  /// Política configurável pela equipe técnica: exige validação técnica para concluir operacionalmente.
+  requireTechnicalValidation Boolean   @default(true)
+  createdAt                  DateTime  @default(now())
+
+  units CampaignUnit[]
+}
+
+/// Universo de unidades elegíveis de uma campanha (denominador dos indicadores).
+model CampaignUnit {
+  id             String   @id @default(cuid())
+  campaignId     String
+  unitId         String
+  /// Somente o hash do código de acesso é armazenado.
+  accessCodeHash String   @unique
+  createdAt      DateTime @default(now())
+
+  campaign Campaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  unit     Unit             @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  session  TutorialSession?
+
+  @@unique([campaignId, unitId])
+}
+
+// ───────────────────────── Sessão e progresso ─────────────────────────
+
+model TutorialSession {
+  id             String          @id @default(cuid())
+  campaignUnitId String          @unique // 1 sessão por unidade/campanha: trocar de formato nunca duplica
+  initialFormat  TutorialFormat?
+  currentFormat  TutorialFormat?
+  currentStepKey String          @default("identificacao")
+  status         SessionStatus   @default(EM_ANDAMENTO)
+  startedAt      DateTime        @default(now())
+  completedAt    DateTime?
+  updatedAt      DateTime        @updatedAt
+
+  campaignUnit  CampaignUnit     @relation(fields: [campaignUnitId], references: [id], onDelete: Cascade)
+  stepProgress  StepProgress[]
+  formatChanges FormatChange[]
+  checks        FramingCheck[]
+  evidences     Evidence[]
+  supports      SupportRequest[]
+  evaluation    Evaluation?
+}
+
+model StepProgress {
+  id          String          @id @default(cuid())
+  sessionId   String
+  stepKey     String
+  completedAt DateTime        @default(now())
+  /// Formato em uso quando a etapa foi concluída (análise de experiência).
+  format      TutorialFormat?
+
+  session TutorialSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, stepKey])
+}
+
+model FormatChange {
+  id         String          @id @default(cuid())
+  sessionId  String
+  fromFormat TutorialFormat?
+  toFormat   TutorialFormat
+  stepKey    String
+  at         DateTime        @default(now())
+
+  session TutorialSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+// ───────────────────────── Enquadramento ─────────────────────────
+
+/// Critérios configuráveis por tipo (e opcionalmente por modelo) de equipamento.
+model FramingCriterion {
+  id        String                     @id @default(cuid())
+  type      EquipmentType
+  modelId   String?
+  label     String
+  position  Int                        @default(0)
+  required  Boolean                    @default(true)
+  active    Boolean                    @default(true)
+  model     EquipmentModel?            @relation(fields: [modelId], references: [id])
+  responses FramingCriterionResponse[]
+}
+
+/// Estado atual do enquadramento de UM equipamento em UMA sessão.
+model FramingCheck {
+  id              String        @id @default(cuid())
+  sessionId       String
+  unitEquipmentId String
+  type            EquipmentType
+
+  // Autodeclaração do cliente
+  status            FramingStatus    @default(NAO_VERIFICADO)
+  hasCutoff         Boolean          @default(false)
+  needsCorrection   Boolean          @default(false)
+  correctionStatus  CorrectionStatus @default(NAO_APLICAVEL)
+  customerNotes     String?
+  verifiedAt        DateTime?
+  /// Quantas vezes o cliente (re)verificou.
+  verificationCount Int              @default(0)
+
+  // Validação técnica (campos separados da autodeclaração)
+  technicalStatus TechnicalValidationStatus @default(PENDENTE)
+  technicalById   String?
+  technicalAt     DateTime?
+  technicalNotes  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session     TutorialSession            @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  equipment   UnitEquipment              @relation(fields: [unitEquipmentId], references: [id])
+  technicalBy AdminUser?                 @relation(fields: [technicalById], references: [id])
+  issues      FramingIssue[]
+  events      FramingEvent[]
+  responses   FramingCriterionResponse[]
+  adjustments FramingAdjustment[]
+  evidences   Evidence[]
+
+  @@unique([sessionId, unitEquipmentId])
+  @@index([type, status])
+}
+
+model FramingCriterionResponse {
+  id          String   @id @default(cuid())
+  checkId     String
+  criterionId String
+  ok          Boolean
+  attempt     Int
+  at          DateTime @default(now())
+
+  check     FramingCheck     @relation(fields: [checkId], references: [id], onDelete: Cascade)
+  criterion FramingCriterion @relation(fields: [criterionId], references: [id])
+
+  @@index([checkId])
+}
+
+/// Problema de exibição identificado (rastreável; alimenta o gráfico de problemas frequentes).
+model FramingIssue {
+  id         String           @id @default(cuid())
+  checkId    String
+  type       FramingIssueType
+  detail     String?
+  detectedAt DateTime         @default(now())
+  resolvedAt DateTime?
+
+  check FramingCheck @relation(fields: [checkId], references: [id], onDelete: Cascade)
+
+  @@index([type])
+  @@index([checkId])
+}
+
+/// Ajuste realizado pelo cliente seguindo um procedimento aprovado (versão registrada).
+model FramingAdjustment {
+  id             String          @id @default(cuid())
+  checkId        String
+  procedureId    String?
+  adjustmentType AdjustmentType?
+  performedAt    DateTime        @default(now())
+  notes          String?
+
+  check     FramingCheck         @relation(fields: [checkId], references: [id], onDelete: Cascade)
+  procedure CorrectionProcedure? @relation(fields: [procedureId], references: [id])
+
+  @@index([checkId])
+}
+
+/// Histórico imutável (somente inserção) de tudo que ocorre no enquadramento.
+model FramingEvent {
+  id         String         @id @default(cuid())
+  checkId    String
+  kind       String // VERIFICACAO | AJUSTE | VALIDACAO_TECNICA | SUPORTE | NOVA_FOTO_SOLICITADA
+  fromStatus FramingStatus?
+  toStatus   FramingStatus?
+  actorType  String // CLIENTE | ADMIN
+  actorId    String?
+  notes      String?
+  /// Formato do tutorial e etapa em uso no momento do evento (análise de dificuldade por formato).
+  format     TutorialFormat?
+  stepKey    String?
+  at         DateTime       @default(now())
+
+  check FramingCheck @relation(fields: [checkId], references: [id], onDelete: Cascade)
+
+  @@index([checkId, at])
+}
+
+/// Procedimento oficial de correção — cadastrado e aprovado pela equipe técnica. Nenhum valor é "inventado" em código.
+model CorrectionProcedure {
+  id             String             @id @default(cuid())
+  /// Agrupa versões do mesmo procedimento.
+  key            String
+  version        Int
+  type           EquipmentType
+  modelId        String?
+  adjustmentType AdjustmentType
+  /// Problemas para os quais este procedimento se aplica.
+  appliesTo      FramingIssueType[]
+  title          String
+  /// [{ text, warning?, imagePath? }]
+  steps          Json
+  /// Parâmetros oficiais (ex.: { "Resolução": "..." }) — texto livre validado pela equipe técnica.
+  parameters     Json?
+  status         ContentStatus      @default(RASCUNHO)
+  approvedById   String?
+  approvedAt     DateTime?
+  createdById    String?
+  createdAt      DateTime           @default(now())
+
+  model       EquipmentModel?     @relation(fields: [modelId], references: [id])
+  approvedBy  AdminUser?          @relation("ProcApprover", fields: [approvedById], references: [id])
+  adjustments FramingAdjustment[]
+
+  @@unique([key, version])
+  @@index([type, status])
+}
+
+// ───────────────────────── Evidências ─────────────────────────
+
+model Evidence {
+  id              String        @id @default(cuid())
+  sessionId       String
+  unitEquipmentId String
+  checkId         String?
+  type            EquipmentType
+  kind            EvidenceKind
+  storageKey      String        @unique
+  mime            String
+  sizeBytes       Int
+  sha256          String
+  uploadedAt      DateTime      @default(now())
+
+  review       EvidenceReview @default(PENDENTE)
+  reviewReason String?
+  reviewedById String?
+  reviewedAt   DateTime?
+
+  session    TutorialSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  equipment  UnitEquipment   @relation(fields: [unitEquipmentId], references: [id])
+  check      FramingCheck?   @relation(fields: [checkId], references: [id])
+  reviewedBy AdminUser?      @relation(fields: [reviewedById], references: [id])
+
+  @@index([sessionId, unitEquipmentId, kind])
+}
+
+// ───────────────────────── Suporte e avaliação ─────────────────────────
+
+model SupportRequest {
+  id        String          @id @default(cuid())
+  sessionId String
+  stepKey   String
+  type      EquipmentType?
+  /// Formato em uso no momento do pedido.
+  format    TutorialFormat?
+  message   String?
+  status    SupportStatus   @default(ABERTO)
+  createdAt DateTime        @default(now())
+
+  session TutorialSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([stepKey])
+}
+
+model Evaluation {
+  id             String   @id @default(cuid())
+  sessionId      String   @unique
+  rating         Int
+  comment        String?
+  hardestStepKey String?
+  createdAt      DateTime @default(now())
+
+  session TutorialSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+// ───────────────────────── Conteúdo do tutorial ─────────────────────────
+
+model TutorialStep {
+  id       String         @id @default(cuid())
+  key      String         @unique
+  position Int
+  kind     StepKind
+  type     EquipmentType?
+  title    String
+  required Boolean        @default(true)
+
+  contents StepContent[]
+}
+
+/// Conteúdo versionado de uma etapa. Somente uma versão PUBLICADO por etapa.
+model StepContent {
+  id                String         @id @default(cuid())
+  stepId            String
+  version           Int
+  status            ContentStatus  @default(RASCUNHO)
+  hasText           Boolean        @default(true)
+  hasVideo          Boolean        @default(false)
+  recommendedFormat TutorialFormat @default(TEXTO)
+  /// [{ text, warning?, highlight? }]
+  instructions      Json
+  /// [{ path, alt, caption? }] — imagens de referência
+  referenceImages   Json           @default("[]")
+  createdById       String?
+  createdAt         DateTime       @default(now())
+  publishedAt       DateTime?
+
+  step  TutorialStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  video StepVideo?
+
+  @@unique([stepId, version])
+}
+
+model StepVideo {
+  id           String  @id @default(cuid())
+  contentId    String  @unique
+  title        String
+  description  String?
+  url          String
+  thumbnailUrl String?
+  captionsUrl  String?
+  transcript   String?
+  durationSec  Int?
+
+  content StepContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+}
+
+/// Fontes de vídeo autorizadas pela Intelite.
+model AllowedVideoHost {
+  id        String   @id @default(cuid())
+  hostname  String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+// ───────────────────────── Administração e auditoria ─────────────────────────
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  role         AdminRole @default(LEITOR)
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+
+  validations FramingCheck[]
+  reviews     Evidence[]
+  approvals   CorrectionProcedure[] @relation("ProcApprover")
+}
+
+/// Trilha de auditoria somente-inserção.
+model AuditLog {
+  id        String   @id @default(cuid())
+  at        DateTime @default(now())
+  actorType String // CLIENTE | ADMIN | SISTEMA
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String?
+  before    Json?
+  after     Json?
+
+  @@index([entity, entityId])
+  @@index([at])
+}

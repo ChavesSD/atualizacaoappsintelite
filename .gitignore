@@ -1,0 +1,12 @@
+node_modules
+.next
+.env
+.local-db
+storage
+*.tsbuildinfo
+test-results
+playwright-report
+next-env.d.ts
+.dev-db.log
+.next-start.log
+nohup.out
