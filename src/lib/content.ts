@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { DEFAULT_CONTENT, STEPS, FIX_KEYS } from "./flow";
+import { DEFAULT_CONTENT, PENDENTE, STEPS, FIX_KEYS } from "./flow";
 import { parseHosts, resolveVideo } from "./video";
 
 export const SETTING_HOSTS = "videoHosts";
@@ -15,6 +15,10 @@ export async function ensureSteps() {
   for (const key of keys) {
     const d = DEFAULT_CONTENT[key];
     await db.step.upsert({ where: { key }, update: {}, create: { key, position: order.indexOf(key), title: d.title, instructions: d.instructions, warning: d.warning } });
+    // Conteúdo oficial entra no lugar do placeholder, mas nunca sobrescreve texto que a equipe já editou no admin.
+    if (d.instructions !== PENDENTE) {
+      await db.step.updateMany({ where: { key, instructions: PENDENTE }, data: { instructions: d.instructions, warning: d.warning ?? null } });
+    }
   }
 }
 

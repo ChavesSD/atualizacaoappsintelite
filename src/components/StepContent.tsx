@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 
 export interface PublicStep {
   key: string;
@@ -30,16 +30,53 @@ export function Video({ video }: { video: NonNullable<PublicStep["video"]> }) {
   );
 }
 
+/**
+ * Formatação do texto dos passos (editado no admin, um passo por linha):
+ *  - `## Título`  → começa um bloco com título (a numeração recomeça)
+ *  - `**texto**`  → negrito (nomes de botões e menus)
+ *  - `https://…`  → link clicável
+ * Tudo é renderizado como nós React (nunca HTML), então o conteúdo não injeta marcação.
+ */
+export function Inline({ text }: { text: string }) {
+  const parts = text.split(/(\*\*[^*]+\*\*|https?:\/\/[^\s)]+)/g);
+  return (
+    <>
+      {parts.map((p, i) =>
+        p.startsWith("**") && p.endsWith("**") && p.length > 4 ? <strong key={i}>{p.slice(2, -2)}</strong>
+        : /^https?:\/\//.test(p) ? <a key={i} href={p} target="_blank" rel="noopener noreferrer">{p.replace(/^https?:\/\//, "")}</a>
+        : <Fragment key={i}>{p}</Fragment>,
+      )}
+    </>
+  );
+}
+
+export function toBlocks(lines: string[]): { heading?: string; items: string[] }[] {
+  const blocks: { heading?: string; items: string[] }[] = [];
+  for (const l of lines) {
+    if (l.startsWith("## ")) blocks.push({ heading: l.slice(3).trim(), items: [] });
+    else {
+      if (blocks.length === 0) blocks.push({ items: [] });
+      blocks[blocks.length - 1].items.push(l);
+    }
+  }
+  return blocks.filter((b) => b.items.length > 0 || b.heading);
+}
+
 export function StepContent({ step, format }: { step: PublicStep | undefined; format: "TEXTO" | "VIDEO" }) {
   if (!step) return <div className="alert info">O conteúdo desta etapa ainda está sendo preparado pela equipe da Intelite.</div>;
   return (
     <div className="stack">
       {format === "VIDEO" && step.video && <Video video={step.video} />}
       {format === "VIDEO" && !step.video && <div className="alert info small">Esta etapa ainda não tem vídeo. Siga as instruções escritas.</div>}
-      <ol className="steps">
-        {step.instructions.map((t, i) => <li key={i}><div className="grow">{t}</div></li>)}
-      </ol>
-      {step.warning && <div className="alert warn small" role="note"><strong>Atenção: </strong>{step.warning}</div>}
+      {toBlocks(step.instructions).map((b, bi) => (
+        <div key={bi} className="stack">
+          {b.heading && <h3 style={{ margin: 0 }}>{b.heading}</h3>}
+          <ol className="steps">
+            {b.items.map((t, i) => <li key={i}><div className="grow"><Inline text={t} /></div></li>)}
+          </ol>
+        </div>
+      ))}
+      {step.warning && <div className="alert warn small" role="note"><strong>Atenção: </strong><Inline text={step.warning} /></div>}
       {step.imagePath && <img className="refimg" loading="lazy" src={`/api/assets/${step.imagePath}`} alt={`Imagem de referência: ${step.title}`} />}
     </div>
   );
