@@ -46,6 +46,17 @@ Como funciona no Render:
 - O comando de início cria/atualiza as tabelas **sem apagar dados** (se uma mudança de schema apagaria dados, o deploy falha de propósito, para você decidir) e o app expõe `/api/health`.
 - HTTPS já vem do Render, então o cookie de sessão é `secure` por padrão.
 
+**Se você criou o serviço manualmente** (o Render detecta o `Dockerfile` e usa Docker), crie antes um **PostgreSQL** no Render (mesma região) e cadastre estas variáveis em *Environment* do serviço. **Não importe o `.env.example`**: ele traz valores de exemplo.
+
+| Variável | Valor |
+|---|---|
+| `DATABASE_URL` | *Internal Database URL* do PostgreSQL do Render |
+| `SESSION_SECRET` | aleatório, ≥ 32 caracteres (botão *Generate*) |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | e-mail e senha forte do administrador |
+| `STORAGE_DRIVER` | `db` (já é o padrão da imagem) |
+
+Antes de subir, o app confere essas variáveis e **recusa iniciar** com banco local (`localhost`), `SESSION_SECRET` curto ou de exemplo e senha de admin de exemplo, dizendo no log o que corrigir. O app usa a porta `PORT` que o Render fornece.
+
 Se o **build falhar por falta de memória** no plano de 512 MB, suba o plano do app. Instâncias gratuitas “dormem” e demoram a acordar, o que atrapalha quem abre o link em campo.
 
 > O `render.yaml` segue a documentação atual do Render, mas **não foi testado em um serviço real** (nem o Docker nesta máquina): valide o primeiro deploy.

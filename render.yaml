@@ -19,7 +19,7 @@ services:
     # --include=dev: o build precisa de TypeScript e do CLI do Prisma (devDependencies).
     buildCommand: npm ci --include=dev && npx prisma generate && npx next build
     # Cria/atualiza as tabelas sem apagar dados, garante conteúdo inicial e admin, e sobe o app (usa a PORT do Render).
-    startCommand: npx prisma db push --skip-generate && npx tsx prisma/seed.ts && npm start
+    startCommand: npx tsx scripts/preflight.ts && npx prisma db push --skip-generate && npx tsx prisma/seed.ts && npm start
     healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION

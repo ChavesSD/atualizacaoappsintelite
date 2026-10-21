@@ -5,6 +5,7 @@ import { computeStats, type StatRow } from "@/lib/stats";
 import { maxStep } from "@/lib/submissions";
 import { sniffImage } from "@/lib/upload";
 import { parseRange, sanitizeLinks } from "@/lib/downloads";
+import { checkEnv } from "@/lib/preflight";
 
 describe("vídeo", () => {
   const hosts = ["videos.intelite.com.br", ...DEFAULT_VIDEO_HOSTS];
@@ -116,5 +117,31 @@ describe("links de download", () => {
   });
   it("limita a 5 por aplicativo", () => {
     expect(sanitizeLinks(Array.from({ length: 6 }, (_, i) => "a" + i + ".com")).ok).toBe(false);
+  });
+});
+
+describe("verificação de ambiente em produção (evita subir com valores de exemplo)", () => {
+  const ok = { DATABASE_URL: "postgresql://u:p@dpg-abc123-a:5432/intelite", SESSION_SECRET: "a".repeat(48), ADMIN_PASSWORD: "Uma-senha-bem-forte-2026" };
+  it("aceita uma configuração real", () => {
+    expect(checkEnv(ok)).toEqual([]);
+    expect(checkEnv({ ...ok, ADMIN_PASSWORD: undefined })).toEqual([]); // o seed decide se precisa
+  });
+  it("recusa o banco local copiado do .env.example", () => {
+    const r = checkEnv({ ...ok, DATABASE_URL: "postgresql://postgres:postgres@localhost:5433/intelite?schema=public" });
+    expect(r.join(" ")).toMatch(/localhost/);
+    expect(checkEnv({ ...ok, DATABASE_URL: "postgresql://u:p@localhost:5433/x", ALLOW_LOCAL_DB: "true" })).toEqual([]);
+  });
+  it("recusa segredo e senha de exemplo", () => {
+    expect(checkEnv({ ...ok, SESSION_SECRET: "troque-este-valor-por-um-segredo-longo-e-aleatorio" }).join(" ")).toMatch(/SESSION_SECRET/);
+    expect(checkEnv({ ...ok, SESSION_SECRET: "curto" }).join(" ")).toMatch(/32 caracteres/);
+    expect(checkEnv({ ...ok, ADMIN_PASSWORD: "trocar-esta-senha-123" }).join(" ")).toMatch(/ADMIN_PASSWORD/);
+  });
+  it("reporta tudo de uma vez quando o .env.example inteiro foi importado", () => {
+    const r = checkEnv({ DATABASE_URL: "postgresql://postgres:postgres@localhost:5433/intelite?schema=public", SESSION_SECRET: "troque-este-valor-por-um-segredo-longo-e-aleatorio", ADMIN_PASSWORD: "trocar-esta-senha-123" });
+    expect(r.length).toBe(3);
+  });
+  it("recusa DATABASE_URL ausente ou inválida", () => {
+    expect(checkEnv({ ...ok, DATABASE_URL: undefined }).join(" ")).toMatch(/não está definida/);
+    expect(checkEnv({ ...ok, DATABASE_URL: "isto não é url" }).join(" ")).toMatch(/válida/);
   });
 });
