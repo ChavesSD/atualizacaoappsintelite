@@ -28,6 +28,18 @@ test("downloads dos aplicativos: opções, download direto com Range e links edi
   expect((await request.get("/api/download/painel", { headers: { Range: "bytes=999999999-" } })).status()).toBe(416);
   expect((await request.get("/api/download/outro")).status()).toBe(404);
 
+  // vídeos do tutorial: streaming com Range, miniaturas e lista permitida
+  const mp4 = await request.get("/api/videos/remover.mp4", { headers: { Range: "bytes=0-1023" } });
+  expect(mp4.status()).toBe(206);
+  expect(mp4.headers()["content-type"]).toBe("video/mp4");
+  expect(mp4.headers()["content-range"]).toMatch(/^bytes 0-1023\/\d+$/);
+  expect((await mp4.body()).length).toBe(1024);
+  expect((await request.get("/api/videos/remover.jpg")).headers()["content-type"]).toBe("image/jpeg");
+  expect((await request.get("/api/videos/instalar.mp4", { headers: { Range: "bytes=999999999-" } })).status()).toBe(416);
+  for (const ruim of ["outro.mp4", "..%2Fpackage.json", "remover.exe", "remover.mp4.txt"]) {
+    expect((await request.get(`/api/videos/${ruim}`)).status(), ruim).toBe(404);
+  }
+
   // links editáveis só pelo admin, somente https
   expect((await request.put("/api/admin/settings", { data: { downloadLinks: { totem: [], painel: [] } } })).status()).toBe(401);
   const login = await request.post("/api/admin/login", { data: { email: "admin@intelite.local", password: "senha-e2e-123456" } });
@@ -62,13 +74,22 @@ test("página única em sanfona: cliente conclui no celular; equipe confirma; in
 
   // totem — conteúdo oficial, troca de formato sem perder a etapa
   await expect(head(page, "Atualizar o totem")).toHaveAttribute("aria-expanded", "true");
-  await expect(page.getByText("Remover a versão anterior")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Remover a versão anterior" })).toBeVisible();
   await expect(page.getByRole("link", { name: /bit\.ly\/aitotem26/ })).toBeVisible(); // opção 1
   await expect(page.getByRole("link", { name: /shre\.ink\/aitotem26/ })).toBeVisible(); // opção 2
   await expect(page.getByRole("link", { name: /Baixar direto desta página/ })).toBeVisible(); // opção 3
-  await expect(page.getByText("Esta etapa ainda não tem vídeo")).toBeVisible();
-  await page.getByRole("group", { name: "Alternar formato" }).getByRole("button", { name: /Texto/ }).click();
+  // formato vídeo: remover + instalar (sem o aviso de "etapa sem vídeo")
+  await expect(page.getByRole("button", { name: "Reproduzir vídeo: Como remover a versão anterior" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reproduzir vídeo: Como baixar e instalar a nova versão" })).toBeVisible();
   await expect(page.getByText("Esta etapa ainda não tem vídeo")).toHaveCount(0);
+  await page.getByRole("button", { name: "Reproduzir vídeo: Como remover a versão anterior" }).click();
+  await expect(page.locator("video").first()).toBeVisible(); // o player carrega sob demanda, só após o toque
+  // o texto escrito segue o mesmo caminho dos vídeos
+  await expect(page.getByText("Mostrar apps do sistema")).toBeVisible();
+  await expect(page.getByText("Fazer o download mesmo assim")).toBeVisible();
+  await page.getByRole("group", { name: "Alternar formato" }).getByRole("button", { name: /Texto/ }).click();
+  await expect(page.getByRole("button", { name: /Reproduzir vídeo/ })).toHaveCount(0); // texto: sem vídeos
+  await expect(page.getByText("Mostrar apps do sistema")).toBeVisible();
   await expect(page.getByRole("button", { name: "Continuar →" })).toBeDisabled();
   await page.getByLabel(/Concluí a atualização do totem/).click();
   await expect(page.getByLabel(/Concluí a atualização do totem/)).toBeChecked();
@@ -92,7 +113,7 @@ test("página única em sanfona: cliente conclui no celular; equipe confirma; in
 
   // painel: atualização → conferência
   await expect(head(page, "Atualizar o painel")).toHaveAttribute("aria-expanded", "true");
-  await expect(page.getByText("Remover a versão anterior")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Remover a versão anterior" })).toBeVisible();
   await expect(page.getByRole("link", { name: /shre\.ink\/aipainel26/ })).toBeVisible();
   await expect(page.getByText("Síntese de Voz")).toHaveCount(0); // etapa retirada
   await expect(head(page, "Conferir a tela do painel")).toBeDisabled();
@@ -124,11 +145,8 @@ test("página única em sanfona: cliente conclui no celular; equipe confirma; in
   await expect(page.getByText("8 de 8 etapas concluídas")).toBeVisible();
 
   // pedido de ajuda
-  await page.getByRole("button", { name: "Preciso de ajuda" }).click();
-  await page.getByLabel("Descrição do problema").fill("Não achei o botão");
-  await page.getByRole("button", { name: "Enviar pedido" }).click();
-  await expect(page.getByText("Pedido enviado.")).toBeVisible();
-  await page.getByRole("button", { name: "Fechar" }).click();
+  await expect(page.getByRole("button", { name: "Preciso de ajuda" })).toHaveCount(0); // botão removido da página
+  await page.request.patch("/api/submissions/me", { data: { help: { message: "Não achei o botão", step: "Confirmar e avaliar" } } });
 
   // retomar: recarregar mantém o progresso (cookie) e reabre a etapa atual
   await page.reload();

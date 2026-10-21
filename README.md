@@ -32,6 +32,15 @@ Para publicar uma **nova versão** do APK: coloque o arquivo em `downloads/`, aj
 
 Em qualquer texto de etapa, a linha `[[downloads:totem]]` ou `[[downloads:painel]]` mostra esse bloco de opções.
 
+## Vídeos do tutorial
+
+Quem escolhe o formato **vídeo** vê três vídeos de apoio (gravações da Intelite), no mesmo passo em que aparecem as instruções escritas: **remover** a versão anterior e **instalar** a nova (nas etapas do totem e do painel) e **ajustar** a proporção da tela (na correção do painel). Quem escolhe **texto** não vê os vídeos, e o texto segue o mesmo caminho deles.
+
+- Os arquivos estão em [`downloads/videos`](downloads/videos) (`remover`, `instalar`, `ajustar`, em MP4 720p, com miniatura `.jpg`) e são servidos com `Range`, então avançam e carregam bem no celular. O vídeo só é baixado depois do toque em ▶.
+- No texto de uma etapa (`/admin/conteudo`), a linha `[[video:remover]]`, `[[video:instalar]]` ou `[[video:ajustar]]` mostra o vídeo no ponto desejado.
+- Para trocar um vídeo: substitua o `.mp4` (e a miniatura) em `downloads/videos`, mantendo o nome, e faça o deploy. Para um vídeo novo, cadastre-o em [`src/lib/videos.ts`](src/lib/videos.ts).
+- Além desses, o campo “Link do vídeo” de cada etapa continua aceitando YouTube/Vimeo de domínios autorizados.
+
 ## Publicar no Render
 
 O arquivo [`render.yaml`](render.yaml) descreve o app e o banco PostgreSQL.

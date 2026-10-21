@@ -1,5 +1,6 @@
 "use client";
 import { Fragment, useState } from "react";
+import { TUTORIAL_VIDEOS, isTutorialVideo, videoPoster, videoSrc, type TutorialVideo } from "@/lib/videos";
 import { DownloadOptions } from "./DownloadOptions";
 
 export interface PublicStep {
@@ -11,23 +12,28 @@ export interface PublicStep {
   video: { kind: "embed" | "file"; src: string; title: string } | null;
 }
 
+interface PlayerVideo { kind: "embed" | "file"; src: string; title: string; poster?: string; note?: string }
+
 /** Vídeo sob demanda: nada é baixado até o toque em ▶. Se falhar, o texto continua logo abaixo. */
-export function Video({ video }: { video: NonNullable<PublicStep["video"]> }) {
+export function Video({ video }: { video: PlayerVideo }) {
   const [on, setOn] = useState(false);
   const [failed, setFailed] = useState(false);
   if (failed) return <div className="alert warn" role="alert">Não foi possível reproduzir o vídeo agora. Siga as instruções escritas abaixo.</div>;
   return (
-    <div className="video">
-      {!on ? (
-        <button type="button" className="poster" onClick={() => setOn(true)} aria-label={`Reproduzir vídeo: ${video.title}`}>
-          <span className="play" aria-hidden>▶</span>
-        </button>
-      ) : video.kind === "file" ? (
-        <video controls autoPlay playsInline preload="none" onError={() => setFailed(true)} aria-label={video.title}><source src={video.src} /></video>
-      ) : (
-        <iframe src={video.src} title={video.title} loading="lazy" allow="fullscreen; picture-in-picture" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation allow-popups" />
-      )}
-    </div>
+    <figure style={{ margin: 0 }}>
+      <div className="video">
+        {!on ? (
+          <button type="button" className="poster" style={video.poster ? { backgroundImage: `url(${video.poster})` } : undefined} onClick={() => setOn(true)} aria-label={`Reproduzir vídeo: ${video.title}`}>
+            <span className="play" aria-hidden>▶</span>
+          </button>
+        ) : video.kind === "file" ? (
+          <video controls autoPlay playsInline preload="metadata" poster={video.poster} onError={() => setFailed(true)} aria-label={video.title}><source src={video.src} type="video/mp4" /></video>
+        ) : (
+          <iframe src={video.src} title={video.title} loading="lazy" allow="fullscreen; picture-in-picture" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation allow-popups" />
+        )}
+      </div>
+      <figcaption style={{ marginTop: 6 }}><strong>{video.title}</strong>{video.note && <span className="muted small"> · {video.note}</span>}</figcaption>
+    </figure>
   );
 }
 
@@ -37,6 +43,7 @@ export function Video({ video }: { video: NonNullable<PublicStep["video"]> }) {
  *  - `**texto**`  → negrito (nomes de botões e menus)
  *  - `https://…`  → link clicável
  *  - `[[downloads:totem]]` / `[[downloads:painel]]` → bloco com as opções de download do app
+ *  - `[[video:remover]]` / `[[video:instalar]]` / `[[video:ajustar]]` → vídeo de apoio (só no formato vídeo)
  * Tudo é renderizado como nós React (nunca HTML), então o conteúdo não injeta marcação.
  */
 export function Inline({ text }: { text: string }) {
@@ -64,18 +71,31 @@ export function toBlocks(lines: string[]): { heading?: string; items: string[] }
   return blocks.filter((b) => b.items.length > 0 || b.heading);
 }
 
+const VIDEO_TOKEN = /^\[\[video:([a-z]+)\]\]$/;
+const DOWNLOAD_TOKEN = /^\[\[downloads:(totem|painel)\]\]$/;
+
 export function StepContent({ step, format }: { step: PublicStep | undefined; format: "TEXTO" | "VIDEO" }) {
   if (!step) return <div className="alert info">O conteúdo desta etapa ainda está sendo preparado pela equipe da Intelite.</div>;
+  const hasInlineVideo = step.instructions.some((l) => {
+    const m = VIDEO_TOKEN.exec(l);
+    return !!m && isTutorialVideo(m[1]);
+  });
   return (
     <div className="stack">
       {format === "VIDEO" && step.video && <Video video={step.video} />}
-      {format === "VIDEO" && !step.video && <div className="alert info small">Esta etapa ainda não tem vídeo. Siga as instruções escritas.</div>}
+      {format === "VIDEO" && !step.video && !hasInlineVideo && <div className="alert info small">Esta etapa ainda não tem vídeo. Siga as instruções escritas.</div>}
       {toBlocks(step.instructions).map((b, bi) => (
         <div key={bi} className="stack">
           {b.heading && <h3 style={{ margin: 0 }}>{b.heading}</h3>}
           <ol className="steps">
             {b.items.map((t, i) => {
-              const dl = /^\[\[downloads:(totem|painel)\]\]$/.exec(t);
+              const v = VIDEO_TOKEN.exec(t);
+              if (v) {
+                if (format !== "VIDEO" || !isTutorialVideo(v[1])) return null; // texto: sem vídeo
+                const slug: TutorialVideo = v[1];
+                return <li key={i} className="free"><Video video={{ kind: "file", src: videoSrc(slug), title: TUTORIAL_VIDEOS[slug].title, note: TUTORIAL_VIDEOS[slug].note, poster: videoPoster(slug) }} /></li>;
+              }
+              const dl = DOWNLOAD_TOKEN.exec(t);
               return dl
                 ? <li key={i} className="free"><DownloadOptions app={dl[1] as "totem" | "painel"} /></li>
                 : <li key={i}><div className="grow"><Inline text={t} /></div></li>;

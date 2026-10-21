@@ -17,7 +17,7 @@ export default function ConteudoPage() {
   return (
     <div className="stack">
       <h1>Conteúdo do tutorial</h1>
-      <p className="muted">Edite o texto de cada etapa (um passo por linha; use `## Título` para criar um bloco e `**texto**` para negrito em botões e menus), o aviso, uma imagem de referência e o vídeo. As mudanças valem na hora para quem abrir a página pública. Para ver como ficou, abra a página pública em outra aba.</p>
+      <p className="muted">Edite o texto de cada etapa (um passo por linha; use `## Título` para criar um bloco, `**texto**` para negrito em botões e menus, `[[video:remover]]`, `[[video:instalar]]` ou `[[video:ajustar]]` para um vídeo de apoio e `[[downloads:totem]]` ou `[[downloads:painel]]` para as opções de download), o aviso, uma imagem de referência e o vídeo. As mudanças valem na hora para quem abrir a página pública. Para ver como ficou, abra a página pública em outra aba.</p>
       <div className="alert info small">Ainda falta cadastrar o procedimento de <strong>correção da tela do totem</strong>: enquanto isso, o cliente vê “procedimento ainda não cadastrado”.</div>
       {msg && <div className={`alert ${msg.ok ? "ok" : "bad"}`} role="status">{msg.text}</div>}
 

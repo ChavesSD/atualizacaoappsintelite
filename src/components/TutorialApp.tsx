@@ -31,7 +31,6 @@ export function TutorialApp() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [help, setHelp] = useState(false);
   const refs = useRef<(HTMLLIElement | null)[]>([]);
 
   useEffect(() => {
@@ -127,9 +126,7 @@ export function TutorialApp() {
 
   return (
     <>
-      <BrandBar>
-        {view && <button className="btn sm brand-help" onClick={() => setHelp(true)}>Preciso de ajuda</button>}
-      </BrandBar>
+      <BrandBar />
       <main className="container">
         <div className="intro stack">
           <h1>Atualização do Atendimento Inteligente</h1>
@@ -179,7 +176,6 @@ export function TutorialApp() {
         </ol>
         <p className="muted small" style={{ textAlign: "center", margin: "24px 0" }}>Intelite Tecnologia</p>
       </main>
-      {help && <Help stepTitle={STEPS[Math.max(open, 0)].title} onClose={() => setHelp(false)} onSend={(message) => patch({ help: { message, step: STEPS[Math.max(open, 0)].title } })} />}
     </>
   );
 }
@@ -328,29 +324,5 @@ function Finish({ view, run, onView, submitted, onNew }: { view: View; run: Run;
         </div>
       )}
     </div>
-  );
-}
-
-// ───────── ajuda ─────────
-
-function Help({ stepTitle, onClose, onSend }: { stepTitle: string; onClose: () => void; onSend: (m: string) => void }) {
-  const [msg, setMsg] = useState("");
-  const [sent, setSent] = useState(false);
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => { ref.current?.showModal(); }, []);
-  return (
-    <dialog ref={ref} onClose={onClose} aria-labelledby="help-title">
-      <div className="stack" style={{ padding: 20, minWidth: "min(92vw, 420px)" }}>
-        <h2 id="help-title">Preciso de ajuda</h2>
-        {sent ? <div className="alert ok">Pedido enviado. A equipe da Intelite vai entrar em contato.</div> : (
-          <>
-            <p className="muted small">Etapa: {stepTitle}. Conte o que está acontecendo.</p>
-            <textarea value={msg} onChange={(e) => setMsg(e.target.value)} maxLength={1000} aria-label="Descrição do problema" />
-            <button className="btn primary" onClick={() => { onSend(msg); setSent(true); }}>Enviar pedido</button>
-          </>
-        )}
-        <button className="btn" onClick={() => ref.current?.close()}>Fechar</button>
-      </div>
-    </dialog>
   );
 }

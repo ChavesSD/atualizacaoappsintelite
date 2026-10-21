@@ -15,7 +15,7 @@ export function DownloadOptions({ app }: { app: "totem" | "painel" }) {
   const [info, setInfo] = useState<Info | null | undefined>(undefined);
   useEffect(() => { load().then((l) => setInfo(l.find((x) => x.app === app) ?? null)).catch(() => setInfo(null)); }, [app]);
   if (info === undefined) return <p className="muted small">Carregando opções de download…</p>;
-  if (!info) return <div className="alert warn small">Não foi possível carregar as opções de download. Recarregue a página ou use “Preciso de ajuda”.</div>;
+  if (!info) return <div className="alert warn small">Não foi possível carregar as opções de download. Recarregue a página e tente novamente.</div>;
 
   let n = 0;
   return (

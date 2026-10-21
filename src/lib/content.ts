@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { DOWNLOAD_APPS, sanitizeLinks, type DownloadApp } from "./downloads";
 import { DEFAULT_CONTENT, PENDENTE, STEPS, FIX_KEYS } from "./flow";
+import { LEGACY_INSTRUCTIONS } from "./legacy-content";
 import { parseHosts, resolveVideo } from "./video";
 
 export const SETTING_HOSTS = "videoHosts";
@@ -71,9 +72,20 @@ async function migrateContent() {
   }
 }
 
+/** Troca o texto padrão antigo pelo atual (alinhado aos vídeos) apenas se a equipe não o editou. */
+async function upgradeDefaultContent() {
+  for (const [key, antigos] of Object.entries(LEGACY_INSTRUCTIONS)) {
+    const st = await db.step.findUnique({ where: { key } });
+    if (st && antigos.includes(st.instructions)) {
+      await db.step.update({ where: { key }, data: { instructions: DEFAULT_CONTENT[key].instructions } });
+    }
+  }
+}
+
 /** Garante que todas as etapas editáveis existam (idempotente; usado pelo seed e na primeira leitura). */
 export async function ensureSteps() {
   await migrateContent();
+  await upgradeDefaultContent();
   const keys = [...STEPS.map((s) => s.key).filter((k) => k in DEFAULT_CONTENT), FIX_KEYS.TOTEM, FIX_KEYS.PAINEL];
   const order = ["formato", "atualizar-totem", "enquadramento-totem", "correcao-totem", "atualizar-painel", "enquadramento-painel", "correcao-painel", "fotos"];
   for (const key of keys) {
