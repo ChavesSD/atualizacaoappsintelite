@@ -9,7 +9,27 @@ export async function videoHosts(): Promise<string[]> {
 }
 
 /** Garante que todas as etapas editáveis existam (idempotente; usado pelo seed e na primeira leitura). */
+/** Etapas/avisos que existiram e foram retirados do tutorial (OBSOLETOS): limpa de bancos já populados. */
+/** Links de download que foram substituídos (LINKS_ANTIGOS): troca só o link, preservando qualquer edição feita no admin. */
+const LINKS_ANTIGOS: Record<string, string> = {
+  "https://bit.ly/ai-totem": "https://bit.ly/totem2026",
+  "https://bit.ly/ai-painel": "https://bit.ly/painel26",
+};
+
+async function removeObsolete() {
+  for (const [antigo, novo] of Object.entries(LINKS_ANTIGOS)) {
+    const steps = await db.step.findMany({ where: { instructions: { contains: antigo } } });
+    for (const st of steps) await db.step.update({ where: { id: st.id }, data: { instructions: st.instructions.replaceAll(antigo, novo) } });
+  }
+  await db.step.deleteMany({ where: { key: "sintese-voz" } });
+  await db.step.updateMany({
+    where: { key: "atualizar-painel", warning: "Não abra o aplicativo ainda. Primeiro deve ser feita a instalação da Síntese de Voz." },
+    data: { warning: "Faça o procedimento na ordem indicada." },
+  });
+}
+
 export async function ensureSteps() {
+  await removeObsolete();
   const keys = [...STEPS.map((s) => s.key).filter((k) => k in DEFAULT_CONTENT), FIX_KEYS.TOTEM, FIX_KEYS.PAINEL];
   const order = ["formato", "atualizar-totem", "enquadramento-totem", "correcao-totem", "atualizar-painel", "enquadramento-painel", "correcao-painel", "fotos"];
   for (const key of keys) {

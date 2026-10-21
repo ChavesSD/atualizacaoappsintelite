@@ -91,6 +91,7 @@ export async function patchSubmission(id: string, p: Patch) {
   }
   if (p.help) {
     data.helpRequested = true;
+    data.helpResolved = false; // novo pedido reabre o atendimento
     data.helpMessage = p.help.message?.slice(0, 1000) || null;
     data.helpStep = p.help.step;
     data.helpFormat = p.format ?? cur.format;
@@ -165,7 +166,7 @@ export async function reviewPhoto(photoId: string, review: "APROVADA" | "REFAZER
   return p;
 }
 
-export async function updateByAdmin(id: string, d: { status?: Submission["status"]; adminNotes?: string; totemConfirmed?: boolean; painelConfirmed?: boolean }) {
+export async function updateByAdmin(id: string, d: { status?: Submission["status"]; adminNotes?: string; totemConfirmed?: boolean; painelConfirmed?: boolean; helpResolved?: boolean }) {
   const cur = await db.submission.findUnique({ where: { id }, include: { photos: true } });
   if (!cur) throw notFound();
   const data: Record<string, unknown> = {};
@@ -184,6 +185,18 @@ export async function updateByAdmin(id: string, d: { status?: Submission["status
     data.status = d.status;
     await log(id, "EQUIPE", `Alterou o status para ${d.status}.`);
   }
+  if (d.helpResolved !== undefined && d.helpResolved !== cur.helpResolved) {
+    data.helpResolved = d.helpResolved;
+    await log(id, "EQUIPE", d.helpResolved ? "Marcou o pedido de ajuda como atendido." : "Reabriu o pedido de ajuda.");
+  }
   if (d.adminNotes !== undefined) data.adminNotes = d.adminNotes.slice(0, 4000);
   await db.submission.update({ where: { id }, data });
+}
+
+/** Exclusão definitiva do envio e dos arquivos das fotos (pedido do cliente / LGPD). */
+export async function deleteSubmission(id: string) {
+  const cur = await db.submission.findUnique({ where: { id }, include: { photos: true } });
+  if (!cur) throw notFound();
+  for (const p of cur.photos) await storage().remove(p.storageKey);
+  await db.submission.delete({ where: { id } });
 }

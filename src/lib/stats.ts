@@ -7,6 +7,7 @@ export interface StatRow {
   totemConfirmed: boolean;
   painelConfirmed: boolean;
   helpRequested: boolean;
+  helpResolved: boolean;
   pendingPhotos: number;
 }
 
@@ -35,7 +36,7 @@ export function computeStats(rows: StatRow[]) {
     totem: { confirmados: rows.filter((r) => r.totemConfirmed).length, declaradosCorretos: rows.filter((r) => r.totemFraming === "CORRETO").length, comProblema: rows.filter((r) => r.totemFraming === "INCORRETO").length, suporte: rows.filter((r) => r.totemFraming === "PRECISA_SUPORTE").length },
     painel: { confirmados: rows.filter((r) => r.painelConfirmed).length, declaradosCorretos: rows.filter((r) => r.painelFraming === "CORRETO").length, comProblema: rows.filter((r) => r.painelFraming === "INCORRETO").length, suporte: rows.filter((r) => r.painelFraming === "PRECISA_SUPORTE").length },
     fotosParaAnalisar: rows.reduce((s, r) => s + r.pendingPhotos, 0),
-    pedidosDeAjuda: rows.filter((r) => r.helpRequested).length,
+    pedidosDeAjuda: rows.filter((r) => r.helpRequested && !r.helpResolved).length, // em aberto
     formato: { TEXTO: byFormat("TEXTO"), VIDEO: byFormat("VIDEO"), trocaram: rows.filter((r) => r.formatChanges > 0).length, semEscolha: rows.filter((r) => !r.initialFormat).length },
   };
 }

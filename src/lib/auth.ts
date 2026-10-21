@@ -38,7 +38,8 @@ const ADMIN_COOKIE = "ci_admin";
 const opts = (maxAge: number) => ({
   httpOnly: true,
   sameSite: "lax" as const,
-  secure: process.env.NODE_ENV === "production",
+  // Cookie "secure" só trafega em HTTPS. Em rede interna sem HTTPS, defina COOKIE_SECURE=false.
+  secure: process.env.COOKIE_SECURE ? process.env.COOKIE_SECURE === "true" : process.env.NODE_ENV === "production",
   path: "/",
   maxAge,
 });
@@ -48,6 +49,9 @@ export async function setSubmissionCookie(id: string) {
 }
 export async function setAdminSession(adminId: string) {
   (await cookies()).set(ADMIN_COOKIE, sign({ a: adminId }, 60 * 60 * 8), opts(60 * 60 * 8));
+}
+export async function clearSubmissionCookie() {
+  (await cookies()).delete(CLIENT_COOKIE);
 }
 export async function clearSessions() {
   const c = await cookies();

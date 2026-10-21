@@ -27,7 +27,7 @@ export default function EnviosPage() {
 
   return (
     <div className="stack">
-      <h1>Envios</h1>
+      <div className="row between"><h1 style={{ margin: 0 }}>Envios</h1><a className="btn sm" href="/api/admin/export">Exportar CSV</a></div>
       {error && <div className="alert bad">{error}</div>}
       {st && (
         <>
@@ -39,7 +39,7 @@ export default function EnviosPage() {
             <Kpi n={st.totem.confirmados} tone="ok" label="Totens confirmados" sub={`confirmados pela equipe · ${st.totem.declaradosCorretos} declarados corretos`} />
             <Kpi n={st.painel.confirmados} tone="ok" label="Painéis confirmados" sub={`confirmados pela equipe · ${st.painel.declaradosCorretos} declarados corretos`} />
             <Kpi n={st.totem.comProblema + st.painel.comProblema} tone="bad" label="Telas com problema" sub={`totem ${st.totem.comProblema} · painel ${st.painel.comProblema}`} />
-            <Kpi n={st.pedidosDeAjuda} tone="warn" label="Pedidos de ajuda" />
+            <Kpi n={st.pedidosDeAjuda} tone="warn" label="Pedidos de ajuda em aberto" />
           </div>
           <div className="grid2">
             <section className="card"><h3>Texto × vídeo</h3>
@@ -66,7 +66,7 @@ export default function EnviosPage() {
           <tbody>
             {data?.items.map((r) => (
               <tr key={r.id}>
-                <td><strong>{r.contactName}</strong><div className="muted small">{r.company}</div>{r.helpRequested && <span className="badge warn">pediu ajuda</span>}</td>
+                <td><strong>{r.contactName}</strong><div className="muted small">{r.company}</div>{r.helpRequested && !r.helpResolved && <span className="badge warn">pediu ajuda</span>}</td>
                 <td><span className={`badge ${TONE[r.status]}`}>{STATUS_LABEL[r.status as keyof typeof STATUS_LABEL]}</span><div className="muted small">{r.initialFormat === "VIDEO" ? "vídeo" : r.initialFormat === "TEXTO" ? "texto" : ""}</div></td>
                 <td className="small">{FRAMING_LABEL[r.totemFraming as keyof typeof FRAMING_LABEL]}{r.totemConfirmed && <div><span className="badge ok">confirmado</span></div>}</td>
                 <td className="small">{FRAMING_LABEL[r.painelFraming as keyof typeof FRAMING_LABEL]}{r.painelConfirmed && <div><span className="badge ok">confirmado</span></div>}</td>

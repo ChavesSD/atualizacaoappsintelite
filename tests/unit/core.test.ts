@@ -60,7 +60,7 @@ describe("navegação: não pula verificações", () => {
 });
 
 describe("indicadores", () => {
-  const row = (o: Partial<StatRow>): StatRow => ({ status: "EM_ANDAMENTO", initialFormat: null, formatChanges: 0, totemFraming: "NAO_VERIFICADO", painelFraming: "NAO_VERIFICADO", totemConfirmed: false, painelConfirmed: false, helpRequested: false, pendingPhotos: 0, ...o });
+  const row = (o: Partial<StatRow>): StatRow => ({ status: "EM_ANDAMENTO", initialFormat: null, formatChanges: 0, totemFraming: "NAO_VERIFICADO", painelFraming: "NAO_VERIFICADO", totemConfirmed: false, painelConfirmed: false, helpRequested: false, helpResolved: false, pendingPhotos: 0, ...o });
   it("conta cada cliente uma vez e separa declarado de confirmado", () => {
     const s = computeStats([
       row({ initialFormat: "VIDEO", formatChanges: 2, status: "APROVADO", totemFraming: "CORRETO", painelFraming: "CORRETO", totemConfirmed: true, painelConfirmed: true }),
@@ -76,6 +76,9 @@ describe("indicadores", () => {
     expect(s.totem).toMatchObject({ confirmados: 1, declaradosCorretos: 2 });
     expect(s.painel).toMatchObject({ confirmados: 1, declaradosCorretos: 1, comProblema: 1 });
     expect(s.fotosParaAnalisar).toBe(2);
+    expect(s.pedidosDeAjuda).toBe(1); // em aberto
+    expect(computeStats([row({ helpRequested: true, helpResolved: true })]).pedidosDeAjuda).toBe(0); // atendido sai do aberto
+    expect(computeStats([row({ initialFormat: "TEXTO", helpRequested: true, helpResolved: true })]).formato.TEXTO.help).toBe(1); // mas continua contando na taxa por formato
   });
   it("devolve null (não 0%) sem base", () => {
     expect(computeStats([]).formato.TEXTO.finishRate).toBeNull();

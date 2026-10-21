@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/client-api";
 import { CRITERIA, FIX_KEYS, ISSUES, STEPS } from "@/lib/flow";
+import { BrandBar } from "./Brand";
 import { StepContent, type PublicStep } from "./StepContent";
 
 type Format = "TEXTO" | "VIDEO";
@@ -18,29 +19,35 @@ interface View {
   maxStep: number;
   redo: Eq[];
 }
+type Run = <T>(fn: () => Promise<T>) => Promise<T | undefined>;
 
 const EQ: Record<Eq, string> = { TOTEM: "totem", PAINEL: "painel de chamadas" };
+const LAST = STEPS.length - 1;
 
 export function TutorialApp() {
   const [view, setView] = useState<View | null>(null);
   const [content, setContent] = useState<PublicStep[]>([]);
-  const [idx, setIdx] = useState(0);
+  const [open, setOpen] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [help, setHelp] = useState(false);
-  const top = useRef<HTMLDivElement>(null);
+  const refs = useRef<(HTMLLIElement | null)[]>([]);
 
   useEffect(() => {
     api<PublicStep[]>("/api/content").then(setContent).catch(() => {});
     api<View | null>("/api/submissions/me")
-      .then((v) => { if (v) { setView(v); setIdx(Math.min(v.submission.step, v.maxStep)); } })
+      .then((v) => { if (v) { setView(v); setOpen(Math.min(v.submission.step, v.maxStep)); } })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
-  useEffect(() => { top.current?.scrollIntoView({ block: "start" }); }, [idx]);
 
-  const run = useCallback(async <T,>(fn: () => Promise<T>): Promise<T | undefined> => {
+  const openStep = useCallback((i: number) => {
+    setOpen(i);
+    if (i >= 0) setTimeout(() => refs.current[i]?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+  }, []);
+
+  const run: Run = useCallback(async (fn) => {
     setBusy(true); setError(null);
     try { return await fn(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   }, []);
@@ -48,100 +55,131 @@ export function TutorialApp() {
   const patch = (body: object, goTo?: number) => run(async () => {
     const v = await api<View>("/api/submissions/me", { method: "PATCH", body: goTo === undefined ? body : { ...body, step: goTo } });
     setView(v);
-    if (goTo !== undefined) setIdx(goTo);
+    if (goTo !== undefined) openStep(goTo);
     return v;
   });
 
-  if (loading) return <main className="container"><p className="muted">Carregando…</p></main>;
-  if (!view) return <Welcome onCreated={(v) => { setView(v); setIdx(1); }} />;
-
-  const s = view.submission;
-  const format: Format = s.format ?? "TEXTO";
-  const step = STEPS[idx];
+  const maxStep = view?.maxStep ?? 0;
+  const s = view?.submission;
+  const format: Format = s?.format ?? "TEXTO";
+  const submitted = !!s && s.status !== "EM_ANDAMENTO";
   const byKey = (k: string) => content.find((c) => c.key === k);
-  const go = (n: number) => patch({}, n);
-  const submitted = s.status !== "EM_ANDAMENTO";
+  const doneCount = !view ? 0 : submitted ? STEPS.length : maxStep;
+
+  const next = (i: number) => (
+    <button className="btn primary block" disabled={busy || i >= maxStep} onClick={() => patch({}, i + 1)}>
+      Continuar →
+    </button>
+  );
+
+  function body(i: number) {
+    if (!view || !s) return <Welcome onCreated={(v) => { setView(v); openStep(1); }} />;
+    const key = STEPS[i].key;
+    switch (key) {
+      case "dados":
+        return <div className="stack"><p><strong>{s.contactName}</strong><br />{s.company}</p><p className="muted small">Seus dados já foram registrados. Você pode voltar a esta página a qualquer momento neste dispositivo e continuar de onde parou.</p>{next(i)}</div>;
+      case "formato":
+        return <div className="stack"><FormatChoice current={s.format} busy={busy} onChoose={(f) => patch({ format: f })} />{next(i)}</div>;
+      case "atualizar-totem":
+      case "atualizar-painel": {
+        const field = key === "atualizar-totem" ? "totemUpdated" : "painelUpdated";
+        const done = s[field];
+        const label = key === "atualizar-totem" ? "Concluí a atualização do totem." : "Concluí a atualização do painel.";
+        return (
+          <div className="stack">
+            <StepContent step={byKey(key)} format={format} />
+            <label className={`check ${done ? "on" : ""}`}>
+              <input type="checkbox" checked={done} disabled={busy} onChange={(e) => patch({ [field]: e.target.checked })} />
+              <span>{label} <span className="muted small">(Não é preciso assistir ao vídeo inteiro.)</span></span>
+            </label>
+            {next(i)}
+          </div>
+        );
+      }
+      case "enquadramento-totem":
+      case "enquadramento-painel": {
+        const t: Eq = key === "enquadramento-totem" ? "TOTEM" : "PAINEL";
+        return (
+          <div className="stack">
+            <FramingBlock key={t} type={t} format={format} intro={byKey(key)} fix={byKey(t === "TOTEM" ? FIX_KEYS.TOTEM : FIX_KEYS.PAINEL)}
+              state={t === "TOTEM" ? s.totemFraming : s.painelFraming} confirmed={t === "TOTEM" ? s.totemConfirmed : s.painelConfirmed}
+              busy={busy} onSubmit={(framing) => patch({ framing })} />
+            {next(i)}
+          </div>
+        );
+      }
+      case "fotos":
+        return <div className="stack"><Photos view={view} content={byKey("fotos")} format={format} run={run} onView={setView} />{next(i)}</div>;
+      default:
+        return <Finish view={view} run={run} onView={setView} submitted={submitted} onNew={async () => { await api("/api/submissions/reset", { method: "POST" }); setView(null); openStep(0); }} />;
+    }
+  }
+
+  function status(i: number): { label: string; tone: "done" | "current" | "locked" } {
+    if (!view) return i === 0 ? { label: "Comece por aqui", tone: "current" } : { label: "Bloqueada", tone: "locked" };
+    if (i === LAST && submitted) return { label: "Enviado", tone: "done" };
+    if (i < maxStep) return { label: "Concluída", tone: "done" };
+    if (i === maxStep) return { label: "Em andamento", tone: "current" };
+    return { label: "Bloqueada", tone: "locked" };
+  }
+
+  if (loading) return <><BrandBar /><main className="container"><p className="muted">Carregando…</p></main></>;
 
   return (
     <>
-      <div className="topbar">
-        <div className="container" style={{ paddingBlock: 10 }}>
-          <div className="row between">
-            <div className="grow"><strong>{s.company}</strong><div className="muted small">{s.contactName} · Etapa {idx + 1} de {STEPS.length}</div></div>
-            <button className="btn sm" onClick={() => setHelp(true)}>Preciso de ajuda</button>
-          </div>
-          <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={STEPS.length} aria-valuenow={idx + 1} aria-label="Progresso"><i style={{ width: `${((idx + 1) / STEPS.length) * 100}%` }} /></div>
-          <nav className="stepper" aria-label="Etapas">
-            {STEPS.map((st, i) => (
-              <button key={st.key} disabled={i === 0 || i > view.maxStep || busy} className={i < idx ? "done" : ""} aria-current={i === idx ? "step" : undefined} onClick={() => go(i)}>
-                {i < idx ? "✓ " : `${i + 1}. `}{st.title}
-              </button>
-            ))}
-          </nav>
+      <BrandBar>
+        {view && <button className="btn sm brand-help" onClick={() => setHelp(true)}>Preciso de ajuda</button>}
+      </BrandBar>
+      <main className="container">
+        <div className="intro stack">
+          <h1>Atualização do Atendimento Inteligente</h1>
+          <p className="muted">Siga as etapas <strong>na ordem</strong>: cada etapa concluída libera a próxima. Seu progresso é salvo automaticamente.</p>
+          {view && (
+            <>
+              <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={STEPS.length} aria-valuenow={doneCount} aria-label="Progresso"><i style={{ width: `${(doneCount / STEPS.length) * 100}%` }} /></div>
+              <div className="row between small muted"><span>{doneCount} de {STEPS.length} etapas concluídas</span>
+                {s?.format && (
+                  <span className="row" style={{ gap: 6 }} role="group" aria-label="Alternar formato">Formato:
+                    {(["TEXTO", "VIDEO"] as const).map((f) => (
+                      <button key={f} className={`btn sm ${format === f ? "primary" : ""}`} aria-pressed={format === f} disabled={busy} onClick={() => format !== f && patch({ format: f })}>{f === "TEXTO" ? "📄 Texto" : "🎬 Vídeo"}</button>
+                    ))}
+                  </span>
+                )}
+              </div>
+            </>
+          )}
         </div>
-      </div>
 
-      <main className="container" style={{ paddingBottom: 110 }}>
-        <div ref={top} />
-        {view.redo.length > 0 && (
+        {view && view.redo.length > 0 && (
           <div className="alert warn" role="alert" style={{ marginBottom: 12 }}>
-            A equipe pediu uma nova foto do {view.redo.map((t) => EQ[t]).join(" e do ")}. <button className="btn sm" onClick={() => go(6)}>Enviar agora</button>
+            A equipe pediu uma nova foto do {view.redo.map((t) => EQ[t]).join(" e do ")}. <button className="btn sm" onClick={() => openStep(STEPS.findIndex((x) => x.key === "fotos"))}>Enviar agora</button>
           </div>
         )}
-        <h1>{idx === 0 ? "Seus dados" : step.title}</h1>
         {error && <div className="alert bad" role="alert" style={{ marginBottom: 12 }}>{error}</div>}
 
-        {idx >= 2 && idx <= 6 && (
-          <div className="row" style={{ marginBottom: 12 }}>
-            <span className="muted small">Formato:</span>
-            <div role="group" aria-label="Alternar formato" className="row" style={{ gap: 6 }}>
-              {(["TEXTO", "VIDEO"] as const).map((f) => (
-                <button key={f} className={`btn sm ${format === f ? "primary" : ""}`} aria-pressed={format === f} disabled={busy} onClick={() => format !== f && patch({ format: f })}>{f === "TEXTO" ? "📄 Texto" : "🎬 Vídeo"}</button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {idx === 0 && <div className="card stack"><p><strong>{s.contactName}</strong><br />{s.company}</p><p className="muted small">Seus dados já foram registrados. Você pode voltar a este link a qualquer momento e continuar de onde parou.</p></div>}
-
-        {idx === 1 && <FormatChoice current={s.format} busy={busy} onChoose={(f) => patch({ format: f })} />}
-
-        {(idx === 2 || idx === 4) && (() => {
-          const t: Eq = idx === 2 ? "TOTEM" : "PAINEL";
-          const done = t === "TOTEM" ? s.totemUpdated : s.painelUpdated;
-          const key = t === "TOTEM" ? "totemUpdated" : "painelUpdated";
-          return (
-            <div className="stack">
-              <div className="card"><StepContent step={byKey(step.key)} format={format} /></div>
-              <label className={`check ${done ? "on" : ""}`}>
-                <input type="checkbox" checked={done} disabled={busy} onChange={(e) => patch({ [key]: e.target.checked })} />
-                <span>Concluí a atualização do {EQ[t]}. <span className="muted small">(Não é preciso assistir ao vídeo inteiro.)</span></span>
-              </label>
-            </div>
-          );
-        })()}
-
-        {(idx === 3 || idx === 5) && (
-          <FramingBlock
-            key={idx} type={idx === 3 ? "TOTEM" : "PAINEL"} format={format}
-            intro={byKey(step.key)} fix={byKey(idx === 3 ? FIX_KEYS.TOTEM : FIX_KEYS.PAINEL)}
-            state={idx === 3 ? s.totemFraming : s.painelFraming} confirmed={idx === 3 ? s.totemConfirmed : s.painelConfirmed}
-            busy={busy} onSubmit={(framing) => patch({ framing })}
-          />
-        )}
-
-        {idx === 6 && <Photos view={view} content={byKey("fotos")} format={format} run={run} onView={setView} />}
-        {idx === 7 && <Finish view={view} run={run} onView={setView} submitted={submitted} />}
+        <ol className="acc">
+          {STEPS.map((st, i) => {
+            const stt = status(i);
+            const locked = stt.tone === "locked";
+            const isOpen = open === i && !locked;
+            const newGroup = i === 0 || STEPS[i - 1].group !== st.group;
+            return (
+              <li key={st.key} ref={(el) => { refs.current[i] = el; }} className={`acc-item ${stt.tone} ${isOpen ? "open" : ""}`}>
+                {newGroup && <div className="acc-group">{st.group}</div>}
+                <button type="button" className="acc-head" aria-expanded={isOpen} aria-controls={`acc-${st.key}`} disabled={locked}
+                  onClick={() => openStep(isOpen ? -1 : i)}>
+                  <span className="acc-num" aria-hidden>{stt.tone === "done" ? "✓" : stt.tone === "locked" ? "🔒" : i + 1}</span>
+                  <span className="grow"><span className="acc-title">{st.title}</span><small className="acc-status">{stt.label}</small></span>
+                  <span className="chev" aria-hidden>▾</span>
+                </button>
+                {isOpen && <div id={`acc-${st.key}`} role="region" aria-label={st.title} className="acc-body">{body(i)}</div>}
+              </li>
+            );
+          })}
+        </ol>
+        <p className="muted small" style={{ textAlign: "center", margin: "24px 0" }}>Intelite Tecnologia</p>
       </main>
-
-      {idx > 0 && !(idx === 7) && (
-        <div className="footer-nav">
-          <button className="btn" disabled={busy || idx <= 1} onClick={() => go(idx - 1)}>← Voltar</button>
-          <button className="btn primary" disabled={busy || idx + 1 > view.maxStep} onClick={() => go(idx + 1)}>Continuar →</button>
-        </div>
-      )}
-      {idx === 7 && <div className="footer-nav"><button className="btn" onClick={() => go(6)}>← Voltar</button></div>}
-      {help && <Help stepTitle={step.title} onClose={() => setHelp(false)} onSend={(message) => patch({ help: { message, step: step.title } })} />}
+      {help && <Help stepTitle={STEPS[Math.max(open, 0)].title} onClose={() => setHelp(false)} onSend={(message) => patch({ help: { message, step: STEPS[Math.max(open, 0)].title } })} />}
     </>
   );
 }
@@ -159,17 +197,14 @@ function Welcome({ onCreated }: { onCreated: (v: View) => void }) {
     catch (err) { setError((err as Error).message); setBusy(false); }
   }
   return (
-    <main className="container" style={{ paddingTop: 32 }}>
-      <form className="card stack" onSubmit={submit}>
-        <div><p className="muted small" style={{ margin: 0 }}>Intelite Tecnologia</p><h1>Atualização do Atendimento Inteligente</h1></div>
-        <p>Vamos atualizar e conferir o <strong>totem</strong> e o <strong>painel de chamadas</strong>. Leva poucos minutos. Primeiro, conte quem você é:</p>
-        <label className="field"><span>Seu nome</span><input type="text" required value={f.contactName} onChange={set("contactName")} autoComplete="name" /></label>
-        <label className="field"><span>Nome da empresa</span><input type="text" required value={f.company} onChange={set("company")} autoComplete="organization" /></label>
-        {error && <div className="alert bad" role="alert">{error}</div>}
-        <button className="btn primary block" disabled={busy}>{busy ? "Aguarde…" : "Começar"}</button>
-        <p className="muted small">Usamos esses dados apenas para acompanhar esta atualização.</p>
-      </form>
-    </main>
+    <form className="stack" onSubmit={submit}>
+      <p>Vamos atualizar e conferir o <strong>totem</strong> e o <strong>painel de chamadas</strong>. Leva poucos minutos. Primeiro, conte quem você é:</p>
+      <label className="field"><span>Seu nome</span><input type="text" required value={f.contactName} onChange={set("contactName")} autoComplete="name" /></label>
+      <label className="field"><span>Nome da empresa</span><input type="text" required value={f.company} onChange={set("company")} autoComplete="organization" /></label>
+      {error && <div className="alert bad" role="alert">{error}</div>}
+      <button className="btn primary block" disabled={busy || f.contactName.trim().length < 2 || f.company.trim().length < 2}>{busy ? "Aguarde…" : "Começar"}</button>
+      <p className="muted small">Usamos esses dados e as fotos enviadas apenas para acompanhar e validar esta atualização.</p>
+    </form>
   );
 }
 
@@ -209,16 +244,16 @@ function FramingBlock({ type, format, intro, fix, state, confirmed, busy, onSubm
   };
   return (
     <div className="stack">
-      <div className="card"><StepContent step={intro} format={format} /></div>
-      <div className="card stack">
-        <div className="row between"><h2 style={{ margin: 0 }}>Situação da tela do {EQ[type]}</h2>
-          <span className={`badge ${state === "CORRETO" ? "ok" : state === "NAO_VERIFICADO" ? "" : "bad"}`}>{state === "CORRETO" ? "Você confirmou: correto" : state === "INCORRETO" ? "Problema informado" : state === "PRECISA_SUPORTE" ? "Suporte solicitado" : "Não verificado"}</span></div>
-        {state === "CORRETO" && <div className="alert info small">Obrigado! Sua confirmação será conferida pela equipe da Intelite a partir das fotos. {confirmed && <strong>A equipe já confirmou este equipamento.</strong>}</div>}
+      <StepContent step={intro} format={format} />
+      <div className="row between">
+        <strong>Situação da tela do {EQ[type]}</strong>
+        <span className={`badge ${state === "CORRETO" ? "ok" : state === "NAO_VERIFICADO" ? "" : "bad"}`}>{state === "CORRETO" ? "Você confirmou: correto" : state === "INCORRETO" ? "Problema informado" : state === "PRECISA_SUPORTE" ? "Suporte solicitado" : "Não verificado"}</span>
       </div>
+      {state === "CORRETO" && <div className="alert info small">Obrigado! Sua confirmação será conferida pela equipe da Intelite a partir das fotos. {confirmed && <strong>A equipe já confirmou este equipamento.</strong>}</div>}
 
       {mode === "check" && (
-        <div className="card stack">
-          <h2>Confira a tela agora</h2>
+        <div className="stack">
+          <h3 style={{ margin: 0 }}>Confira a tela agora</h3>
           {crit.map((c, i) => (
             <label key={c} className={`check ${ok[i] ? "on" : ""}`}><input type="checkbox" checked={!!ok[i]} onChange={(e) => setOk({ ...ok, [i]: e.target.checked })} /><span>{c}</span></label>
           ))}
@@ -228,8 +263,8 @@ function FramingBlock({ type, format, intro, fix, state, confirmed, busy, onSubm
       )}
 
       {mode === "problem" && (
-        <div className="card stack">
-          <h2>O que você está vendo?</h2>
+        <div className="stack">
+          <h3 style={{ margin: 0 }}>O que você está vendo?</h3>
           {ISSUES[type].map((i) => (
             <label key={i} className={`check ${issues.includes(i) ? "on" : ""}`}><input type="checkbox" checked={issues.includes(i)} onChange={(e) => setIssues(e.target.checked ? [...issues, i] : issues.filter((x) => x !== i))} /><span>{i}</span></label>
           ))}
@@ -240,8 +275,8 @@ function FramingBlock({ type, format, intro, fix, state, confirmed, busy, onSubm
       )}
 
       {mode === "fix" && (
-        <div className="card stack">
-          <h2>Minha tela está cortada ou desalinhada</h2>
+        <div className="stack">
+          <h3 style={{ margin: 0 }}>Minha tela está cortada ou desalinhada</h3>
           <StepContent step={fix} format={format} />
           <button className="btn primary block" disabled={busy} onClick={() => { setOk({}); setMode("check"); }}>Já fiz o ajuste. Conferir a tela de novo</button>
           <button className="btn block" disabled={busy || state === "PRECISA_SUPORTE"} onClick={() => send("PRECISA_SUPORTE")}>{state === "PRECISA_SUPORTE" ? "Suporte solicitado" : "Não consegui. Preciso de suporte"}</button>
@@ -253,23 +288,23 @@ function FramingBlock({ type, format, intro, fix, state, confirmed, busy, onSubm
 
 // ───────── fotos ─────────
 
-function Photos({ view, content, format, run, onView }: { view: View; content?: PublicStep; format: Format; run: <T>(fn: () => Promise<T>) => Promise<T | undefined>; onView: (v: View) => void }) {
+function Photos({ view, content, format, run, onView }: { view: View; content?: PublicStep; format: Format; run: Run; onView: (v: View) => void }) {
   const upload = (type: Eq, file: File) => run(async () => {
     const form = new FormData(); form.set("type", type); form.set("file", file);
     onView(await api<View>("/api/submissions/me/photos", { form }));
   });
   return (
     <div className="stack">
-      <div className="card"><StepContent step={content} format={format} /></div>
+      <StepContent step={content} format={format} />
       {(["TOTEM", "PAINEL"] as const).map((t) => {
         const list = view.photos.filter((p) => p.type === t);
         const last = list[list.length - 1];
         return (
-          <div className="card stack" key={t}>
-            <h2>Foto do {EQ[t]}</h2>
+          <div className="subcard stack" key={t}>
+            <h3 style={{ margin: 0 }}>Foto do {EQ[t]}</h3>
             {last?.review === "REFAZER" && <div className="alert warn" role="alert"><strong>A equipe pediu outra foto: </strong>{last.reviewNote}</div>}
             <div className="row">{list.map((p) => (
-              <figure key={p.id} style={{ width: 110 }}><img className="refimg" src={`/api/photos/${p.id}`} alt={`Foto do ${EQ[t]} enviada`} /><figcaption>{p.review === "APROVADA" ? "Aprovada" : p.review === "REFAZER" ? "Refazer" : "Em análise"}</figcaption></figure>
+              <figure key={p.id} style={{ width: 110, margin: 0 }}><img className="refimg" src={`/api/photos/${p.id}`} alt={`Foto do ${EQ[t]} enviada`} /><figcaption>{p.review === "APROVADA" ? "Aprovada" : p.review === "REFAZER" ? "Refazer" : "Em análise"}</figcaption></figure>
             ))}</div>
             <label className="btn primary" style={{ cursor: "pointer" }}>{last && last.review !== "REFAZER" ? "Enviar outra foto" : "Tirar ou escolher foto"}
               <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="visually-hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(t, f); e.target.value = ""; }} /></label>
@@ -282,7 +317,7 @@ function Photos({ view, content, format, run, onView }: { view: View; content?: 
 
 // ───────── envio ─────────
 
-function Finish({ view, run, onView, submitted }: { view: View; run: <T>(fn: () => Promise<T>) => Promise<T | undefined>; onView: (v: View) => void; submitted: boolean }) {
+function Finish({ view, run, onView, submitted, onNew }: { view: View; run: Run; onView: (v: View) => void; submitted: boolean; onNew: () => Promise<void> }) {
   const [rating, setRating] = useState(view.submission.rating ?? 0);
   const [hardest, setHardest] = useState("");
   const [comment, setComment] = useState("");
@@ -290,19 +325,20 @@ function Finish({ view, run, onView, submitted }: { view: View; run: <T>(fn: () 
   const label = (f: Framing, conf: boolean) => (conf ? "Confirmado pela equipe" : f === "CORRETO" ? "Declarado correto (aguardando equipe)" : f === "INCORRETO" ? "Com problema informado" : f === "PRECISA_SUPORTE" ? "Suporte solicitado" : "Não verificado");
   return (
     <div className="stack">
-      <div className="card stack"><h2>Resumo</h2>
+      <div className="stack"><h3 style={{ margin: 0 }}>Resumo</h3>
         <div className="row between"><span>Totem</span><span className="badge">{label(s.totemFraming, s.totemConfirmed)}</span></div>
         <div className="row between"><span>Painel</span><span className="badge">{label(s.painelFraming, s.painelConfirmed)}</span></div>
       </div>
       {submitted ? (
         <div className="alert ok"><strong>Recebemos o seu envio. Obrigado!</strong><br />
-          {s.status === "APROVADO" ? "A equipe confirmou a atualização da sua unidade." : s.status === "PRECISA_AJUSTE" ? "A equipe pediu um ajuste. Veja o aviso no topo da página." : "A equipe da Intelite vai analisar as fotos e confirmar. Se precisar de algo, avisaremos aqui: guarde este link."}</div>
+          {s.status === "APROVADO" ? "A equipe confirmou a atualização." : s.status === "PRECISA_AJUSTE" ? "A equipe pediu um ajuste. Veja o aviso no topo da página." : "A equipe da Intelite vai analisar as fotos e confirmar. Se precisar de algo, avisaremos aqui: guarde este link."}
+          <div style={{ marginTop: 12 }}><button className="btn sm" onClick={() => confirm("Iniciar um novo envio neste aparelho (por exemplo, outra loja)? O envio atual continua registrado.") && run(onNew)}>Iniciar outro envio (outra loja ou equipamento)</button></div></div>
       ) : (
-        <div className="card stack">
-          <h2>Como foi a experiência?</h2>
+        <div className="stack">
+          <h3 style={{ margin: 0 }}>Como foi a experiência?</h3>
           <div className="stars" role="radiogroup" aria-label="Nota de 1 a 5">{[1, 2, 3, 4, 5].map((n) => <button key={n} role="radio" aria-checked={rating === n} aria-label={`${n} de 5`} className={n <= rating ? "on" : ""} onClick={() => setRating(n)}>★</button>)}</div>
           <label className="field"><span>Qual etapa foi mais difícil? (opcional)</span>
-            <select value={hardest} onChange={(e) => setHardest(e.target.value)}><option value="">Nenhuma</option>{STEPS.slice(1, 7).map((st) => <option key={st.key} value={st.title}>{st.title}</option>)}</select></label>
+            <select value={hardest} onChange={(e) => setHardest(e.target.value)}><option value="">Nenhuma</option>{STEPS.slice(1, LAST).map((st) => <option key={st.key} value={st.title}>{st.title}</option>)}</select></label>
           <label className="field"><span>Comentário (opcional)</span><textarea value={comment} maxLength={2000} onChange={(e) => setComment(e.target.value)} /></label>
           <button className="btn primary block" disabled={rating === 0} onClick={() => run(async () => onView(await api<View>("/api/submissions/me/submit", { body: { rating, comment: comment || undefined, hardestStep: hardest || undefined } })))}>Enviar</button>
         </div>

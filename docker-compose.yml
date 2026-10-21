@@ -1,0 +1,39 @@
+# Exemplo de implantação: app + PostgreSQL. Ajuste as senhas antes de usar. Não testado nesta máquina (sem Docker).
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: intelite
+      POSTGRES_PASSWORD: troque-esta-senha-do-banco
+      POSTGRES_DB: intelite
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U intelite"]
+      interval: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://intelite:troque-esta-senha-do-banco@db:5432/intelite?schema=public
+      SESSION_SECRET: troque-por-um-segredo-longo-e-aleatorio-com-32-ou-mais-caracteres
+      ADMIN_EMAIL: admin@suaempresa.com.br
+      ADMIN_PASSWORD: troque-esta-senha-do-admin
+      # Acesso por HTTP em rede interna: mantenha false. Com HTTPS (proxy reverso), remova esta linha.
+      COOKIE_SECURE: "false"
+      STORAGE_DRIVER: local
+      STORAGE_LOCAL_DIR: /data/storage
+    volumes:
+      - photos:/data/storage
+
+volumes:
+  dbdata:
+  photos:

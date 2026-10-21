@@ -159,3 +159,44 @@ th { color: var(--muted); font-weight: 700; font-size: .8rem; text-transform: up
 dialog { border: 0; border-radius: 12px; padding: 0; max-width: 96vw; max-height: 96vh; background: var(--surface); color: var(--text); }
 dialog::backdrop { background: rgba(0,0,0,.7); }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ───── marca ───── */
+:root { --navy: #0a2f73; --navy-2: #123f93; }
+.brandbar { background: var(--navy); color: #fff; }
+.brandbar-in { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 10px; }
+.logo { height: 52px; width: auto; display: block; }
+.brandbar .btn { background: transparent; color: #fff; border-color: rgba(255,255,255,.55); }
+.brandbar .btn:hover { background: rgba(255,255,255,.12); }
+
+/* ───── página pública em uma tela: etapas em sanfona ───── */
+.intro { padding: 20px 0 8px; }
+.intro h1 { margin-bottom: 0; }
+.acc { list-style: none; margin: 16px 0 0; padding: 0; }
+.acc-group { font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 20px 4px 8px; }
+.acc-item { margin-bottom: 8px; }
+.acc-head {
+  width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; min-height: 60px; padding: 10px 14px;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); font: inherit; cursor: pointer;
+}
+.acc-head:hover:not([disabled]) { background: var(--surface-2); }
+.acc-head[disabled] { cursor: not-allowed; opacity: .6; }
+.acc-item.open .acc-head { border-color: var(--brand); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.acc-item.current .acc-head { border-color: var(--brand); }
+.acc-num { flex: 0 0 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; background: var(--surface-2); color: var(--muted); }
+.acc-item.current .acc-num { background: var(--brand); color: var(--brand-contrast); }
+.acc-item.done .acc-num { background: var(--ok-soft); color: var(--ok); }
+.acc-title { display: block; font-weight: 700; }
+.acc-status { display: block; color: var(--muted); font-size: .8rem; }
+.chev { transition: transform .2s; color: var(--muted); }
+.acc-item.open .chev { transform: rotate(180deg); }
+.acc-body { border: 1px solid var(--brand); border-top: 0; border-radius: 0 0 var(--radius) var(--radius); background: var(--surface); padding: 16px; }
+.subcard { border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+.acc-body .steps { margin-bottom: 4px; }
+
+/* ───── admin ───── */
+.admin-nav { background: var(--navy); border-bottom: 0; color: #fff; padding-block: 6px; }
+.admin-nav a { color: #fff; }
+.admin-nav a:hover { background: rgba(255,255,255,.14); }
+.admin-nav .muted { color: rgba(255,255,255,.75); }
+.admin-nav .btn { background: transparent; color: #fff; border-color: rgba(255,255,255,.55); }
+.admin-nav .logo { height: 40px; margin-right: 8px; }

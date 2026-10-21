@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { use, useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/client-api";
 import { FRAMING_LABEL, STATUS_LABEL } from "@/lib/flow";
@@ -10,6 +11,7 @@ const dt = (v: string) => new Date(v).toLocaleString("pt-BR");
 
 export default function EnvioPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
   const [s, setS] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
@@ -27,7 +29,10 @@ export default function EnvioPage({ params }: { params: Promise<{ id: string }> 
       <div className="row between"><div><h1 style={{ marginBottom: 0 }}>{s.contactName}</h1><div className="muted">{s.company}</div></div>
         <span className="badge info">{STATUS_LABEL[s.status as keyof typeof STATUS_LABEL]}</span></div>
       {error && <div className="alert bad" role="alert">{error}</div>}
-      {s.helpRequested && <div className="alert warn"><strong>Pediu ajuda</strong> na etapa “{s.helpStep}” ({s.helpFormat === "VIDEO" ? "vídeo" : "texto"}){s.helpMessage ? `: ${s.helpMessage}` : "."}</div>}
+      {s.helpRequested && (
+        <div className={`alert ${s.helpResolved ? "ok" : "warn"}`}><strong>{s.helpResolved ? "Pedido de ajuda atendido" : "Pediu ajuda"}</strong> na etapa “{s.helpStep}” ({s.helpFormat === "VIDEO" ? "vídeo" : "texto"}){s.helpMessage ? `: ${s.helpMessage}` : "."}
+          <div style={{ marginTop: 8 }}><button className="btn sm" onClick={() => patch({ helpResolved: !s.helpResolved })}>{s.helpResolved ? "Reabrir pedido" : "Marcar como atendido"}</button></div></div>
+      )}
       <p className="muted small">Início {dt(s.createdAt)} · formato inicial {s.initialFormat ?? "—"}, atual {s.format ?? "—"}, {s.formatChanges} troca(s){s.submittedAt ? ` · enviado em ${dt(s.submittedAt)}` : ""}{s.rating ? ` · avaliação ${s.rating}/5` : ""}{s.hardestStep ? ` · mais difícil: ${s.hardestStep}` : ""}{s.comment ? ` · “${s.comment}”` : ""}</p>
 
       {(["TOTEM", "PAINEL"] as const).map((t) => {
@@ -62,6 +67,9 @@ export default function EnvioPage({ params }: { params: Promise<{ id: string }> 
         <label className="field"><span>Observações internas</span><textarea value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
         <button className="btn" style={{ alignSelf: "flex-start" }} onClick={() => patch({ adminNotes: notes })}>Salvar observações</button>
       </section>
+
+      <section className="card stack"><h2>Excluir</h2><p className="muted small">Remove definitivamente este envio e as fotos (por exemplo, a pedido do cliente). Não pode ser desfeito.</p>
+        <button className="btn danger" style={{ alignSelf: "flex-start" }} onClick={() => confirm("Excluir definitivamente este envio e todas as fotos?") && act(async () => { await api(`/api/admin/submissions/${id}`, { method: "DELETE" }); router.push("/admin"); })}>Excluir envio</button></section>
 
       <section className="card"><h2>Linha do tempo</h2>
         <div className="tablewrap"><table><tbody>{s.activities.map((a: any) => <tr key={a.id}><td className="small" style={{ whiteSpace: "nowrap" }}>{dt(a.at)}</td><td><span className={`badge ${a.actor === "EQUIPE" ? "info" : ""}`}>{a.actor === "EQUIPE" ? "equipe" : "cliente"}</span></td><td>{a.text}</td></tr>)}</tbody></table></div>

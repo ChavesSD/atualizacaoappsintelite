@@ -6,6 +6,7 @@ import { spawn, spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import net from "node:net";
+import os from "node:os";
 
 const DIR = ".local-db";
 const PORT = Number(process.env.LOCAL_DB_PORT ?? 5433);
@@ -43,7 +44,12 @@ if (!run(["prisma", "db", "push", "--skip-generate", "--accept-data-loss"]) || !
   process.exit(1);
 }
 
-const app = spawn("npx", ["next", "dev"], { env, stdio: "inherit", shell: true });
+const APP_PORT = process.env.PORT ?? "3000";
+const lan = Object.values(os.networkInterfaces()).flat().filter((i) => i && i.family === "IPv4" && !i.internal).map((i) => i.address);
+console.log(`• Neste computador: http://localhost:${APP_PORT}`);
+for (const ip of lan) console.log(`• Outros computadores da rede: http://${ip}:${APP_PORT}   (libere a porta no firewall; veja o README)`);
+// -H 0.0.0.0: escuta em todas as interfaces, não só em localhost.
+const app = spawn("npx", ["next", "dev", "-H", "0.0.0.0", "-p", APP_PORT], { env: { ...env, COOKIE_SECURE: "false" }, stdio: "inherit", shell: true });
 const stop = async () => {
   if (process.platform === "win32" && app.pid) spawnSync("taskkill", ["/pid", String(app.pid), "/T", "/F"], { stdio: "ignore" });
   else app.kill();

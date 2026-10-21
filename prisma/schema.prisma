@@ -69,6 +69,7 @@ model Submission {
   painelConfirmed Boolean @default(false)
 
   helpRequested Boolean @default(false)
+  helpResolved  Boolean @default(false)
   helpMessage   String?
   helpStep      String?
   helpFormat    Format?
