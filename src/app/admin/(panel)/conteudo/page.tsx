@@ -32,7 +32,7 @@ export default function ConteudoPage() {
 
       <section className="card stack"><h2>Domínios de vídeo autorizados</h2>
         <p className="muted small">Só links https desses domínios podem ser usados nos vídeos. Um por linha.</p>
-        <textarea value={hosts} onChange={(e) => setHosts(e.target.value)} />
+        <label className="field"><span>Domínios autorizados (um por linha)</span><textarea value={hosts} onChange={(e) => setHosts(e.target.value)} placeholder="videos.intelite.com.br" /></label>
         <button className="btn" style={{ alignSelf: "flex-start" }} onClick={async () => { try { const r = await api<{ videoHosts: string }>("/api/admin/settings", { method: "PUT", body: { videoHosts: hosts } }); setHosts(r.videoHosts); setMsg({ ok: true, text: "Domínios salvos." }); } catch (e) { setMsg({ ok: false, text: (e as Error).message }); } }}>Salvar domínios</button>
       </section>
 

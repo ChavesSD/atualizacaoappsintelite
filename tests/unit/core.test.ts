@@ -62,7 +62,7 @@ describe("navegação: não pula verificações", () => {
 });
 
 describe("indicadores", () => {
-  const row = (o: Partial<StatRow>): StatRow => ({ status: "EM_ANDAMENTO", initialFormat: null, formatChanges: 0, totemFraming: "NAO_VERIFICADO", painelFraming: "NAO_VERIFICADO", totemConfirmed: false, painelConfirmed: false, helpRequested: false, helpResolved: false, pendingPhotos: 0, ...o });
+  const row = (o: Partial<StatRow>): StatRow => ({ status: "EM_ANDAMENTO", initialFormat: null, formatChanges: 0, totemFraming: "NAO_VERIFICADO", painelFraming: "NAO_VERIFICADO", totemConfirmed: false, painelConfirmed: false, helpRequested: false, helpResolved: false, pendingPhotos: 0, totemUpdated: false, painelUpdated: false, photoCount: 0, ...o });
   it("conta cada cliente uma vez e separa declarado de confirmado", () => {
     const s = computeStats([
       row({ initialFormat: "VIDEO", formatChanges: 2, status: "APROVADO", totemFraming: "CORRETO", painelFraming: "CORRETO", totemConfirmed: true, painelConfirmed: true }),
@@ -81,6 +81,17 @@ describe("indicadores", () => {
     expect(s.pedidosDeAjuda).toBe(1); // em aberto
     expect(computeStats([row({ helpRequested: true, helpResolved: true })]).pedidosDeAjuda).toBe(0); // atendido sai do aberto
     expect(computeStats([row({ initialFormat: "TEXTO", helpRequested: true, helpResolved: true })]).formato.TEXTO.help).toBe(1); // mas continua contando na taxa por formato
+  });
+  it("funil: cada etapa conta quem chegou até ela, a partir dos campos reais", () => {
+    const f = computeStats([
+      row({ initialFormat: "TEXTO", totemUpdated: true, totemFraming: "CORRETO", painelUpdated: true, painelFraming: "CORRETO", photoCount: 2, status: "ENVIADO" }),
+      row({ initialFormat: "VIDEO", totemUpdated: true, totemFraming: "INCORRETO" }),
+      row({ initialFormat: "TEXTO", totemUpdated: true }),
+      row({}),
+    ]).funil;
+    expect(f.map((x) => x.count)).toEqual([4, 3, 3, 2, 1, 1, 1, 1]);
+    expect(f[0].label).toBe("Iniciaram");
+    expect(f[f.length - 1].label).toBe("Concluíram o envio");
   });
   it("devolve null (não 0%) sem base", () => {
     expect(computeStats([]).formato.TEXTO.finishRate).toBeNull();

@@ -4,6 +4,7 @@ import { api } from "@/lib/client-api";
 import { CRITERIA, FIX_KEYS, STEPS } from "@/lib/flow";
 import { BrandBar } from "./Brand";
 import { StepContent, type PublicStep } from "./StepContent";
+import { Alert, Icon, Skeleton, type IconName } from "./ui";
 
 type Format = "TEXTO" | "VIDEO";
 type Eq = "TOTEM" | "PAINEL";
@@ -23,27 +24,41 @@ type Run = <T>(fn: () => Promise<T>) => Promise<T | undefined>;
 
 const EQ: Record<Eq, string> = { TOTEM: "totem", PAINEL: "painel de chamadas" };
 const LAST = STEPS.length - 1;
+const prefersReducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export function TutorialApp() {
   const [view, setView] = useState<View | null>(null);
   const [content, setContent] = useState<PublicStep[]>([]);
   const [open, setOpen] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [boot, setBoot] = useState<"loading" | "ready" | "error">("loading");
+  const [bootError, setBootError] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const refs = useRef<(HTMLLIElement | null)[]>([]);
+  const heads = useRef<(HTMLButtonElement | null)[]>([]);
 
-  useEffect(() => {
-    api<PublicStep[]>("/api/content").then(setContent).catch(() => {});
-    api<View | null>("/api/submissions/me")
-      .then((v) => { if (v) { setView(v); setOpen(Math.min(v.submission.step, v.maxStep)); } })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+  const load = useCallback(async () => {
+    setBoot("loading");
+    try {
+      const [c, v] = await Promise.all([api<PublicStep[]>("/api/content"), api<View | null>("/api/submissions/me")]);
+      setContent(c);
+      if (v) { setView(v); setOpen(Math.min(v.submission.step, v.maxStep)); }
+      setBoot("ready");
+    } catch (e) {
+      setBootError((e as Error).message);
+      setBoot("error");
+    }
   }, []);
+  useEffect(() => { load(); }, [load]);
 
-  const openStep = useCallback((i: number) => {
+  /** Abre uma etapa, rola até ela e, quando o avanço foi pelo botão "Continuar", leva o foco ao cabeçalho dela. */
+  const openStep = useCallback((i: number, focus = false) => {
     setOpen(i);
-    if (i >= 0) setTimeout(() => refs.current[i]?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+    if (i < 0) return;
+    requestAnimationFrame(() => {
+      const el = heads.current[i];
+      el?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "start" });
+      if (focus) el?.focus({ preventScroll: true });
+    });
   }, []);
 
   const run: Run = useCallback(async (fn) => {
@@ -54,9 +69,32 @@ export function TutorialApp() {
   const patch = (body: object, goTo?: number) => run(async () => {
     const v = await api<View>("/api/submissions/me", { method: "PATCH", body: goTo === undefined ? body : { ...body, step: goTo } });
     setView(v);
-    if (goTo !== undefined) openStep(goTo);
+    if (goTo !== undefined) openStep(goTo, true);
     return v;
   });
+
+  if (boot === "loading") {
+    return (
+      <>
+        <BrandBar />
+        <main className="container" aria-busy="true" aria-label="Carregando">
+          <div className="intro stack"><Skeleton h={32} w="80%" /><Skeleton h={18} /><Skeleton h={18} w="60%" /></div>
+          <div className="stack" style={{ marginTop: 24 }}><Skeleton h={64} r={16} /><Skeleton h={64} r={16} /><Skeleton h={64} r={16} /></div>
+        </main>
+      </>
+    );
+  }
+  if (boot === "error") {
+    return (
+      <>
+        <BrandBar />
+        <main className="container" style={{ paddingTop: 24 }}>
+          <Alert tone="bad" role="alert"><strong>Não foi possível abrir o tutorial.</strong><br />{bootError}</Alert>
+          <p style={{ marginTop: 16 }}><button type="button" className="btn primary" onClick={load}>Tentar de novo</button></p>
+        </main>
+      </>
+    );
+  }
 
   const maxStep = view?.maxStep ?? 0;
   const s = view?.submission;
@@ -66,30 +104,29 @@ export function TutorialApp() {
   const doneCount = !view ? 0 : submitted ? STEPS.length : maxStep;
 
   const next = (i: number) => (
-    <button className="btn primary block" disabled={busy || i >= maxStep} onClick={() => patch({}, i + 1)}>
-      Continuar →
+    <button type="button" className="btn primary block" disabled={busy || i >= maxStep} onClick={() => patch({}, i + 1)}>
+      Continuar <Icon name="arrowRight" size={18} />
     </button>
   );
 
   function body(i: number) {
-    if (!view || !s) return <Welcome onCreated={(v) => { setView(v); openStep(1); }} />;
+    if (!view || !s) return <Welcome onCreated={(v) => { setView(v); openStep(1, true); }} />;
     const key = STEPS[i].key;
     switch (key) {
       case "dados":
-        return <div className="stack"><p><strong>{s.contactName}</strong><br />{s.company}</p><p className="muted small">Seus dados já foram registrados. Você pode voltar a esta página a qualquer momento neste dispositivo e continuar de onde parou.</p>{next(i)}</div>;
+        return <div className="stack"><p className="user-text"><strong>{s.contactName}</strong><br />{s.company}</p><p className="muted small">Seus dados já foram registrados. Você pode voltar a esta página a qualquer momento neste dispositivo e continuar de onde parou.</p>{next(i)}</div>;
       case "formato":
         return <div className="stack"><FormatChoice current={s.format} busy={busy} onChoose={(f) => patch({ format: f })} />{next(i)}</div>;
       case "atualizar-totem":
       case "atualizar-painel": {
         const field = key === "atualizar-totem" ? "totemUpdated" : "painelUpdated";
         const done = s[field];
-        const label = key === "atualizar-totem" ? "Concluí a atualização do totem." : "Concluí a atualização do painel.";
         return (
           <div className="stack">
             <StepContent step={byKey(key)} format={format} />
-            <label className={`check ${done ? "on" : ""}`}>
+            <label className="check">
               <input type="checkbox" checked={done} disabled={busy} onChange={(e) => patch({ [field]: e.target.checked })} />
-              <span>{label} <span className="muted small">(Não é preciso assistir ao vídeo inteiro.)</span></span>
+              <span>Concluí a atualização do {key === "atualizar-totem" ? "totem" : "painel"}. <span className="hint">Não é preciso assistir ao vídeo inteiro.</span></span>
             </label>
             {next(i)}
           </div>
@@ -115,66 +152,90 @@ export function TutorialApp() {
   }
 
   function status(i: number): { label: string; tone: "done" | "current" | "locked" } {
-    if (!view) return i === 0 ? { label: "Comece por aqui", tone: "current" } : { label: "Bloqueada", tone: "locked" };
+    if (!view) return i === 0 ? { label: "Comece por aqui", tone: "current" } : { label: "Conclua a etapa anterior", tone: "locked" };
     if (i === LAST && submitted) return { label: "Enviado", tone: "done" };
     if (i < maxStep) return { label: "Concluída", tone: "done" };
     if (i === maxStep) return { label: "Em andamento", tone: "current" };
-    return { label: "Bloqueada", tone: "locked" };
+    return { label: "Conclua a etapa anterior", tone: "locked" };
   }
 
-  if (loading) return <><BrandBar /><main className="container"><p className="muted">Carregando…</p></main></>;
+  // Agrupa as etapas pelo nome do grupo, preservando a ordem do fluxo.
+  const groups = STEPS.reduce<{ name: string; items: number[] }[]>((acc, st, i) => {
+    const last = acc[acc.length - 1];
+    if (last && last.name === st.group) last.items.push(i);
+    else acc.push({ name: st.group, items: [i] });
+    return acc;
+  }, []);
 
   return (
     <>
+      <a className="skip-link" href="#conteudo">Pular para o conteúdo</a>
       <BrandBar />
-      <main className="container">
-        <div className="intro stack">
+      <main id="conteudo" className="container" tabIndex={-1}>
+        <header className="intro stack">
           <h1>Atualização do Atendimento Inteligente</h1>
           <p className="muted">Siga as etapas <strong>na ordem</strong>: cada etapa concluída libera a próxima. Seu progresso é salvo automaticamente.</p>
           {view && (
             <>
-              <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={STEPS.length} aria-valuenow={doneCount} aria-label="Progresso"><i style={{ width: `${(doneCount / STEPS.length) * 100}%` }} /></div>
-              <div className="row between small muted"><span>{doneCount} de {STEPS.length} etapas concluídas</span>
+              <div className="progress" role="progressbar" aria-labelledby="prog-label" aria-valuemin={0} aria-valuemax={STEPS.length} aria-valuenow={doneCount}><i style={{ width: `${(doneCount / STEPS.length) * 100}%` }} /></div>
+              <div className="row between">
+                <span id="prog-label" className="small muted">{doneCount} de {STEPS.length} etapas concluídas</span>
                 {s?.format && (
-                  <span className="row" style={{ gap: 6 }} role="group" aria-label="Alternar formato">Formato:
+                  <fieldset className="seg">
+                    <legend className="visually-hidden">Alternar formato</legend>
                     {(["TEXTO", "VIDEO"] as const).map((f) => (
-                      <button key={f} className={`btn sm ${format === f ? "primary" : ""}`} aria-pressed={format === f} disabled={busy} onClick={() => format !== f && patch({ format: f })}>{f === "TEXTO" ? "📄 Texto" : "🎬 Vídeo"}</button>
+                      <label key={f} className="opt">
+                        <input type="radio" name="formato-topo" value={f} checked={format === f} disabled={busy} onChange={() => patch({ format: f })} />
+                        <Icon name={f === "TEXTO" ? "file" : "play"} /> {f === "TEXTO" ? "Texto" : "Vídeo"}
+                      </label>
                     ))}
-                  </span>
+                  </fieldset>
                 )}
               </div>
             </>
           )}
-        </div>
+        </header>
 
         {view && view.redo.length > 0 && (
-          <div className="alert warn" role="alert" style={{ marginBottom: 12 }}>
-            A equipe pediu uma nova foto do {view.redo.map((t) => EQ[t]).join(" e do ")}. <button className="btn sm" onClick={() => openStep(STEPS.findIndex((x) => x.key === "fotos"))}>Enviar agora</button>
+          <div style={{ marginTop: 12 }}>
+            <Alert tone="warn" role="alert">
+              A equipe pediu uma nova foto do {view.redo.map((t) => EQ[t]).join(" e do ")}.{" "}
+              <button type="button" className="btn sm" onClick={() => openStep(STEPS.findIndex((x) => x.key === "fotos"), true)}>Enviar agora</button>
+            </Alert>
           </div>
         )}
-        {error && <div className="alert bad" role="alert" style={{ marginBottom: 12 }}>{error}</div>}
+        {error && <div style={{ marginTop: 12 }}><Alert tone="bad" role="alert">{error}</Alert></div>}
 
-        <ol className="acc">
-          {STEPS.map((st, i) => {
-            const stt = status(i);
-            const locked = stt.tone === "locked";
-            const isOpen = open === i && !locked;
-            const newGroup = i === 0 || STEPS[i - 1].group !== st.group;
-            return (
-              <li key={st.key} ref={(el) => { refs.current[i] = el; }} className={`acc-item ${stt.tone} ${isOpen ? "open" : ""}`}>
-                {newGroup && <div className="acc-group">{st.group}</div>}
-                <button type="button" className="acc-head" aria-expanded={isOpen} aria-controls={`acc-${st.key}`} disabled={locked}
-                  onClick={() => openStep(isOpen ? -1 : i)}>
-                  <span className="acc-num" aria-hidden>{stt.tone === "done" ? "✓" : stt.tone === "locked" ? "🔒" : i + 1}</span>
-                  <span className="grow"><span className="acc-title">{st.title}</span><small className="acc-status">{stt.label}</small></span>
-                  <span className="chev" aria-hidden>▾</span>
-                </button>
-                {isOpen && <div id={`acc-${st.key}`} role="region" aria-label={st.title} className="acc-body">{body(i)}</div>}
-              </li>
-            );
-          })}
-        </ol>
-        <p className="muted small" style={{ textAlign: "center", margin: "24px 0" }}>Intelite Tecnologia</p>
+        {groups.map((g) => (
+          <section key={g.name} className="acc-group" aria-labelledby={`g-${g.items[0]}`}>
+            <h2 id={`g-${g.items[0]}`}>{g.name}</h2>
+            <ol className="acc" start={g.items[0] + 1}>
+              {g.items.map((i) => {
+                const st = STEPS[i];
+                const stt = status(i);
+                const locked = stt.tone === "locked";
+                const isOpen = open === i && !locked;
+                return (
+                  <li key={st.key} className={`acc-item ${stt.tone} ${isOpen ? "open" : ""}`}>
+                    <h3 className="acc-h">
+                      <button
+                        type="button" id={`h-${st.key}`} className="acc-head" ref={(el) => { heads.current[i] = el; }}
+                        aria-expanded={isOpen} aria-controls={isOpen ? `p-${st.key}` : undefined} aria-disabled={locked}
+                        onClick={() => { if (!locked) openStep(isOpen ? -1 : i); }}
+                      >
+                        <span className="acc-num" aria-hidden>{stt.tone === "done" ? <Icon name="check" size={18} /> : locked ? <Icon name="lock" size={16} /> : i + 1}</span>
+                        <span className="grow"><span className="acc-title">{st.title}</span><span className="acc-status">{stt.label}</span></span>
+                        <Icon name="chevron" className="chev" />
+                      </button>
+                    </h3>
+                    {isOpen && <div id={`p-${st.key}`} role="region" aria-labelledby={`h-${st.key}`} className="acc-body">{body(i)}</div>}
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+        ))}
+        <p className="muted small" style={{ textAlign: "center", margin: "32px 0" }}>Intelite Tecnologia</p>
       </main>
     </>
   );
@@ -184,45 +245,80 @@ export function TutorialApp() {
 
 function Welcome({ onCreated }: { onCreated: (v: View) => void }) {
   const [f, setF] = useState({ contactName: "", company: "" });
+  const [errors, setErrors] = useState<{ contactName?: string; company?: string }>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: e.target.value });
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => { setF({ ...f, [k]: e.target.value }); if (errors[k]) setErrors({ ...errors, [k]: undefined }); };
+
   async function submit(e: React.FormEvent) {
-    e.preventDefault(); setBusy(true); setError(null);
+    e.preventDefault();
+    const next = {
+      contactName: f.contactName.trim().length < 2 ? "Informe o seu nome." : undefined,
+      company: f.company.trim().length < 2 ? "Informe o nome da empresa." : undefined,
+    };
+    setErrors(next);
+    if (next.contactName || next.company) {
+      (document.getElementById(next.contactName ? "f-nome" : "f-empresa") as HTMLInputElement | null)?.focus();
+      return;
+    }
+    setBusy(true); setError(null);
     try { onCreated(await api<View>("/api/submissions", { body: f })); }
     catch (err) { setError((err as Error).message); setBusy(false); }
   }
+
   return (
-    <form className="stack" onSubmit={submit}>
+    <form className="stack" onSubmit={submit} noValidate>
       <p>Vamos atualizar e conferir o <strong>totem</strong> e o <strong>painel de chamadas</strong>. Leva poucos minutos. Primeiro, conte quem você é:</p>
-      <label className="field"><span>Seu nome</span><input type="text" required value={f.contactName} onChange={set("contactName")} autoComplete="name" /></label>
-      <label className="field"><span>Nome da empresa</span><input type="text" required value={f.company} onChange={set("company")} autoComplete="organization" /></label>
-      {error && <div className="alert bad" role="alert">{error}</div>}
-      <button className="btn primary block" disabled={busy || f.contactName.trim().length < 2 || f.company.trim().length < 2}>{busy ? "Aguarde…" : "Começar"}</button>
+      <div>
+        <label className="field"><span>Seu nome</span>
+          <input id="f-nome" type="text" value={f.contactName} onChange={set("contactName")} autoComplete="name" maxLength={160} aria-invalid={!!errors.contactName} aria-describedby={errors.contactName ? "e-nome" : undefined} />
+        </label>
+        {errors.contactName && <p id="e-nome" className="field-error"><Icon name="alert" size={16} />{errors.contactName}</p>}
+      </div>
+      <div>
+        <label className="field"><span>Nome da empresa</span>
+          <input id="f-empresa" type="text" value={f.company} onChange={set("company")} autoComplete="organization" maxLength={160} aria-invalid={!!errors.company} aria-describedby={errors.company ? "e-empresa" : undefined} />
+        </label>
+        {errors.company && <p id="e-empresa" className="field-error"><Icon name="alert" size={16} />{errors.company}</p>}
+      </div>
+      {error && <Alert tone="bad" role="alert">{error}</Alert>}
+      <button type="submit" className="btn primary block" disabled={busy}>{busy ? <><span className="spinner" aria-hidden /> Aguarde…</> : "Começar"}</button>
       <p className="muted small">Usamos esses dados e as fotos enviadas apenas para acompanhar e validar esta atualização.</p>
     </form>
   );
 }
 
 function FormatChoice({ current, busy, onChoose }: { current: Format | null; busy: boolean; onChoose: (f: Format) => void }) {
+  const cards: { f: Format; icon: IconName; title: string; text: string }[] = [
+    { f: "TEXTO", icon: "file", title: "Tutorial por escrito", text: "Siga as instruções passo a passo, com imagens ilustrativas e orientações objetivas." },
+    { f: "VIDEO", icon: "play", title: "Tutorial em vídeo", text: "Assista à demonstração e acompanhe o procedimento visualmente, observando cada ação." },
+  ];
   return (
     <div className="stack">
       <p>Como você prefere acompanhar? Pode trocar a qualquer momento sem perder o progresso.</p>
-      <div className="choice" role="group" aria-label="Formato do tutorial">
-        <button type="button" aria-pressed={current === "TEXTO"} disabled={busy} onClick={() => onChoose("TEXTO")}>
-          <span className="ico" aria-hidden>📄</span><strong>Tutorial por escrito</strong>
-          <span className="muted">Siga as instruções passo a passo, com imagens ilustrativas e orientações objetivas.</span>
-        </button>
-        <button type="button" aria-pressed={current === "VIDEO"} disabled={busy} onClick={() => onChoose("VIDEO")}>
-          <span className="ico" aria-hidden>🎬</span><strong>Tutorial em vídeo</strong>
-          <span className="muted">Assista à demonstração e acompanhe o procedimento visualmente, observando cada ação.</span>
-        </button>
-      </div>
+      <fieldset className="choice">
+        <legend className="visually-hidden">Formato do tutorial</legend>
+        {cards.map((c) => (
+          <label key={c.f} className="opt">
+            <input type="radio" name="formato" value={c.f} checked={current === c.f} disabled={busy} onChange={() => onChoose(c.f)} />
+            <Icon name={c.icon} />
+            <strong>{c.title}</strong>
+            <span className="muted">{c.text}</span>
+          </label>
+        ))}
+      </fieldset>
     </div>
   );
 }
 
 // ───────── enquadramento ─────────
+
+const FRAMING_BADGE: Record<Framing, { tone: string; icon: IconName; text: string }> = {
+  NAO_VERIFICADO: { tone: "", icon: "clock", text: "Não verificado" },
+  CORRETO: { tone: "ok", icon: "checkCircle", text: "Você confirmou: correto" },
+  INCORRETO: { tone: "bad", icon: "alert", text: "Ajuste necessário" },
+  PRECISA_SUPORTE: { tone: "bad", icon: "alert", text: "Suporte solicitado" },
+};
 
 function FramingBlock({ type, format, intro, fix, state, confirmed, busy, onSubmit }: {
   type: Eq; format: Format; intro?: PublicStep; fix?: PublicStep; state: Framing; confirmed: boolean; busy: boolean;
@@ -234,32 +330,33 @@ function FramingBlock({ type, format, intro, fix, state, confirmed, busy, onSubm
     onSubmit({ type, outcome, issues: [] });
     setMode(outcome === "CORRETO" ? "check" : "fix");
   };
+  const badge = FRAMING_BADGE[state];
   return (
     <div className="stack">
       <StepContent step={intro} format={format} />
       <div className="row between">
-        <strong>Situação da tela do {EQ[type]}</strong>
-        <span className={`badge ${state === "CORRETO" ? "ok" : state === "NAO_VERIFICADO" ? "" : "bad"}`}>{state === "CORRETO" ? "Você confirmou: correto" : state === "INCORRETO" ? "Ajuste necessário" : state === "PRECISA_SUPORTE" ? "Suporte solicitado" : "Não verificado"}</span>
+        <h4 style={{ margin: 0 }}>Situação da tela do {EQ[type]}</h4>
+        <span className={`badge ${badge.tone}`}><Icon name={badge.icon} />{badge.text}</span>
       </div>
-      {state === "CORRETO" && <div className="alert info small">Obrigado! Sua confirmação será conferida pela equipe da Intelite a partir das fotos. {confirmed && <strong>A equipe já confirmou este equipamento.</strong>}</div>}
+      {state === "CORRETO" && <Alert tone="info">Obrigado! Sua confirmação será conferida pela equipe da Intelite a partir das fotos. {confirmed && <strong>A equipe já confirmou este equipamento.</strong>}</Alert>}
 
       {mode === "check" && (
         <div className="stack">
           <div className="subcard stack">
-            <h3 style={{ margin: 0 }}>O que precisa estar correto na tela do {EQ[type]}</h3>
+            <h4 style={{ margin: 0 }}>O que precisa estar correto na tela do {EQ[type]}</h4>
             <ul className="info-list">{CRITERIA[type].map((c) => <li key={c}>{c}</li>)}</ul>
           </div>
-          <button className="btn primary block" disabled={busy} onClick={() => send("CORRETO")}>Está tudo certo na tela do {EQ[type]}</button>
-          <button className="btn block" disabled={busy} onClick={() => send("INCORRETO")}>Minha tela está cortada ou desalinhada</button>
+          <button type="button" className="btn primary block" disabled={busy} onClick={() => send("CORRETO")}>Está tudo certo na tela do {EQ[type]}</button>
+          <button type="button" className="btn block" disabled={busy} onClick={() => send("INCORRETO")}>Minha tela está cortada ou desalinhada</button>
         </div>
       )}
 
       {mode === "fix" && (
         <div className="stack">
-          <h3 style={{ margin: 0 }}>Minha tela está cortada ou desalinhada</h3>
+          <h4 style={{ margin: 0 }}>Minha tela está cortada ou desalinhada</h4>
           <StepContent step={fix} format={format} />
-          <button className="btn primary block" disabled={busy} onClick={() => setMode("check")}>Já fiz o ajuste. Conferir a tela de novo</button>
-          <button className="btn block" disabled={busy || state === "PRECISA_SUPORTE"} onClick={() => send("PRECISA_SUPORTE")}>{state === "PRECISA_SUPORTE" ? "Suporte solicitado" : "Não consegui. Preciso de suporte"}</button>
+          <button type="button" className="btn primary block" disabled={busy} onClick={() => setMode("check")}>Já fiz o ajuste. Conferir a tela de novo</button>
+          <button type="button" className="btn block" disabled={busy || state === "PRECISA_SUPORTE"} onClick={() => send("PRECISA_SUPORTE")}>{state === "PRECISA_SUPORTE" ? "Suporte solicitado" : "Não consegui. Preciso de suporte"}</button>
         </div>
       )}
     </div>
@@ -269,10 +366,15 @@ function FramingBlock({ type, format, intro, fix, state, confirmed, busy, onSubm
 // ───────── fotos ─────────
 
 function Photos({ view, content, format, run, onView }: { view: View; content?: PublicStep; format: Format; run: Run; onView: (v: View) => void }) {
-  const upload = (type: Eq, file: File) => run(async () => {
-    const form = new FormData(); form.set("type", type); form.set("file", file);
-    onView(await api<View>("/api/submissions/me/photos", { form }));
-  });
+  const [uploading, setUploading] = useState<Eq | null>(null);
+  const upload = async (type: Eq, file: File) => {
+    setUploading(type);
+    await run(async () => {
+      const form = new FormData(); form.set("type", type); form.set("file", file);
+      onView(await api<View>("/api/submissions/me/photos", { form }));
+    });
+    setUploading(null);
+  };
   return (
     <div className="stack">
       <StepContent step={content} format={format} />
@@ -281,13 +383,23 @@ function Photos({ view, content, format, run, onView }: { view: View; content?: 
         const last = list[list.length - 1];
         return (
           <div className="subcard stack" key={t}>
-            <h3 style={{ margin: 0 }}>Foto do {EQ[t]}</h3>
-            {last?.review === "REFAZER" && <div className="alert warn" role="alert"><strong>A equipe pediu outra foto: </strong>{last.reviewNote}</div>}
-            <div className="row">{list.map((p) => (
-              <figure key={p.id} style={{ width: 110, margin: 0 }}><img className="refimg" src={`/api/photos/${p.id}`} alt={`Foto do ${EQ[t]} enviada`} /><figcaption>{p.review === "APROVADA" ? "Aprovada" : p.review === "REFAZER" ? "Refazer" : "Em análise"}</figcaption></figure>
-            ))}</div>
-            <label className="btn primary" style={{ cursor: "pointer" }}>{last && last.review !== "REFAZER" ? "Enviar outra foto" : "Tirar ou escolher foto"}
-              <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="visually-hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(t, f); e.target.value = ""; }} /></label>
+            <h4 style={{ margin: 0 }}>Foto do {EQ[t]}</h4>
+            {last?.review === "REFAZER" && <Alert tone="warn" role="alert"><strong>A equipe pediu outra foto: </strong><span className="user-text">{last.reviewNote}</span></Alert>}
+            {list.length > 0 && (
+              <ul className="row" style={{ listStyle: "none", margin: 0, padding: 0, alignItems: "flex-start" }}>
+                {list.map((p) => (
+                  <li key={p.id} style={{ width: 110 }}>
+                    <figure><img className="refimg" src={`/api/photos/${p.id}`} alt={`Foto do ${EQ[t]} enviada`} /><figcaption>{p.review === "APROVADA" ? "Aprovada" : p.review === "REFAZER" ? "Refazer" : "Em análise"}</figcaption></figure>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <label className="btn primary" aria-disabled={uploading !== null}>
+              {uploading === t ? <><span className="spinner" aria-hidden /> Enviando…</> : <><Icon name="camera" size={18} /> {last && last.review !== "REFAZER" ? "Enviar outra foto" : "Tirar ou escolher foto"}</>}
+              <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="visually-hidden" disabled={uploading !== null}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(t, f); e.target.value = ""; }} />
+            </label>
+            <p role="status" className="muted small" style={{ margin: 0 }}>{uploading === t ? "Enviando a foto…" : ""}</p>
           </div>
         );
       })}
@@ -302,25 +414,43 @@ function Finish({ view, run, onView, submitted, onNew }: { view: View; run: Run;
   const [hardest, setHardest] = useState("");
   const [comment, setComment] = useState("");
   const s = view.submission;
-  const label = (f: Framing, conf: boolean) => (conf ? "Confirmado pela equipe" : f === "CORRETO" ? "Declarado correto (aguardando equipe)" : f === "INCORRETO" ? "Com problema informado" : f === "PRECISA_SUPORTE" ? "Suporte solicitado" : "Não verificado");
+  const summary = (f: Framing, conf: boolean): { tone: string; icon: IconName; text: string } =>
+    conf ? { tone: "ok", icon: "checkCircle", text: "Confirmado pela equipe" }
+    : f === "CORRETO" ? { tone: "info", icon: "clock", text: "Declarado correto (aguardando equipe)" }
+    : f === "INCORRETO" ? { tone: "bad", icon: "alert", text: "Ajuste necessário" }
+    : f === "PRECISA_SUPORTE" ? { tone: "bad", icon: "alert", text: "Suporte solicitado" }
+    : { tone: "", icon: "clock", text: "Não verificado" };
   return (
     <div className="stack">
-      <div className="stack"><h3 style={{ margin: 0 }}>Resumo</h3>
-        <div className="row between"><span>Totem</span><span className="badge">{label(s.totemFraming, s.totemConfirmed)}</span></div>
-        <div className="row between"><span>Painel</span><span className="badge">{label(s.painelFraming, s.painelConfirmed)}</span></div>
+      <div className="stack">
+        <h4 style={{ margin: 0 }}>Resumo</h4>
+        {([["Totem", summary(s.totemFraming, s.totemConfirmed)], ["Painel", summary(s.painelFraming, s.painelConfirmed)]] as const).map(([name, b]) => (
+          <div key={name} className="row between"><span>{name}</span><span className={`badge ${b.tone}`}><Icon name={b.icon} />{b.text}</span></div>
+        ))}
       </div>
       {submitted ? (
-        <div className="alert ok"><strong>Recebemos o seu envio. Obrigado!</strong><br />
+        <Alert tone="ok" role="status">
+          <strong>Recebemos o seu envio. Obrigado!</strong><br />
           {s.status === "APROVADO" ? "A equipe confirmou a atualização." : s.status === "PRECISA_AJUSTE" ? "A equipe pediu um ajuste. Veja o aviso no topo da página." : "A equipe da Intelite vai analisar as fotos e confirmar. Se precisar de algo, avisaremos aqui: guarde este link."}
-          <div style={{ marginTop: 12 }}><button className="btn sm" onClick={() => confirm("Iniciar um novo envio neste aparelho (por exemplo, outra loja)? O envio atual continua registrado.") && run(onNew)}>Iniciar outro envio (outra loja ou equipamento)</button></div></div>
+          <div style={{ marginTop: 12 }}><button type="button" className="btn sm" onClick={() => confirm("Iniciar um novo envio neste aparelho (por exemplo, outra loja)? O envio atual continua registrado.") && run(onNew)}>Iniciar outro envio (outra loja ou equipamento)</button></div>
+        </Alert>
       ) : (
         <div className="stack">
-          <h3 style={{ margin: 0 }}>Como foi a experiência?</h3>
-          <div className="stars" role="radiogroup" aria-label="Nota de 1 a 5">{[1, 2, 3, 4, 5].map((n) => <button key={n} role="radio" aria-checked={rating === n} aria-label={`${n} de 5`} className={n <= rating ? "on" : ""} onClick={() => setRating(n)}>★</button>)}</div>
+          <fieldset className="stars">
+            <legend>Como foi a experiência? Nota de 1 a 5</legend>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <label key={n} className={`opt ${n <= rating ? "on" : ""}`}>
+                <input type="radio" name="nota" value={n} checked={rating === n} onChange={() => setRating(n)} />
+                <Icon name="star" filled={n <= rating} />
+                <span className="visually-hidden">{n} de 5</span>
+              </label>
+            ))}
+          </fieldset>
           <label className="field"><span>Qual etapa foi mais difícil? (opcional)</span>
             <select value={hardest} onChange={(e) => setHardest(e.target.value)}><option value="">Nenhuma</option>{STEPS.slice(1, LAST).map((st) => <option key={st.key} value={st.title}>{st.title}</option>)}</select></label>
           <label className="field"><span>Comentário (opcional)</span><textarea value={comment} maxLength={2000} onChange={(e) => setComment(e.target.value)} /></label>
-          <button className="btn primary block" disabled={rating === 0} onClick={() => run(async () => onView(await api<View>("/api/submissions/me/submit", { body: { rating, comment: comment || undefined, hardestStep: hardest || undefined } })))}>Enviar</button>
+          <button type="button" className="btn primary block" disabled={rating === 0} onClick={() => run(async () => onView(await api<View>("/api/submissions/me/submit", { body: { rating, comment: comment || undefined, hardestStep: hardest || undefined } })))}>Enviar</button>
+          {rating === 0 && <p className="hint">Escolha uma nota para habilitar o envio.</p>}
         </div>
       )}
     </div>

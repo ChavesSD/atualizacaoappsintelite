@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { use, useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/client-api";
 import { FRAMING_LABEL, STATUS_LABEL } from "@/lib/flow";
+import { Icon } from "@/components/ui";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const REVIEW: Record<string, string> = { PENDENTE: "A analisar", APROVADA: "Aprovada", REFAZER: "Nova foto solicitada" };
@@ -25,8 +26,8 @@ export default function EnvioPage({ params }: { params: Promise<{ id: string }> 
 
   return (
     <div className="stack">
-      <p><Link href="/admin">← Envios</Link></p>
-      <div className="row between"><div><h1 style={{ marginBottom: 0 }}>{s.contactName}</h1><div className="muted">{s.company}</div></div>
+      <p><Link href="/admin" className="row" style={{ display: "inline-flex", gap: 4 }}><Icon name="arrowLeft" size={16} /> Voltar para os envios</Link></p>
+      <div className="row between"><div><h1 style={{ marginBottom: 0 }} className="user-text">{s.contactName}</h1><div className="muted user-text">{s.company}</div></div>
         <span className="badge info">{STATUS_LABEL[s.status as keyof typeof STATUS_LABEL]}</span></div>
       {error && <div className="alert bad" role="alert">{error}</div>}
       {s.helpRequested && (

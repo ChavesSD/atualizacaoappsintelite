@@ -2,6 +2,7 @@
 import { Fragment, useState } from "react";
 import { TUTORIAL_VIDEOS, isTutorialVideo, videoPoster, videoSrc, type TutorialVideo } from "@/lib/videos";
 import { DownloadOptions } from "./DownloadOptions";
+import { Alert, Icon } from "./ui";
 
 export interface PublicStep {
   key: string;
@@ -18,13 +19,13 @@ interface PlayerVideo { kind: "embed" | "file"; src: string; title: string; post
 export function Video({ video }: { video: PlayerVideo }) {
   const [on, setOn] = useState(false);
   const [failed, setFailed] = useState(false);
-  if (failed) return <div className="alert warn" role="alert">Não foi possível reproduzir o vídeo agora. Siga as instruções escritas abaixo.</div>;
+  if (failed) return <Alert tone="warn" role="alert">Não foi possível reproduzir o vídeo agora. Siga as instruções escritas abaixo.</Alert>;
   return (
     <figure style={{ margin: 0 }}>
       <div className="video">
         {!on ? (
           <button type="button" className="poster" style={video.poster ? { backgroundImage: `url(${video.poster})` } : undefined} onClick={() => setOn(true)} aria-label={`Reproduzir vídeo: ${video.title}`}>
-            <span className="play" aria-hidden>▶</span>
+            <span className="play" aria-hidden><Icon name="play" /></span>
           </button>
         ) : video.kind === "file" ? (
           <video controls autoPlay playsInline preload="metadata" poster={video.poster} onError={() => setFailed(true)} aria-label={video.title}><source src={video.src} type="video/mp4" /></video>
@@ -75,7 +76,7 @@ const VIDEO_TOKEN = /^\[\[video:([a-z]+)\]\]$/;
 const DOWNLOAD_TOKEN = /^\[\[downloads:(totem|painel)\]\]$/;
 
 export function StepContent({ step, format }: { step: PublicStep | undefined; format: "TEXTO" | "VIDEO" }) {
-  if (!step) return <div className="alert info">O conteúdo desta etapa ainda está sendo preparado pela equipe da Intelite.</div>;
+  if (!step) return <Alert tone="info">O conteúdo desta etapa ainda está sendo preparado pela equipe da Intelite.</Alert>;
   const hasInlineVideo = step.instructions.some((l) => {
     const m = VIDEO_TOKEN.exec(l);
     return !!m && isTutorialVideo(m[1]);
@@ -83,10 +84,10 @@ export function StepContent({ step, format }: { step: PublicStep | undefined; fo
   return (
     <div className="stack">
       {format === "VIDEO" && step.video && <Video video={step.video} />}
-      {format === "VIDEO" && !step.video && !hasInlineVideo && <div className="alert info small">Esta etapa ainda não tem vídeo. Siga as instruções escritas.</div>}
+      {format === "VIDEO" && !step.video && !hasInlineVideo && <Alert tone="info">Esta etapa ainda não tem vídeo. Siga as instruções escritas.</Alert>}
       {toBlocks(step.instructions).map((b, bi) => (
         <div key={bi} className="stack">
-          {b.heading && <h3 style={{ margin: 0 }}>{b.heading}</h3>}
+          {b.heading && <h4 style={{ margin: 0 }}>{b.heading}</h4>}
           <ol className="steps">
             {b.items.map((t, i) => {
               const v = VIDEO_TOKEN.exec(t);
@@ -103,7 +104,7 @@ export function StepContent({ step, format }: { step: PublicStep | undefined; fo
           </ol>
         </div>
       ))}
-      {step.warning && <div className="alert warn small" role="note"><strong>Atenção: </strong><Inline text={step.warning} /></div>}
+      {step.warning && <Alert tone="warn" role="note"><strong>Atenção: </strong><Inline text={step.warning} /></Alert>}
       {step.imagePath && <img className="refimg" loading="lazy" src={`/api/assets/${step.imagePath}`} alt={`Imagem de referência: ${step.title}`} />}
     </div>
   );

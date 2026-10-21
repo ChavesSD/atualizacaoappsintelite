@@ -9,6 +9,9 @@ export interface StatRow {
   helpRequested: boolean;
   helpResolved: boolean;
   pendingPhotos: number;
+  totemUpdated: boolean;
+  painelUpdated: boolean;
+  photoCount: number;
 }
 
 const pct = (n: number, d: number) => (d === 0 ? null : Math.round((n / d) * 1000) / 10);
@@ -18,6 +21,24 @@ const pct = (n: number, d: number) => (d === 0 ? null : Math.round((n / d) * 100
  * no formato inicial (a quantidade de trocas aparece à parte).
  * "Confirmado" = confirmado pela equipe, não apenas declarado pelo cliente.
  */
+/**
+ * Funil: quantos clientes chegaram a cada etapa, derivado dos campos do envio (nada é estimado).
+ * Mostra onde o tutorial perde gente (ex.: muita gente atualiza o totem mas não confere a tela).
+ */
+export function computeFunnel(rows: StatRow[]): { label: string; count: number }[] {
+  const stages: [string, (r: StatRow) => boolean][] = [
+    ["Iniciaram", () => true],
+    ["Escolheram o formato", (r) => r.initialFormat !== null],
+    ["Atualizaram o totem", (r) => r.totemUpdated],
+    ["Conferiram a tela do totem", (r) => r.totemFraming !== "NAO_VERIFICADO"],
+    ["Atualizaram o painel", (r) => r.painelUpdated],
+    ["Conferiram a tela do painel", (r) => r.painelFraming !== "NAO_VERIFICADO"],
+    ["Enviaram as fotos", (r) => r.photoCount >= 2],
+    ["Concluíram o envio", (r) => r.status !== "EM_ANDAMENTO"],
+  ];
+  return stages.map(([label, ok]) => ({ label, count: rows.filter(ok).length }));
+}
+
 export function computeStats(rows: StatRow[]) {
   const total = rows.length;
   const done = (r: StatRow) => r.status === "ENVIADO" || r.status === "APROVADO" || r.status === "PRECISA_AJUSTE";
@@ -29,6 +50,7 @@ export function computeStats(rows: StatRow[]) {
   };
   return {
     total,
+    funil: computeFunnel(rows),
     emAndamento: rows.filter((r) => r.status === "EM_ANDAMENTO").length,
     enviados: rows.filter((r) => r.status === "ENVIADO").length,
     aprovados: rows.filter((r) => r.status === "APROVADO").length,

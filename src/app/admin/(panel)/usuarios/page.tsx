@@ -28,7 +28,8 @@ export default function UsuariosPage() {
       {msg && <div className={`alert ${msg.ok ? "ok" : "bad"}`} role="status">{msg.text}</div>}
       <div className="card tablewrap">
         <table>
-          <thead><tr><th>Nome</th><th>E-mail</th><th>Situação</th><th /></tr></thead>
+          <caption className="visually-hidden">Usuários do administrador</caption>
+          <thead><tr><th scope="col">Nome</th><th scope="col">E-mail</th><th scope="col">Situação</th><th scope="col"><span className="visually-hidden">Ações</span></th></tr></thead>
           <tbody>
             {users?.map((u) => (
               <tr key={u.id}><td>{u.name}</td><td>{u.email}</td><td><span className={`badge ${u.active ? "ok" : ""}`}>{u.active ? "ativo" : "desativado"}</span></td>

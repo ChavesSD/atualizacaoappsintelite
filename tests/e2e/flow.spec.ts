@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
-const next = (p: Page) => p.getByRole("button", { name: "Continuar →" }).click();
+const next = (p: Page) => p.getByRole("button", { name: "Continuar" }).click();
 const head = (p: Page, name: string) => p.getByRole("button", { name: new RegExp(name) });
 
 test("downloads dos aplicativos: opções, download direto com Range e links editáveis", async ({ request }) => {
@@ -68,8 +68,8 @@ test("página única em sanfona: cliente conclui no celular; equipe confirma; in
   // formato (sanfona abre sozinha na etapa atual; só uma aberta por vez)
   await expect(head(page, "Formato do tutorial")).toHaveAttribute("aria-expanded", "true");
   await expect(head(page, "Atualizar o totem")).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Continuar →" })).toBeDisabled();
-  await page.getByRole("button", { name: /Tutorial em vídeo/ }).click();
+  await expect(page.getByRole("button", { name: "Continuar" })).toBeDisabled();
+  await page.getByRole("radio", { name: /Tutorial em vídeo/ }).click();
   await next(page);
 
   // totem — conteúdo oficial, troca de formato sem perder a etapa
@@ -87,17 +87,17 @@ test("página única em sanfona: cliente conclui no celular; equipe confirma; in
   // o texto escrito segue o mesmo caminho dos vídeos
   await expect(page.getByText("Mostrar apps do sistema")).toBeVisible();
   await expect(page.getByText("Fazer o download mesmo assim")).toBeVisible();
-  await page.getByRole("group", { name: "Alternar formato" }).getByRole("button", { name: /Texto/ }).click();
+  await page.getByRole("group", { name: "Alternar formato" }).getByRole("radio", { name: /Texto/ }).click();
   await expect(page.getByRole("button", { name: /Reproduzir vídeo/ })).toHaveCount(0); // texto: sem vídeos
   await expect(page.getByText("Mostrar apps do sistema")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Continuar →" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Continuar" })).toBeDisabled();
   await page.getByLabel(/Concluí a atualização do totem/).click();
   await expect(page.getByLabel(/Concluí a atualização do totem/)).toBeChecked();
   await next(page);
 
   // enquadramento do totem: problema → instruções → conferir de novo
   await expect(head(page, "Conferir a tela do totem")).toHaveAttribute("aria-expanded", "true");
-  await expect(page.getByRole("button", { name: "Continuar →" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Continuar" })).toBeDisabled();
   // lista informativa: nada para marcar
   await expect(page.getByText("O que precisa estar correto na tela do totem")).toBeVisible();
   await expect(page.getByText("Os botões aparecem inteiros e podem ser usados normalmente.")).toBeVisible();
@@ -105,7 +105,7 @@ test("página única em sanfona: cliente conclui no celular; equipe confirma; in
   await page.getByRole("button", { name: "Minha tela está cortada ou desalinhada" }).click(); // vai direto ao tutorial de ajuste
   await expect(page.getByText("Ajuste necessário")).toBeVisible();
   await expect(page.getByText("Ainda não temos um ajuste padrão para a tela do totem")).toBeVisible(); // sem ajuste técnico inventado: orienta a pedir suporte
-  await expect(page.getByRole("button", { name: "Continuar →" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Continuar" })).toBeDisabled();
   await page.getByRole("button", { name: /Já fiz o ajuste/ }).click();
   await page.getByRole("button", { name: /Está tudo certo na tela do totem/ }).click();
   await expect(page.getByText(/Sua confirmação será conferida pela equipe/)).toBeVisible(); // declarado ≠ confirmado
@@ -130,7 +130,7 @@ test("página única em sanfona: cliente conclui no celular; equipe confirma; in
 
   // fotos
   await expect(head(page, "Enviar as fotos")).toHaveAttribute("aria-expanded", "true");
-  await expect(page.getByRole("button", { name: "Continuar →" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Continuar" })).toBeDisabled();
   await page.locator("input[type=file]").nth(0).setInputFiles({ name: "t.png", mimeType: "image/png", buffer: PNG });
   await expect(page.getByAltText("Foto do totem enviada")).toBeVisible();
   await page.locator("input[type=file]").nth(1).setInputFiles({ name: "p.png", mimeType: "image/png", buffer: PNG });
@@ -173,7 +173,7 @@ test("página única em sanfona: cliente conclui no celular; equipe confirma; in
   expect(body).toContain("Empresa Teste");
   expect(body).not.toContain("Síntese de Voz");
 
-  await admin.getByRole("link", { name: "Abrir" }).click();
+  await admin.getByRole("row", { name: /Empresa Teste/ }).getByRole("link", { name: /Abrir/ }).click();
   await expect(admin.getByRole("heading", { name: /Maria/ })).toBeVisible();
   await admin.getByRole("button", { name: /Confirmar enquadramento do totem/ }).click();
   await expect(admin.getByText(/Aprove a foto do totem antes de confirmar/)).toBeVisible();
@@ -233,13 +233,21 @@ test("página única em sanfona: cliente conclui no celular; equipe confirma; in
   await admin.getByRole("button", { name: "Salvar" }).click();
   await expect(admin.getByText("Senha alterada.")).toBeVisible();
 
+  // volta à senha original para não afetar os demais testes
+  await admin.reload();
+  await admin.getByLabel("Senha atual").fill("outra-senha-e2e-9876");
+  await admin.getByLabel("Nova senha (mín. 10 caracteres)").fill("senha-e2e-123456");
+  await admin.getByLabel("Repita a nova senha").fill("senha-e2e-123456");
+  await admin.getByRole("button", { name: "Salvar" }).click();
+  await expect(admin.getByText("Senha alterada.")).toBeVisible();
+
   // excluir o envio (LGPD)
   await admin.goto("/admin");
-  await admin.getByRole("link", { name: "Abrir" }).click();
+  await admin.getByRole("row", { name: /Empresa Teste/ }).getByRole("link", { name: /Abrir/ }).click();
   admin.once("dialog", (d) => d.accept());
   await admin.getByRole("button", { name: "Excluir envio" }).click();
   await expect(admin.getByRole("heading", { name: "Envios" })).toBeVisible();
-  await expect(admin.getByText("Nenhum envio encontrado.")).toBeVisible();
+  await expect(admin.getByText("Ainda não há envios.")).toBeVisible();
 });
 
 test("cliente com várias lojas: reiniciar começa um envio novo e mantém o anterior", async ({ request }) => {
