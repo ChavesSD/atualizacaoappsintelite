@@ -54,6 +54,11 @@ export function DownloadOptions({ app }: { app: "totem" | "painel" }) {
             <Icon name="download" size={18} />
           </a>
         )}
+        {info.direct && (
+          <p className="muted small" style={{ margin: 0 }}>
+            <strong>Atenção:</strong> com o download direto, o arquivo (APK) fica no computador em que você baixou. Para instalar no Mini PC, copie o APK para um pendrive e conecte o pendrive ao Mini PC.
+          </p>
+        )}
       </div>
     </div>
   );
