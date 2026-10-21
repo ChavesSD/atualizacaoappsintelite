@@ -3,7 +3,42 @@ import { expect, test, type Page } from "@playwright/test";
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
 const next = (p: Page) => p.getByRole("button", { name: "Continuar →" }).click();
 const head = (p: Page, name: string) => p.getByRole("button", { name: new RegExp(name) });
-const checkAll = async (p: Page) => { for (const b of await p.locator(".acc-body label.check input[type=checkbox]").all()) await b.check(); };
+
+test("downloads dos aplicativos: opções, download direto com Range e links editáveis", async ({ request }) => {
+  const list = await (await request.get("/api/downloads")).json();
+  const totem = list.find((x: { app: string }) => x.app === "totem");
+  expect(totem.links).toEqual(["https://bit.ly/aitotem26", "https://shre.ink/aitotem26"]);
+  expect(totem.direct).toBe("/api/download/totem");
+  expect(totem.sizeBytes).toBeGreaterThan(1_000_000);
+
+  const full = await request.get("/api/download/totem");
+  expect(full.status()).toBe(200);
+  expect(full.headers()["content-type"]).toBe("application/vnd.android.package-archive");
+  expect(full.headers()["content-disposition"]).toContain('filename="AI_Totem_26.10.apk"');
+  expect(full.headers()["accept-ranges"]).toBe("bytes");
+  const body = await full.body();
+  expect(body.length).toBe(totem.sizeBytes);
+  expect(body.subarray(0, 2).toString()).toBe("PK"); // APK é um ZIP
+
+  // retomar download: Range
+  const part = await request.get("/api/download/painel", { headers: { Range: "bytes=0-3" } });
+  expect(part.status()).toBe(206);
+  expect(part.headers()["content-range"]).toMatch(/^bytes 0-3\/\d+$/);
+  expect((await part.body()).toString()).toBe("PK\u0003\u0004");
+  expect((await request.get("/api/download/painel", { headers: { Range: "bytes=999999999-" } })).status()).toBe(416);
+  expect((await request.get("/api/download/outro")).status()).toBe(404);
+
+  // links editáveis só pelo admin, somente https
+  expect((await request.put("/api/admin/settings", { data: { downloadLinks: { totem: [], painel: [] } } })).status()).toBe(401);
+  const login = await request.post("/api/admin/login", { data: { email: "admin@intelite.local", password: "senha-e2e-123456" } });
+  expect(login.status()).toBe(200);
+  expect((await request.put("/api/admin/settings", { data: { downloadLinks: { totem: ["http://inseguro.com/x"], painel: [] } } })).status()).toBe(400);
+  const ok = await request.put("/api/admin/settings", { data: { downloadLinks: { totem: ["bit.ly/novo-totem"], painel: ["bit.ly/aipainel26"] } } });
+  expect(ok.status()).toBe(200);
+  expect((await (await request.get("/api/downloads")).json()).find((x: { app: string }) => x.app === "totem").links).toEqual(["https://bit.ly/novo-totem"]);
+  // restaura os padrões para não afetar os demais testes
+  await request.put("/api/admin/settings", { data: { downloadLinks: { totem: ["bit.ly/aitotem26", "shre.ink/aitotem26"], painel: ["bit.ly/aipainel26", "shre.ink/aipainel26"] } } });
+});
 
 test("página única em sanfona: cliente conclui no celular; equipe confirma; indicadores refletem", async ({ page, browser }) => {
   await page.goto("/");
@@ -28,7 +63,9 @@ test("página única em sanfona: cliente conclui no celular; equipe confirma; in
   // totem — conteúdo oficial, troca de formato sem perder a etapa
   await expect(head(page, "Atualizar o totem")).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByText("Remover a versão anterior")).toBeVisible();
-  await expect(page.getByRole("link", { name: "bit.ly/totem2026" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /bit\.ly\/aitotem26/ })).toBeVisible(); // opção 1
+  await expect(page.getByRole("link", { name: /shre\.ink\/aitotem26/ })).toBeVisible(); // opção 2
+  await expect(page.getByRole("link", { name: /Baixar direto desta página/ })).toBeVisible(); // opção 3
   await expect(page.getByText("Esta etapa ainda não tem vídeo")).toBeVisible();
   await page.getByRole("group", { name: "Alternar formato" }).getByRole("button", { name: /Texto/ }).click();
   await expect(page.getByText("Esta etapa ainda não tem vídeo")).toHaveCount(0);
@@ -40,14 +77,15 @@ test("página única em sanfona: cliente conclui no celular; equipe confirma; in
   // enquadramento do totem: problema → instruções → conferir de novo
   await expect(head(page, "Conferir a tela do totem")).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByRole("button", { name: "Continuar →" })).toBeDisabled();
-  await page.getByRole("button", { name: "Minha tela está cortada ou desalinhada" }).click();
-  await page.getByLabel("Texto cortado").check();
-  await page.getByRole("button", { name: "Ver como corrigir" }).click();
-  await expect(page.getByText("Problema informado")).toBeVisible();
+  // lista informativa: nada para marcar
+  await expect(page.getByText("O que precisa estar correto na tela do totem")).toBeVisible();
+  await expect(page.getByText("Os botões aparecem inteiros e podem ser usados normalmente.")).toBeVisible();
+  await expect(page.locator(".acc-body input[type=checkbox]")).toHaveCount(0);
+  await page.getByRole("button", { name: "Minha tela está cortada ou desalinhada" }).click(); // vai direto ao tutorial de ajuste
+  await expect(page.getByText("Ajuste necessário")).toBeVisible();
   await expect(page.getByText("Ainda não temos um ajuste padrão para a tela do totem")).toBeVisible(); // sem ajuste técnico inventado: orienta a pedir suporte
   await expect(page.getByRole("button", { name: "Continuar →" })).toBeDisabled();
   await page.getByRole("button", { name: /Já fiz o ajuste/ }).click();
-  await checkAll(page);
   await page.getByRole("button", { name: /Está tudo certo na tela do totem/ }).click();
   await expect(page.getByText(/Sua confirmação será conferida pela equipe/)).toBeVisible(); // declarado ≠ confirmado
   await next(page);
@@ -55,18 +93,17 @@ test("página única em sanfona: cliente conclui no celular; equipe confirma; in
   // painel: atualização → conferência
   await expect(head(page, "Atualizar o painel")).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByText("Remover a versão anterior")).toBeVisible();
+  await expect(page.getByRole("link", { name: /shre\.ink\/aipainel26/ })).toBeVisible();
   await expect(page.getByText("Síntese de Voz")).toHaveCount(0); // etapa retirada
   await expect(head(page, "Conferir a tela do painel")).toBeDisabled();
   await page.getByLabel(/Concluí a atualização do painel/).click();
   await expect(page.getByLabel(/Concluí a atualização do painel/)).toBeChecked();
   await next(page);
   await expect(head(page, "Conferir a tela do painel")).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByText("Os números das senhas estão totalmente visíveis.")).toBeVisible();
   await page.getByRole("button", { name: "Minha tela está cortada ou desalinhada" }).click();
-  await page.getByLabel("Senha cortada").check();
-  await page.getByRole("button", { name: "Ver como corrigir" }).click();
-  await expect(page.getByText("Ajustar a proporção da tela (TV Box SmartPRO)")).toBeVisible(); // procedimento oficial cadastrado
+  await expect(page.getByText("Ajustar a proporção da tela (TV Box SmartPRO)")).toBeVisible(); // tutorial de ajuste do painel
   await page.getByRole("button", { name: /Já fiz o ajuste/ }).click();
-  await checkAll(page);
   await page.getByRole("button", { name: /Está tudo certo na tela do painel/ }).click();
   await next(page);
 

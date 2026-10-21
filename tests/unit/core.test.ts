@@ -4,6 +4,7 @@ import { resolveVideo, parseHosts, DEFAULT_VIDEO_HOSTS } from "@/lib/video";
 import { computeStats, type StatRow } from "@/lib/stats";
 import { maxStep } from "@/lib/submissions";
 import { sniffImage } from "@/lib/upload";
+import { parseRange, sanitizeLinks } from "@/lib/downloads";
 
 describe("vídeo", () => {
   const hosts = ["videos.intelite.com.br", ...DEFAULT_VIDEO_HOSTS];
@@ -82,5 +83,38 @@ describe("indicadores", () => {
   });
   it("devolve null (não 0%) sem base", () => {
     expect(computeStats([]).formato.TEXTO.finishRate).toBeNull();
+  });
+});
+
+describe("download direto: Range (retomar download)", () => {
+  it("interpreta intervalos válidos", () => {
+    expect(parseRange(null, 1000)).toBeNull();
+    expect(parseRange("bytes=0-99", 1000)).toEqual({ start: 0, end: 99 });
+    expect(parseRange("bytes=900-", 1000)).toEqual({ start: 900, end: 999 });
+    expect(parseRange("bytes=-100", 1000)).toEqual({ start: 900, end: 999 });
+    expect(parseRange("bytes=0-5000", 1000)).toEqual({ start: 0, end: 999 }); // limita ao tamanho
+  });
+  it("rejeita intervalos inválidos e ignora múltiplos", () => {
+    expect(parseRange("bytes=1000-", 1000)).toBe("invalid");
+    expect(parseRange("bytes=5-2", 1000)).toBe("invalid");
+    expect(parseRange("bytes=-", 1000)).toBe("invalid");
+    expect(parseRange("bytes=-0", 1000)).toBe("invalid");
+    expect(parseRange("abc", 1000)).toBe("invalid");
+    expect(parseRange("bytes=0-1,5-6", 1000)).toBeNull(); // vários intervalos: arquivo inteiro
+  });
+});
+
+describe("links de download", () => {
+  it("aceita https, completa o esquema e remove duplicados", () => {
+    expect(sanitizeLinks(["bit.ly/aitotem26", " https://shre.ink/aitotem26 ", "bit.ly/aitotem26", ""])).toEqual({
+      ok: true,
+      links: ["https://bit.ly/aitotem26", "https://shre.ink/aitotem26"],
+    });
+  });
+  it.each(["http://bit.ly/x", "https://u:p@bit.ly/x", "javascript:alert(1)", "não é link"])("rejeita %s", (l) => {
+    expect(sanitizeLinks([l]).ok).toBe(false);
+  });
+  it("limita a 5 por aplicativo", () => {
+    expect(sanitizeLinks(Array.from({ length: 6 }, (_, i) => "a" + i + ".com")).ok).toBe(false);
   });
 });

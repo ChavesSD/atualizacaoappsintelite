@@ -19,7 +19,7 @@ export default async function setup() {
     ...process.env,
     DATABASE_URL: `postgresql://postgres:postgres@localhost:${PG_PORT}/intelite_e2e`,
     SESSION_SECRET: "e2e-secret-0123456789abcdef0123456789",
-    STORAGE_DRIVER: "local",
+    STORAGE_DRIVER: "db", // caminho de produção no Render
     STORAGE_LOCAL_DIR: path.join(dir, "storage"),
     ADMIN_EMAIL: "admin@intelite.local",
     ADMIN_PASSWORD: "senha-e2e-123456",

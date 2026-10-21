@@ -1,0 +1,39 @@
+# Blueprint do Render: app (Node) + PostgreSQL.
+# Como usar: Render → New → Blueprint → escolha este repositório. O Render pede ADMIN_EMAIL e ADMIN_PASSWORD
+# na criação (valores não ficam no repositório). Os nomes de plano abaixo seguem a documentação atual do Render:
+# confira/ajuste os planos no painel antes de confirmar.
+databases:
+  - name: intelite-db
+    plan: 0.1c-256mb
+    region: ohio
+    databaseName: intelite
+    user: intelite
+    postgresMajorVersion: "17"
+
+services:
+  - type: web
+    name: atualizacao-intelite
+    runtime: node
+    region: ohio # mesma região do banco
+    plan: 0.5c-512mb
+    # --include=dev: o build precisa de TypeScript e do CLI do Prisma (devDependencies).
+    buildCommand: npm ci --include=dev && npx prisma generate && npx next build
+    # Cria/atualiza as tabelas sem apagar dados, garante conteúdo inicial e admin, e sobe o app (usa a PORT do Render).
+    startCommand: npx prisma db push --skip-generate && npx tsx prisma/seed.ts && npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.12.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: intelite-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      # Fotos e imagens ficam no PostgreSQL: o disco do Render é efêmero e se perderia a cada deploy.
+      - key: STORAGE_DRIVER
+        value: db
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false

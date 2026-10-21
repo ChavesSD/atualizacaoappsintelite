@@ -1,5 +1,6 @@
 "use client";
 import { Fragment, useState } from "react";
+import { DownloadOptions } from "./DownloadOptions";
 
 export interface PublicStep {
   key: string;
@@ -35,6 +36,7 @@ export function Video({ video }: { video: NonNullable<PublicStep["video"]> }) {
  *  - `## Título`  → começa um bloco com título (a numeração recomeça)
  *  - `**texto**`  → negrito (nomes de botões e menus)
  *  - `https://…`  → link clicável
+ *  - `[[downloads:totem]]` / `[[downloads:painel]]` → bloco com as opções de download do app
  * Tudo é renderizado como nós React (nunca HTML), então o conteúdo não injeta marcação.
  */
 export function Inline({ text }: { text: string }) {
@@ -72,7 +74,12 @@ export function StepContent({ step, format }: { step: PublicStep | undefined; fo
         <div key={bi} className="stack">
           {b.heading && <h3 style={{ margin: 0 }}>{b.heading}</h3>}
           <ol className="steps">
-            {b.items.map((t, i) => <li key={i}><div className="grow"><Inline text={t} /></div></li>)}
+            {b.items.map((t, i) => {
+              const dl = /^\[\[downloads:(totem|painel)\]\]$/.exec(t);
+              return dl
+                ? <li key={i} className="free"><DownloadOptions app={dl[1] as "totem" | "painel"} /></li>
+                : <li key={i}><div className="grow"><Inline text={t} /></div></li>;
+            })}
           </ol>
         </div>
       ))}

@@ -147,3 +147,11 @@ model AdminUser {
   passwordHash String
   active       Boolean @default(true)
 }
+
+/// Arquivos (fotos e imagens do tutorial) guardados no banco quando STORAGE_DRIVER=db.
+/// Em hospedagens com disco efêmero (ex.: Render sem disco persistente) isso evita perder fotos a cada deploy.
+model FileBlob {
+  key       String   @id
+  data      Bytes
+  createdAt DateTime @default(now())
+}

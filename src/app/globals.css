@@ -200,3 +200,15 @@ dialog::backdrop { background: rgba(0,0,0,.7); }
 .admin-nav .muted { color: rgba(255,255,255,.75); }
 .admin-nav .btn { background: transparent; color: #fff; border-color: rgba(255,255,255,.55); }
 .admin-nav .logo { height: 40px; margin-right: 8px; }
+
+/* ───── opções de download ───── */
+.dl { border: 2px solid var(--brand); border-radius: 12px; padding: 12px; background: var(--brand-soft); }
+.dl .opt { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 12px; border-radius: 10px; background: var(--surface); color: var(--text); border: 1px solid var(--border); text-decoration: none; font-weight: 600; word-break: break-all; }
+.dl .opt:hover { border-color: var(--brand); }
+.dl .opt.direct { background: var(--brand); color: var(--brand-contrast); border-color: var(--brand); }
+.dl .tag { flex: 0 0 auto; font-size: .75rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+.dl .opt.direct .tag { background: rgba(255,255,255,.25); color: inherit; }
+ol.steps > li.free { counter-increment: none; display: block; padding-left: 0; }
+ol.steps > li.free::before { display: none; }
+
+.info-list { padding-left: 20px; display: grid; gap: 6px; list-style: disc; }

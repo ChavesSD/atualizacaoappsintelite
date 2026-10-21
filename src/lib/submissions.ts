@@ -81,13 +81,12 @@ export async function patchSubmission(id: string, p: Patch) {
   if (p.framing) {
     const { type, outcome, issues, notes: n } = p.framing;
     if (outcome === "CORRETO" && issues.length) throw badRequest("Não informe problemas ao declarar a tela correta.");
-    if (outcome === "INCORRETO" && !issues.length) throw badRequest("Informe ao menos um problema observado.");
     const k = type === "TOTEM" ? "totem" : "painel";
     data[`${k}Framing`] = outcome;
     data[`${k}Issues`] = outcome === "CORRETO" ? [] : issues;
     data[`${k}Notes`] = n?.slice(0, 1000) || null;
     data[`${k}Confirmed`] = false; // nova verificação do cliente invalida a confirmação anterior da equipe
-    notes.push(`Tela do ${k}: ${outcome === "CORRETO" ? "declarou correta" : outcome === "INCORRETO" ? `informou problema (${issues.join(", ")})` : "pediu suporte"}.`);
+    notes.push(`Tela do ${k}: ${outcome === "CORRETO" ? "declarou correta" : outcome === "INCORRETO" ? `informou que a tela não está correta${issues.length ? ` (${issues.join(", ")})` : ""}` : "pediu suporte"}.`);
   }
   if (p.help) {
     data.helpRequested = true;

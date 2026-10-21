@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/client-api";
-import { CRITERIA, FIX_KEYS, ISSUES, STEPS } from "@/lib/flow";
+import { CRITERIA, FIX_KEYS, STEPS } from "@/lib/flow";
 import { BrandBar } from "./Brand";
 import { StepContent, type PublicStep } from "./StepContent";
 
@@ -232,14 +232,10 @@ function FramingBlock({ type, format, intro, fix, state, confirmed, busy, onSubm
   type: Eq; format: Format; intro?: PublicStep; fix?: PublicStep; state: Framing; confirmed: boolean; busy: boolean;
   onSubmit: (f: { type: Eq; outcome: "CORRETO" | "INCORRETO" | "PRECISA_SUPORTE"; issues: string[]; notes?: string }) => void;
 }) {
-  const [mode, setMode] = useState<"check" | "problem" | "fix">(state === "INCORRETO" || state === "PRECISA_SUPORTE" ? "fix" : "check");
-  const [ok, setOk] = useState<Record<number, boolean>>({});
-  const [issues, setIssues] = useState<string[]>([]);
-  const [notes, setNotes] = useState("");
-  const crit = CRITERIA[type];
-  const all = crit.every((_, i) => ok[i]);
+  // Com problema aberto, o cliente já vê o tutorial de ajuste; senão, vê a lista do que precisa estar correto.
+  const [mode, setMode] = useState<"check" | "fix">(state === "INCORRETO" || state === "PRECISA_SUPORTE" ? "fix" : "check");
   const send = (outcome: "CORRETO" | "INCORRETO" | "PRECISA_SUPORTE") => {
-    onSubmit({ type, outcome, issues: outcome === "CORRETO" ? [] : issues, notes: notes || undefined });
+    onSubmit({ type, outcome, issues: [] });
     setMode(outcome === "CORRETO" ? "check" : "fix");
   };
   return (
@@ -247,30 +243,18 @@ function FramingBlock({ type, format, intro, fix, state, confirmed, busy, onSubm
       <StepContent step={intro} format={format} />
       <div className="row between">
         <strong>Situação da tela do {EQ[type]}</strong>
-        <span className={`badge ${state === "CORRETO" ? "ok" : state === "NAO_VERIFICADO" ? "" : "bad"}`}>{state === "CORRETO" ? "Você confirmou: correto" : state === "INCORRETO" ? "Problema informado" : state === "PRECISA_SUPORTE" ? "Suporte solicitado" : "Não verificado"}</span>
+        <span className={`badge ${state === "CORRETO" ? "ok" : state === "NAO_VERIFICADO" ? "" : "bad"}`}>{state === "CORRETO" ? "Você confirmou: correto" : state === "INCORRETO" ? "Ajuste necessário" : state === "PRECISA_SUPORTE" ? "Suporte solicitado" : "Não verificado"}</span>
       </div>
       {state === "CORRETO" && <div className="alert info small">Obrigado! Sua confirmação será conferida pela equipe da Intelite a partir das fotos. {confirmed && <strong>A equipe já confirmou este equipamento.</strong>}</div>}
 
       {mode === "check" && (
         <div className="stack">
-          <h3 style={{ margin: 0 }}>Confira a tela agora</h3>
-          {crit.map((c, i) => (
-            <label key={c} className={`check ${ok[i] ? "on" : ""}`}><input type="checkbox" checked={!!ok[i]} onChange={(e) => setOk({ ...ok, [i]: e.target.checked })} /><span>{c}</span></label>
-          ))}
-          <button className="btn primary block" disabled={busy || !all} onClick={() => send("CORRETO")}>Está tudo certo na tela do {EQ[type]}</button>
-          <button className="btn block" disabled={busy} onClick={() => setMode("problem")}>Minha tela está cortada ou desalinhada</button>
-        </div>
-      )}
-
-      {mode === "problem" && (
-        <div className="stack">
-          <h3 style={{ margin: 0 }}>O que você está vendo?</h3>
-          {ISSUES[type].map((i) => (
-            <label key={i} className={`check ${issues.includes(i) ? "on" : ""}`}><input type="checkbox" checked={issues.includes(i)} onChange={(e) => setIssues(e.target.checked ? [...issues, i] : issues.filter((x) => x !== i))} /><span>{i}</span></label>
-          ))}
-          <label className="field"><span>Observações (opcional)</span><textarea value={notes} maxLength={1000} onChange={(e) => setNotes(e.target.value)} /></label>
-          <button className="btn primary block" disabled={busy || issues.length === 0} onClick={() => send("INCORRETO")}>Ver como corrigir</button>
-          <button className="btn block" onClick={() => setMode("check")}>Voltar</button>
+          <div className="subcard stack">
+            <h3 style={{ margin: 0 }}>O que precisa estar correto na tela do {EQ[type]}</h3>
+            <ul className="info-list">{CRITERIA[type].map((c) => <li key={c}>{c}</li>)}</ul>
+          </div>
+          <button className="btn primary block" disabled={busy} onClick={() => send("CORRETO")}>Está tudo certo na tela do {EQ[type]}</button>
+          <button className="btn block" disabled={busy} onClick={() => send("INCORRETO")}>Minha tela está cortada ou desalinhada</button>
         </div>
       )}
 
@@ -278,7 +262,7 @@ function FramingBlock({ type, format, intro, fix, state, confirmed, busy, onSubm
         <div className="stack">
           <h3 style={{ margin: 0 }}>Minha tela está cortada ou desalinhada</h3>
           <StepContent step={fix} format={format} />
-          <button className="btn primary block" disabled={busy} onClick={() => { setOk({}); setMode("check"); }}>Já fiz o ajuste. Conferir a tela de novo</button>
+          <button className="btn primary block" disabled={busy} onClick={() => setMode("check")}>Já fiz o ajuste. Conferir a tela de novo</button>
           <button className="btn block" disabled={busy || state === "PRECISA_SUPORTE"} onClick={() => send("PRECISA_SUPORTE")}>{state === "PRECISA_SUPORTE" ? "Suporte solicitado" : "Não consegui. Preciso de suporte"}</button>
         </div>
       )}

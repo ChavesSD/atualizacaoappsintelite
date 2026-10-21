@@ -1,10 +1,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { db } from "./db";
 
 /**
  * Abstração de armazenamento de arquivos (fotos e imagens de referência).
- * Driver "local" para desenvolvimento. Produção: implemente a mesma interface sobre um bucket S3-compatível
- * (ver docs/ARQUITETURA.md) e selecione com STORAGE_DRIVER.
+ * "local": pasta em disco (desenvolvimento / servidor com disco persistente).
+ * "db": tabela no PostgreSQL (recomendado no Render, onde o disco é efêmero).
+ * Para volumes maiores, implemente a mesma interface sobre um bucket S3-compatível.
  */
 export interface Storage {
   put(key: string, data: Buffer): Promise<void>;
@@ -43,10 +45,28 @@ function localStorage(): Storage {
   };
 }
 
+/** Guarda os arquivos na tabela FileBlob (PostgreSQL). Adequado ao volume deste projeto (fotos de até 12 MB). */
+function dbStorage(): Storage {
+  return {
+    async put(key, data) {
+      const bytes = new Uint8Array(data);
+      await db.fileBlob.upsert({ where: { key }, update: { data: bytes }, create: { key, data: bytes } });
+    },
+    async get(key) {
+      const r = await db.fileBlob.findUnique({ where: { key } });
+      return r ? Buffer.from(r.data) : null;
+    },
+    async remove(key) {
+      await db.fileBlob.deleteMany({ where: { key } });
+    },
+  };
+}
+
 let instance: Storage | undefined;
 export function storage(): Storage {
   if (instance) return instance;
   const driver = process.env.STORAGE_DRIVER ?? "local";
-  if (driver !== "local") throw new Error(`STORAGE_DRIVER "${driver}" não implementado. Veja docs/ARQUITETURA.md.`);
+  if (driver === "db") return (instance = dbStorage());
+  if (driver !== "local") throw new Error(`STORAGE_DRIVER "${driver}" inválido. Use "local" ou "db".`);
   return (instance = localStorage());
 }

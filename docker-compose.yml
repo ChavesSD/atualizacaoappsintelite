@@ -29,11 +29,7 @@ services:
       ADMIN_PASSWORD: troque-esta-senha-do-admin
       # Acesso por HTTP em rede interna: mantenha false. Com HTTPS (proxy reverso), remova esta linha.
       COOKIE_SECURE: "false"
-      STORAGE_DRIVER: local
-      STORAGE_LOCAL_DIR: /data/storage
-    volumes:
-      - photos:/data/storage
+      STORAGE_DRIVER: db
 
 volumes:
   dbdata:
-  photos:
