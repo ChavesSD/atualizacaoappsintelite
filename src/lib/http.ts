@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
-import { FramingTransitionError } from "@/domain/framing";
 
 export class HttpError extends Error {
   constructor(public status: number, message: string) {
@@ -13,7 +12,7 @@ export const forbidden = (m = "Sem permissão para esta ação.") => new HttpErr
 export const notFound = (m = "Não encontrado.") => new HttpError(404, m);
 export const conflict = (m: string) => new HttpError(409, m);
 
-type Handler<C> = (req: Request, ctx: C) => Promise<Response | object>;
+type Handler<C> = (req: Request, ctx: C) => Promise<Response | object | null>;
 
 /** Envolve um handler: valida origem em métodos mutáveis, traduz erros em JSON consistente. */
 export function route<C = { params: Promise<Record<string, string>> }>(fn: Handler<C>) {
@@ -24,7 +23,6 @@ export function route<C = { params: Promise<Record<string, string>> }>(fn: Handl
       return out instanceof Response ? out : NextResponse.json(out);
     } catch (e) {
       if (e instanceof HttpError) return NextResponse.json({ error: e.message }, { status: e.status });
-      if (e instanceof FramingTransitionError) return NextResponse.json({ error: e.message }, { status: 409 });
       if (e instanceof ZodError) {
         return NextResponse.json(
           { error: "Dados inválidos.", details: e.issues.map((i) => `${i.path.join(".") || "corpo"}: ${i.message}`) },

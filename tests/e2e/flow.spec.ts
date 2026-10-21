@@ -1,144 +1,119 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ACCESS_CODE } from "./global-setup";
 
-// PNG 1x1 válido
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+const next = (p: Page) => p.getByRole("button", { name: "Continuar →" }).click();
+const checkAll = async (p: Page) => { for (const b of await p.locator("label.check input[type=checkbox]").all()) await b.check(); };
 
-const next = (p: Page) => p.getByRole("button", { name: /^(Continuar|Concluí esta etapa) →$/ }).click();
-const checkAll = async (p: Page) => {
-  for (const box of await p.locator("label.check input[type=checkbox]").all()) await box.check();
-};
+test("cliente conclui no celular; equipe confirma; indicadores refletem", async ({ page, browser }) => {
+  // dados do cliente (sem login nem código)
+  await page.goto("/");
+  await expect(page.getByLabel("E-mail")).toHaveCount(0); // só nome e empresa
+  await page.getByLabel("Seu nome").fill("Maria");
+  await page.getByLabel("Nome da empresa").fill("Empresa Teste");
+  await page.getByRole("button", { name: "Começar" }).click();
 
-test("cliente completa o fluxo no celular; equipe valida; dashboard reflete", async ({ page, browser }) => {
-  // 1) acesso por código (no fragmento da URL)
-  await page.goto(`/#${ACCESS_CODE}`);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page.getByRole("heading", { name: "Identificar a unidade" })).toBeVisible();
-  await expect(page.getByText("Unidade Demo Centro").first()).toBeVisible();
-  // formato ainda não escolhido: não há seletor
-  await expect(page.getByRole("group", { name: "Alternar formato" })).toHaveCount(0);
-  await next(page);
-
-  // 2) escolha do formato
-  await expect(page.getByRole("heading", { name: "Escolher o formato do tutorial" })).toBeVisible();
-  await expect(page.getByText("Siga as instruções passo a passo, com imagens ilustrativas e orientações objetivas.")).toBeVisible();
-  await expect(page.getByText("Assista à demonstração e acompanhe o procedimento visualmente, observando cada ação.")).toBeVisible();
+  // formato
+  await expect(page.getByRole("heading", { name: "Formato do tutorial" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Continuar →" })).toBeDisabled();
-  await page.screenshot({ path: "test-results/screens/1-formato.png", fullPage: true });
   await page.getByRole("button", { name: /Tutorial em vídeo/ }).click();
   await next(page);
 
-  // 3) atualização do totem — sem vídeo cadastrado, o escrito continua funcionando; alterna sem perder progresso
+  // totem: troca de formato sem perder a etapa; não avança sem marcar
   await expect(page.getByRole("heading", { name: "Atualizar o totem" })).toBeVisible();
   await expect(page.getByText("Esta etapa ainda não tem vídeo")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continuar →" })).toBeDisabled();
   await page.getByRole("group", { name: "Alternar formato" }).getByRole("button", { name: /Texto/ }).click();
-  await expect(page.getByRole("heading", { name: "Atualizar o totem" })).toBeVisible(); // continua na mesma etapa
-  await expect(page.getByText("Esta etapa ainda não tem vídeo")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Atualizar o totem" })).toBeVisible();
+  await page.getByLabel(/Concluí a atualização do totem/).click();
+  await expect(page.getByLabel(/Concluí a atualização do totem/)).toBeChecked();
   await next(page);
 
-  // 4) enquadramento do totem: problema → instruções → ajuste → nova verificação
-  await expect(page.getByRole("heading", { name: "Verificar o enquadramento da tela do totem" })).toBeVisible();
+  // enquadramento do totem: problema → instruções → conferir de novo
+  await expect(page.getByRole("heading", { name: "Conferir a tela do totem" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Continuar →" })).toBeDisabled();
   await page.getByRole("button", { name: "Minha tela está cortada ou desalinhada" }).click();
   await page.getByLabel("Texto cortado").check();
-  await page.getByRole("button", { name: "Ver instruções de correção" }).click();
-  await expect(page.getByText("Ainda não há um procedimento oficial cadastrado")).toBeVisible(); // nada inventado
-  await page.screenshot({ path: "test-results/screens/2-correcao.png", fullPage: true });
-  await expect(page.getByText("Enquadramento incorreto").first()).toBeVisible();
+  await page.getByRole("button", { name: "Ver como corrigir" }).click();
+  await expect(page.getByText("Problema informado")).toBeVisible();
+  await expect(page.getByText("O procedimento oficial desta etapa ainda não foi cadastrado").first()).toBeVisible(); // nada inventado
   await expect(page.getByRole("button", { name: "Continuar →" })).toBeDisabled();
   await page.getByRole("button", { name: /Já fiz o ajuste/ }).click();
-  await expect(page.getByText("Ajuste realizado, aguardando nova verificação").first()).toBeVisible();
   await checkAll(page);
   await page.getByRole("button", { name: /Está tudo certo na tela do totem/ }).click();
-  await expect(page.getByText("Sua confirmação não substitui essa validação")).toBeVisible(); // autodeclaração ≠ validação
-  await expect(page.getByText(/Validação técnica da Intelite:\s*pendente/)).toBeVisible();
+  await expect(page.getByText(/Sua confirmação será conferida pela equipe/)).toBeVisible(); // declarado ≠ confirmado
   await next(page);
 
-  // 5) painel
-  await expect(page.getByRole("heading", { name: "Atualizar o painel de chamadas" })).toBeVisible();
+  // painel
+  await page.getByLabel(/Concluí a atualização do painel/).click();
+  await expect(page.getByLabel(/Concluí a atualização do painel/)).toBeChecked();
   await next(page);
-  await expect(page.getByRole("heading", { name: "Verificar o enquadramento da tela do painel" })).toBeVisible();
-  await expect(page.getByText("Os números das senhas estão totalmente visíveis.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Conferir a tela do painel" })).toBeVisible();
   await checkAll(page);
   await page.getByRole("button", { name: /Está tudo certo na tela do painel/ }).click();
   await next(page);
 
-  // 6) fotos
-  await expect(page.getByRole("heading", { name: "Enviar as fotos dos equipamentos" })).toBeVisible();
+  // fotos
+  await expect(page.getByRole("heading", { name: "Fotos" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Continuar →" })).toBeDisabled();
-  const inputs = page.locator("input[type=file]");
-  await inputs.nth(0).setInputFiles({ name: "totem.png", mimeType: "image/png", buffer: PNG });
+  await page.locator("input[type=file]").nth(0).setInputFiles({ name: "t.png", mimeType: "image/png", buffer: PNG });
   await expect(page.getByAltText("Foto do totem enviada")).toBeVisible();
-  await inputs.nth(1).setInputFiles({ name: "painel.png", mimeType: "image/png", buffer: PNG });
+  await page.locator("input[type=file]").nth(1).setInputFiles({ name: "p.png", mimeType: "image/png", buffer: PNG });
   await expect(page.getByAltText("Foto do painel de chamadas enviada")).toBeVisible();
   await next(page);
 
-  // 7) avaliação
-  await expect(page.getByRole("heading", { name: "Confirmação e avaliação" })).toBeVisible();
+  // enviar
+  await expect(page.getByRole("heading", { name: "Enviar" })).toBeVisible();
   await page.getByRole("radio", { name: "5 de 5" }).click();
-  await page.getByRole("button", { name: "Enviar confirmação e avaliação" }).click();
-  await expect(page.getByText("Recebemos a sua confirmação")).toBeVisible();
-  await expect(page.getByText(/equipe técnica da Intelite vai analisar as fotos/)).toBeVisible(); // ainda NÃO concluída operacionalmente
+  await page.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expect(page.getByText("Recebemos o seu envio")).toBeVisible();
 
-  // progresso persistido: recarregar mantém a etapa
+  // retomar: recarregar mantém o progresso (cookie)
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Confirmação e avaliação" })).toBeVisible();
+  await expect(page.getByText("Recebemos o seu envio")).toBeVisible();
 
-  // 8) equipe técnica
+  // admin
   const admin = await (await browser.newContext({ baseURL: "http://localhost:3200" })).newPage();
   await admin.goto("/admin/login");
-  await admin.getByLabel("E-mail").fill("tecnico@intelite.local");
+  await admin.getByLabel("E-mail").fill("admin@intelite.local");
   await admin.getByLabel("Senha").fill("senha-e2e-123456");
   await admin.getByRole("button", { name: "Entrar" }).click();
-  await expect(admin.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(admin.getByRole("heading", { name: "Envios" })).toBeVisible();
+  await expect(admin.locator(".kpi", { hasText: "Aguardando a equipe" }).locator(".n")).toHaveText("1");
+  await expect(admin.locator(".kpi", { hasText: "Totens confirmados" }).locator(".n")).toHaveText("0"); // declarado ≠ confirmado
 
-  await admin.goto("/admin/unidades");
-  await expect(admin.getByText("Aguardando validação técnica")).toBeVisible();
-  await admin.getByRole("row", { name: /Unidade Demo Centro/ }).getByRole("link", { name: "Abrir" }).click();
-  await expect(admin.getByRole("heading", { name: "Unidade Demo Centro" })).toBeVisible();
+  await admin.getByRole("link", { name: "Abrir" }).click();
+  await expect(admin.getByRole("heading", { name: /Maria/ })).toBeVisible();
+  await admin.getByRole("button", { name: /Confirmar enquadramento do totem/ }).click();
+  await expect(admin.getByText(/Aprove a foto do totem antes de confirmar/)).toBeVisible();
 
-  // não valida sem antes aceitar uma foto
-  await admin.getByRole("button", { name: "Validar enquadramento" }).first().click();
-  await expect(admin.getByText(/aceite ao menos uma fotografia/)).toBeVisible();
+  // pede nova foto do painel, cliente reenvia
+  await admin.getByRole("button", { name: "Pedir nova foto" }).nth(1).click();
+  await admin.getByLabel(/Motivo/).fill("A borda direita não aparece.");
+  await admin.getByRole("button", { name: "Enviar pedido" }).click();
+  await expect(admin.getByText("PRECISA_AJUSTE").or(admin.getByText("Precisa de ajuste")).first()).toBeVisible();
+  await page.reload();
+  await expect(page.getByText(/A equipe pediu uma nova foto do painel/)).toBeVisible();
+  await page.getByRole("button", { name: "Enviar agora" }).click();
+  await expect(page.getByText("A borda direita não aparece.")).toBeVisible();
+  await page.locator("input[type=file]").nth(1).setInputFiles({ name: "p2.png", mimeType: "image/png", buffer: PNG });
+  await expect(page.getByText(/A equipe pediu uma nova foto/)).toHaveCount(0);
 
-  // foto ampliável
+  // equipe aprova a foto do totem e confirma o enquadramento (só então fica "confirmado")
+  await admin.reload();
+  await admin.getByRole("button", { name: "Aprovar foto" }).first().click();
+  await expect(admin.getByText("Aprovada", { exact: true })).toBeVisible();
+  await admin.getByRole("button", { name: /Confirmar enquadramento do totem/ }).click();
+  await expect(admin.getByText("Equipe: confirmado")).toBeVisible();
   await admin.getByRole("button", { name: "Ampliar foto" }).first().click();
   await expect(admin.getByRole("dialog")).toBeVisible();
   await admin.getByRole("button", { name: "Fechar" }).click();
-
-  for (let i = 0; i < 2; i++) {
-    await admin.getByRole("button", { name: "Aceitar foto", disabled: false }).first().click();
-    await expect(admin.getByText("Aceita", { exact: true }).nth(i)).toBeVisible();
-  }
-  for (let i = 0; i < 2; i++) {
-    await admin.getByRole("button", { name: "Validar enquadramento" }).nth(i).click();
-    await expect(admin.getByText("Validação técnica: validado")).toHaveCount(i + 1);
-  }
-  await expect(admin.getByText("Concluída operacionalmente")).toBeVisible();
-  await admin.screenshot({ path: "test-results/screens/4-admin-unidade.png", fullPage: true });
-
-  // 9) dashboard a partir dos registros reais
-  await admin.goto("/admin");
-  const kpi = (label: string) => admin.locator(".kpi", { hasText: label }).locator(".n");
-  await expect(kpi("Totens com enquadramento confirmado")).toHaveText("1");
-  await expect(kpi("Painéis com enquadramento confirmado")).toHaveText("1");
-  await expect(kpi("Escolheram vídeo")).toHaveText("1");
-  await expect(kpi("Trocaram de formato")).toHaveText("1");
-  await expect(admin.getByText("Texto cortado").first()).toBeVisible();
-  await admin.screenshot({ path: "test-results/screens/5-dashboard.png", fullPage: true });
 });
 
-test("o código inválido é recusado e rotas protegidas exigem autenticação", async ({ page, request }) => {
-  await page.goto("/");
-  await page.getByLabel("Código da unidade").fill("ZZZZZ-99999");
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page.getByText("Código não encontrado")).toBeVisible();
-
-  expect((await request.get("/api/admin/dashboard")).status()).toBe(401);
-  expect((await request.get("/api/client/session")).status()).toBe(401);
+test("rotas protegidas e dados inválidos", async ({ page, request }) => {
+  expect((await request.get("/api/admin/submissions")).status()).toBe(401);
+  expect(await (await request.get("/api/submissions/me")).json()).toBeNull();
   expect((await request.post("/api/admin/login", { data: { email: "x@y.com", password: "errada" } })).status()).toBe(401);
+  expect((await request.post("/api/submissions", { data: { company: "x" } })).status()).toBe(400);
   await page.goto("/admin");
   await expect(page).toHaveURL(/\/admin\/login/);
-  await page.goto("/tutorial");
-  await expect(page).toHaveURL(/\/$/);
 });

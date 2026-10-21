@@ -1,8 +1,7 @@
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
-import type { AdminRole } from "@prisma/client";
 import { db } from "./db";
-import { forbidden, unauthorized } from "./http";
+import { unauthorized } from "./http";
 
 const secret = () => {
   const s = process.env.SESSION_SECRET;
@@ -10,7 +9,7 @@ const secret = () => {
   return s;
 };
 
-export { hashPassword, verifyPassword, hashAccessCode, generateAccessCode } from "./crypto";
+export { hashPassword, verifyPassword } from "./crypto";
 
 // ── cookie assinado ──
 const b64 = (b: Buffer | string) => Buffer.from(b).toString("base64url");
@@ -44,8 +43,8 @@ const opts = (maxAge: number) => ({
   maxAge,
 });
 
-export async function setClientSession(campaignUnitId: string) {
-  (await cookies()).set(CLIENT_COOKIE, sign({ cu: campaignUnitId }, 60 * 60 * 24 * 30), opts(60 * 60 * 24 * 30));
+export async function setSubmissionCookie(id: string) {
+  (await cookies()).set(CLIENT_COOKIE, sign({ s: id }, 60 * 60 * 24 * 60), opts(60 * 60 * 24 * 60));
 }
 export async function setAdminSession(adminId: string) {
   (await cookies()).set(ADMIN_COOKIE, sign({ a: adminId }, 60 * 60 * 8), opts(60 * 60 * 8));
@@ -56,15 +55,9 @@ export async function clearSessions() {
   c.delete(ADMIN_COOKIE);
 }
 
-export async function getClientContext() {
-  const p = verify<{ cu: string }>((await cookies()).get(CLIENT_COOKIE)?.value);
-  if (!p) return null;
-  return db.campaignUnit.findUnique({ where: { id: p.cu }, include: { unit: true, campaign: true } });
-}
-export async function requireClient() {
-  const cu = await getClientContext();
-  if (!cu) throw unauthorized("Acesso não identificado. Informe o código da sua unidade.");
-  return cu;
+export async function getSubmissionId(): Promise<string | null> {
+  const p = verify<{ s: string }>((await cookies()).get(CLIENT_COOKIE)?.value);
+  return p?.s ?? null;
 }
 
 export async function getAdmin() {
@@ -73,9 +66,8 @@ export async function getAdmin() {
   const a = await db.adminUser.findUnique({ where: { id: p.a } });
   return a?.active ? a : null;
 }
-export async function requireAdmin(...roles: AdminRole[]) {
+export async function requireAdmin() {
   const a = await getAdmin();
   if (!a) throw unauthorized();
-  if (roles.length && !roles.includes(a.role)) throw forbidden();
   return a;
 }

@@ -1,118 +1,84 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/client-api";
-import { Bars, Evolution, Kpi, pctText } from "@/components/admin/ui";
-import { FRAMING_STATUS_LABEL, ISSUE_LABEL } from "@/domain/framing";
-import { STEP_FLOW } from "@/domain/steps";
-import type { Dashboard } from "@/domain/metrics";
+import { FRAMING_LABEL, STATUS_LABEL } from "@/lib/flow";
+import type { Stats } from "@/lib/stats";
 
-interface Campaign { id: string; name: string }
-interface UnitRow { unit: { id: string; name: string } }
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const TONE: Record<string, string> = { EM_ANDAMENTO: "", ENVIADO: "warn", APROVADO: "ok", PRECISA_AJUSTE: "bad" };
+const pct = (v: number | null) => (v === null ? "—" : `${v}%`);
 
-const ADJ: Record<string, string> = {
-  RESOLUCAO: "Resolução", ESCALA: "Escala", DPI: "DPI", ORIENTACAO: "Orientação", PROPORCAO: "Proporção",
-  OVERSCAN_ZOOM_MONITOR: "Overscan/zoom", CONFIG_APLICATIVO: "Config. do app", NAO_INFORMADO: "Não informado",
-};
-const stepTitle = (k: string) => STEP_FLOW.find((s) => s.key === k)?.title ?? k;
+function Kpi({ n, label, sub, tone }: { n: number | string; label: string; sub?: string; tone?: string }) {
+  return <div className="kpi"><div className="n" style={tone ? { color: `var(--${tone})` } : undefined}>{n}</div><div className="l">{label}</div>{sub && <div className="s">{sub}</div>}</div>;
+}
 
-export default function DashboardPage() {
-  const [f, setF] = useState({ campaignId: "", unitId: "", type: "", status: "", from: "", to: "" });
-  const [data, setData] = useState<Dashboard | null>(null);
+export default function EnviosPage() {
+  const [f, setF] = useState({ q: "", status: "", format: "", from: "", to: "" });
+  const [data, setData] = useState<{ items: any[]; stats: Stats } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [units, setUnits] = useState<UnitRow["unit"][]>([]);
-
-  useEffect(() => {
-    api<Campaign[]>("/api/admin/campaigns").then(setCampaigns).catch(() => {});
-    api<UnitRow[]>("/api/admin/sessions").then((r) => setUnits(r.map((x) => x.unit))).catch(() => {});
-  }, []);
-
   const qs = useMemo(() => new URLSearchParams(Object.entries(f).filter(([, v]) => v)).toString(), [f]);
   useEffect(() => {
-    setError(null);
-    api<Dashboard>(`/api/admin/dashboard?${qs}`).then(setData).catch((e) => setError(e.message));
+    const t = setTimeout(() => api<{ items: any[]; stats: Stats }>(`/api/admin/submissions?${qs}`).then(setData).catch((e) => setError(e.message)), 200);
+    return () => clearTimeout(t);
   }, [qs]);
-
-  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => setF({ ...f, [k]: e.target.value });
-  const c = data?.framing.cards;
-  const u = data?.usage;
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
+  const st = data?.stats;
 
   return (
     <div className="stack">
-      <h1>Dashboard</h1>
-      <div className="card filters" role="search" aria-label="Filtros">
-        <label className="field"><span>Campanha</span><select value={f.campaignId} onChange={set("campaignId")}><option value="">Todas</option>{campaigns.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-        <label className="field"><span>Unidade</span><select value={f.unitId} onChange={set("unitId")}><option value="">Todas</option>{units.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
-        <label className="field"><span>Equipamento</span><select value={f.type} onChange={set("type")}><option value="">Todos</option><option value="TOTEM">Totem</option><option value="PAINEL">Painel</option></select></label>
-        <label className="field"><span>Situação</span><select value={f.status} onChange={set("status")}><option value="">Todas</option>{Object.entries(FRAMING_STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
-        <label className="field"><span>De</span><input type="date" value={f.from} onChange={set("from")} /></label>
-        <label className="field"><span>Até</span><input type="date" value={f.to} onChange={set("to")} /></label>
-        <button className="btn" onClick={() => setF({ campaignId: "", unitId: "", type: "", status: "", from: "", to: "" })}>Limpar</button>
-      </div>
+      <h1>Envios</h1>
       {error && <div className="alert bad">{error}</div>}
-      {!data || !c || !u ? <p className="muted">Carregando…</p> : (
+      {st && (
         <>
-          <p className="muted small">
-            Universo: <strong>{data.eligibleUnits}</strong> unidades elegíveis · <strong>{data.startedUnits}</strong> iniciaram o tutorial. Percentuais usam o universo elegível como base.
-            O período filtra pela data de início da sessão (e pela data do evento nos gráficos de evolução).
-          </p>
-
-          <h2>Qualidade da exibição</h2>
           <div className="kpis">
-            <Kpi n={c.totensValidados} tone="ok" label="Totens com enquadramento confirmado" sub={`validação técnica · ${c.totensAutodeclaradosCorretos} declarados corretos pelo cliente`} />
-            <Kpi n={c.paineisValidados} tone="ok" label="Painéis com enquadramento confirmado" sub={`validação técnica · ${c.paineisAutodeclaradosCorretos} declarados corretos pelo cliente`} />
-            <Kpi n={c.incorretos} tone="bad" label="Equipamentos com enquadramento incorreto" />
-            <Kpi n={c.ajustesPendentes} tone="warn" label="Ajustes de exibição pendentes" sub="incorretos + aguardando suporte" />
-            <Kpi n={c.aguardandoNovaVerificacao} tone="warn" label="Aguardando nova verificação" sub="ajuste feito pelo cliente" />
-            <Kpi n={c.precisamSuporte} tone="bad" label="Precisam de suporte" />
-          </div>
-
-          <div className="grid2">
-            <section className="card"><h3>Enquadramento correto por tipo de equipamento</h3>
-              {(["TOTEM", "PAINEL"] as const).map((t) => {
-                const r = data.framing.correctPercentByType[t];
-                return (
-                  <div key={t} style={{ marginBottom: 10 }}>
-                    <Bars max={100} suffix="%" items={[{ label: `${t === "TOTEM" ? "Totem" : "Painel"} (declarado)`, value: r.percent ?? 0 }]} empty="" />
-                    <div className="muted small">{r.correct} de {r.universe} unidades · {r.validated} validados tecnicamente{r.percent === null ? " · sem universo" : ""}</div>
-                  </div>
-                );
-              })}
-            </section>
-            <section className="card"><h3>Problemas de exibição mais frequentes</h3>
-              <Bars items={data.framing.issuesByType.map((i) => ({ label: ISSUE_LABEL[i.type], value: i.count }))} />
-            </section>
-            <section className="card"><h3>Ajustes realizados: {data.framing.adjustmentsTotal}</h3>
-              <Bars items={data.framing.adjustmentsByType.map((a) => ({ label: ADJ[a.type] ?? a.type, value: a.count }))} />
-            </section>
-            <section className="card"><h3>Evolução das correções</h3><Evolution data={data.framing.evolution} /></section>
-          </div>
-
-          <h2>Utilização do tutorial</h2>
-          <div className="kpis">
-            <Kpi n={u.byFormat.TEXTO.chosen} label="Escolheram texto" sub="formato inicial" />
-            <Kpi n={u.byFormat.VIDEO.chosen} label="Escolheram vídeo" sub="formato inicial" />
-            <Kpi n={u.switched} label="Trocaram de formato" sub="contados uma vez, no formato inicial" />
-            <Kpi n={u.noFormatYet} label="Ainda sem escolha" />
+            <Kpi n={st.total} label="Clientes que iniciaram" sub={`${st.emAndamento} em andamento`} />
+            <Kpi n={st.enviados} tone="warn" label="Aguardando a equipe" sub={`${st.fotosParaAnalisar} foto(s) para analisar`} />
+            <Kpi n={st.aprovados} tone="ok" label="Aprovados" />
+            <Kpi n={st.precisaAjuste} tone="bad" label="Precisam de ajuste" />
+            <Kpi n={st.totem.confirmados} tone="ok" label="Totens confirmados" sub={`confirmados pela equipe · ${st.totem.declaradosCorretos} declarados corretos`} />
+            <Kpi n={st.painel.confirmados} tone="ok" label="Painéis confirmados" sub={`confirmados pela equipe · ${st.painel.declaradosCorretos} declarados corretos`} />
+            <Kpi n={st.totem.comProblema + st.painel.comProblema} tone="bad" label="Telas com problema" sub={`totem ${st.totem.comProblema} · painel ${st.painel.comProblema}`} />
+            <Kpi n={st.pedidosDeAjuda} tone="warn" label="Pedidos de ajuda" />
           </div>
           <div className="grid2">
-            <section className="card"><h3>Taxa de conclusão por formato</h3>
-              <Bars max={100} suffix="%" items={(["TEXTO", "VIDEO"] as const).map((k) => ({ label: k === "TEXTO" ? "Texto" : "Vídeo", value: u.byFormat[k].completionRate ?? 0 }))} />
-              <p className="muted small">Texto: {u.byFormat.TEXTO.completed}/{u.byFormat.TEXTO.chosen} ({pctText(u.byFormat.TEXTO.completionRate)}) · Vídeo: {u.byFormat.VIDEO.completed}/{u.byFormat.VIDEO.chosen} ({pctText(u.byFormat.VIDEO.completionRate)}). Conclusão = cliente enviou a confirmação final.</p>
+            <section className="card"><h3>Texto × vídeo</h3>
+              <div className="tablewrap"><table><thead><tr><th>Formato inicial</th><th>Escolheram</th><th>Concluíram</th><th>Pediram ajuda</th></tr></thead><tbody>
+                {(["TEXTO", "VIDEO"] as const).map((k) => <tr key={k}><td>{k === "TEXTO" ? "Texto" : "Vídeo"}</td><td>{st.formato[k].chosen}</td><td>{st.formato[k].finished} ({pct(st.formato[k].finishRate)})</td><td>{st.formato[k].help} ({pct(st.formato[k].helpRate)})</td></tr>)}
+              </tbody></table></div>
+              <p className="muted small">Cada cliente conta uma vez, no formato inicial. {st.formato.trocaram} trocaram de formato durante o tutorial; {st.formato.semEscolha} ainda não escolheram.</p>
             </section>
-            <section className="card"><h3>Taxa de solicitações de suporte por formato</h3>
-              <Bars max={100} suffix="%" items={(["TEXTO", "VIDEO"] as const).map((k) => ({ label: k === "TEXTO" ? "Texto" : "Vídeo", value: u.byFormat[k].supportRate ?? 0 }))} />
-              <p className="muted small">Texto: {u.byFormat.TEXTO.withSupport}/{u.byFormat.TEXTO.chosen} · Vídeo: {u.byFormat.VIDEO.withSupport}/{u.byFormat.VIDEO.chosen} unidades com ao menos um pedido de suporte.</p>
-            </section>
-            {(["TEXTO", "VIDEO"] as const).map((k) => (
-              <section className="card" key={k}><h3>Etapas com mais dificuldade — {k === "TEXTO" ? "texto" : "vídeo"}</h3>
-                <Bars items={u.difficultSteps[k].map((s) => ({ label: stepTitle(s.stepKey), value: s.sessions }))} />
-                <p className="muted small">Unidades distintas com pedido de suporte ou enquadramento incorreto na etapa, no formato em uso naquele momento.</p>
-              </section>
-            ))}
           </div>
         </>
       )}
+
+      <div className="card filters" role="search">
+        <label className="field"><span>Buscar</span><input type="text" placeholder="Nome ou empresa" value={f.q} onChange={set("q")} /></label>
+        <label className="field"><span>Status</span><select value={f.status} onChange={set("status")}><option value="">Todos</option>{Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
+        <label className="field"><span>Formato</span><select value={f.format} onChange={set("format")}><option value="">Todos</option><option value="TEXTO">Texto</option><option value="VIDEO">Vídeo</option></select></label>
+        <label className="field"><span>De</span><input type="date" value={f.from} onChange={set("from")} /></label>
+        <label className="field"><span>Até</span><input type="date" value={f.to} onChange={set("to")} /></label>
+      </div>
+
+      <div className="card tablewrap">
+        <table>
+          <thead><tr><th>Cliente</th><th>Status</th><th>Totem</th><th>Painel</th><th>Fotos</th><th>Início</th><th /></tr></thead>
+          <tbody>
+            {data?.items.map((r) => (
+              <tr key={r.id}>
+                <td><strong>{r.contactName}</strong><div className="muted small">{r.company}</div>{r.helpRequested && <span className="badge warn">pediu ajuda</span>}</td>
+                <td><span className={`badge ${TONE[r.status]}`}>{STATUS_LABEL[r.status as keyof typeof STATUS_LABEL]}</span><div className="muted small">{r.initialFormat === "VIDEO" ? "vídeo" : r.initialFormat === "TEXTO" ? "texto" : ""}</div></td>
+                <td className="small">{FRAMING_LABEL[r.totemFraming as keyof typeof FRAMING_LABEL]}{r.totemConfirmed && <div><span className="badge ok">confirmado</span></div>}</td>
+                <td className="small">{FRAMING_LABEL[r.painelFraming as keyof typeof FRAMING_LABEL]}{r.painelConfirmed && <div><span className="badge ok">confirmado</span></div>}</td>
+                <td className="small">{r.photoCount}{r.pendingPhotos > 0 && <div><span className="badge warn">{r.pendingPhotos} a analisar</span></div>}</td>
+                <td className="small">{new Date(r.createdAt).toLocaleDateString("pt-BR")}</td>
+                <td><Link className="btn sm" href={`/admin/envios/${r.id}`}>Abrir</Link></td>
+              </tr>
+            ))}
+            {data?.items.length === 0 && <tr><td colSpan={7} className="muted">Nenhum envio encontrado.</td></tr>}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

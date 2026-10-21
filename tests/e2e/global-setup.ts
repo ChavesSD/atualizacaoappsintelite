@@ -4,7 +4,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-export const ACCESS_CODE = "TESTE-12345";
 const PG_PORT = 5546;
 const APP_PORT = 3200;
 
@@ -22,14 +21,13 @@ export default async function setup() {
     SESSION_SECRET: "e2e-secret-0123456789abcdef0123456789",
     STORAGE_DRIVER: "local",
     STORAGE_LOCAL_DIR: path.join(dir, "storage"),
-    SEED_FIXED_ACCESS_CODE: ACCESS_CODE,
-    SEED_ADMIN_PASSWORD: "senha-e2e-123456",
-    NODE_ENV: "development" as const, // o seed só cria a campanha de demonstração fora de produção
+    ADMIN_EMAIL: "admin@intelite.local",
+    ADMIN_PASSWORD: "senha-e2e-123456",
   };
   execSync("npx prisma db push --skip-generate --accept-data-loss", { env, stdio: "pipe" });
-  execSync("npx tsx prisma/seed.ts", { env, stdio: "pipe" });
+  execSync("npx tsx --env-file=.env prisma/seed.ts", { env, stdio: "pipe" });
 
-  const app: ChildProcess = spawn("npx", ["next", "start", "-p", String(APP_PORT)], { env: { ...env, NODE_ENV: "production" as const }, shell: true, stdio: "pipe" });
+  const app: ChildProcess = spawn("npx", ["next", "start", "-p", String(APP_PORT)], { env, shell: true, stdio: "pipe" });
   const deadline = Date.now() + 60_000;
   for (;;) {
     try {

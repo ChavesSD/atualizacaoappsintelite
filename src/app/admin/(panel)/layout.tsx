@@ -11,15 +11,12 @@ export default async function PanelLayout({ children }: { children: React.ReactN
   return (
     <>
       <nav className="admin-nav" aria-label="Administração">
-        <strong style={{ marginRight: 8 }}>Central Intelite</strong>
-        <Link href="/admin">Dashboard</Link>
-        <Link href="/admin/unidades">Unidades</Link>
-        <Link href="/admin/conteudo">Tutorial</Link>
-        <Link href="/admin/procedimentos">Procedimentos de correção</Link>
-        <Link href="/admin/configuracoes">Configurações</Link>
-        <Link href="/admin/auditoria">Auditoria</Link>
+        <strong style={{ marginRight: 8 }}>Atualização Intelite</strong>
+        <Link href="/admin">Envios</Link>
+        <Link href="/admin/conteudo">Conteúdo do tutorial</Link>
+        <Link href="/" target="_blank">Ver página pública ↗</Link>
         <span className="grow" />
-        <span className="muted small">{admin.name} · {admin.role}</span>
+        <span className="muted small">{admin.name}</span>
         <LogoutButton />
       </nav>
       <main className="container wide">{children}</main>

@@ -9,7 +9,7 @@ export default async function LoginPage() {
   return (
     <main className="container" style={{ paddingTop: 48 }}>
       <div className="card stack">
-        <h1>Área da equipe Intelite</h1>
+        <h1>Administração</h1>
         <LoginForm />
       </div>
     </main>

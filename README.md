@@ -1,57 +1,43 @@
 # Central de Atualização do Atendimento Inteligente — Intelite
 
-Aplicação web (Next.js + TypeScript, PostgreSQL/Prisma) para guiar clientes na atualização do **totem** e do **painel de chamadas**, verificar o **enquadramento da tela** de cada equipamento e acompanhar tudo em um dashboard administrativo.
+Duas partes, no mesmo projeto (Next.js + TypeScript, PostgreSQL/Prisma):
 
-## Rodando localmente
+- **Página pública (`/`)**: o cliente informa seus dados e segue o tutorial (texto ou vídeo) para atualizar o **totem** e o **painel de chamadas**, conferir se a tela está bem enquadrada, enviar fotos e avaliar. Sem login nem código: o progresso fica salvo e o cliente retoma pelo mesmo dispositivo.
+- **Administração (`/admin`)**: acompanhar todos os envios, ver e aprovar fotos, confirmar o enquadramento, e editar o conteúdo do tutorial (passos, avisos, imagens, vídeos).
+
+## Rodar localmente
 
 ```bash
 npm install
-cp .env.example .env          # ajuste SESSION_SECRET
-npm run db:local              # Postgres embutido (porta 5433) — deixe rodando
-npm run db:push               # cria as tabelas (outro terminal)
-npm run db:seed               # etapas, critérios, admins e campanha demo (imprime os códigos de acesso)
 npm run dev
 ```
 
-- Cliente: `http://localhost:3000` (código da unidade; também aceita `/#CODIGO`, o fragmento não vai ao servidor).
-- Equipe: `/admin` — `admin@intelite.local` / `tecnico@intelite.local` (senha do seed; **troque em produção**, use `SEED_ADMIN_PASSWORD`).
+Só isso. O comando sobe um PostgreSQL local, cria as tabelas, cadastra o conteúdo inicial e abre o app em http://localhost:3000 (admin em `/admin`, usuário `admin@intelite.local`, senha `trocar-esta-senha-123`). Na primeira vez ele cria o `.env`.
 
-## Testes
-
-| Comando | O que cobre |
+| Comando | Para quê |
 |---|---|
-| `npm test` | Regras puras: fluxo de etapas, máquina de estados do enquadramento, validação de URL de vídeo, upload, conclusão operacional, indicadores |
-| `npm run test:integration` | Serviços contra um PostgreSQL real descartável: sessão única, alternância de formato, enquadramento → correção → nova verificação, fotos, validação técnica, auditoria, dashboard, versionamento de conteúdo |
-| `npm run build && npm run test:e2e` | Fluxo completo em viewport de celular (Pixel 7) + painel administrativo + dashboard |
+| `npm run dev` | Tudo em um (banco local + app) |
+| `npm run dev:next` | Só o app, com `DATABASE_URL` externo |
+| `npm test` | Testes unitários |
+| `npm run build && npm run test:e2e` | Fluxo completo em celular (cliente + admin) |
 
 ## Fluxo do cliente
 
-identificação → escolha texto/vídeo → atualização do totem → **enquadramento do totem** → atualização do painel → **enquadramento do painel** → fotos → confirmação e avaliação.
+dados → formato (texto/vídeo) → atualizar totem → conferir tela do totem → atualizar painel → conferir tela do painel → fotos → enviar.
 
-Não é possível pular etapas obrigatórias. O progresso é gravado no servidor a cada ação; trocar de formato altera apenas `currentFormat` (mesma sessão, nada é reiniciado ou duplicado). A conclusão de uma etapa nunca depende de assistir ao vídeo.
+Não dá para pular etapas: tela com problema aberto bloqueia o avanço até ser corrigida ou o suporte ser pedido. O formato pode ser trocado a qualquer momento sem perder nada; assistir ao vídeo nunca é obrigatório.
 
-## Regras de negócio centrais
+## Regras que importam
 
-- **Autodeclaração ≠ validação técnica.** O cliente declara (`FramingCheck.status`); a equipe valida (`technicalStatus/By/At/Notes`), em campos separados. Validar exige uma foto aceita. Qualquer nova verificação/ajuste do cliente, ou recusa de foto, invalida a validação anterior (o histórico permanece).
-- **Conclusão operacional** (`domain/completion.ts`): `EM_ANDAMENTO → AGUARDANDO_VALIDACAO_TECNICA → CONCLUIDA_OPERACIONALMENTE` (ou `PENDENCIAS`). A campanha define `requireTechnicalValidation`.
-- **Nada inventado.** Parâmetros de resolução/DPI/escala/comandos só existem como `CorrectionProcedure` cadastrado e **publicado (aprovado)** pela equipe técnica, versionado, filtrado por equipamento, modelo e problema relatado. Sem cadastro, o cliente é orientado ao suporte.
-- **Vídeos**: somente `https`, domínio em `AllowedVideoHost` (ou subdomínio), sem credenciais/porta; revalidados a cada leitura. Vídeo é carregado sob demanda (miniatura + `preload="none"`). O texto é obrigatório para publicar e continua disponível se o vídeo falhar.
-- **Fotos**: tipo verificado pelos bytes (JPEG/PNG/WebP), limite de 12 MB, nome gerado no servidor, acesso só ao dono ou à equipe.
-- **Auditoria** somente-inserção (`AuditLog`) + histórico de enquadramento (`FramingEvent`) com formato e etapa em uso.
+- **Declarado ≠ confirmado.** O cliente declara que a tela está correta; só a **equipe** confirma, e a confirmação exige uma foto aprovada. Se o cliente verificar de novo, a confirmação some.
+- **Nada é inventado.** Os passos de atualização e de correção da tela vêm do admin. Enquanto não cadastrados, a página mostra “procedimento ainda não cadastrado”.
+- **Vídeos** só de domínios autorizados (editável em Conteúdo; padrão: YouTube/Vimeo — ajuste conforme a Intelite), com carregamento sob demanda. O texto continua visível se o vídeo falhar.
+- **Fotos**: tipo conferido pelos bytes, até 12 MB, visíveis só ao dono e à equipe. A equipe pode pedir nova foto com motivo.
+- **Indicadores**: cada cliente conta uma vez, no formato inicial (quem trocou aparece à parte). “Confirmados” = confirmados pela equipe.
 
-## Indicadores (como são calculados)
+## Antes de ir para produção
 
-- Universo = `CampaignUnit` filtradas. Percentuais de enquadramento usam esse universo como denominador (não só quem iniciou).
-- Cada unidade tem uma sessão; quem trocou de formato é contado **uma vez**, no formato inicial (`Trocaram de formato` informa quantas trocaram).
-- "Confirmado" nos cards = **validado tecnicamente**; o número declarado pelo cliente aparece como complemento.
-- Dificuldade por formato/etapa = unidades distintas com pedido de suporte ou verificação incorreta na etapa, no formato em uso naquele momento.
-- Período filtra pela data de início da sessão (e pela data do evento nas séries de evolução).
-
-## Pendências antes de produção
-
-1. **Conteúdo oficial**: as etapas "Atualizar o totem/painel" entram com aviso de "procedimento ainda não cadastrado". Cadastre e publique em `/admin/conteudo`; cadastre vídeos (após autorizar o domínio em `/admin/configuracoes`) e os procedimentos de correção em `/admin/procedimentos`.
-2. **Armazenamento**: o driver `local` é só para desenvolvimento. Implemente a interface `Storage` (`src/lib/storage.ts`) sobre um bucket S3-compatível.
-3. **Rate limit** é em memória (por instância); use Redis se houver várias instâncias.
-4. Troque as senhas do seed, defina `SESSION_SECRET` forte e rode atrás de HTTPS.
-5. Rode `npm audit` e atualize dependências (há avisos reportados na instalação).
-6. LGPD: fotos podem registrar pessoas no ambiente; defina política de retenção.
+1. Cadastrar o conteúdo oficial em `/admin/conteudo` (atualização do totem/painel e correção de tela) e revisar os domínios de vídeo.
+2. Fotos hoje ficam em disco (`./storage`): implementar a interface `Storage` (`src/lib/storage.ts`) sobre S3 ou similar.
+3. Trocar a senha do admin (`ADMIN_EMAIL`/`ADMIN_PASSWORD` antes do primeiro seed) e definir um `SESSION_SECRET` forte; rodar atrás de HTTPS.
+4. Limite de tentativas é em memória (uma instância); fotos podem mostrar pessoas — definir retenção (LGPD).

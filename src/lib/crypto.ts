@@ -14,14 +14,3 @@ export function verifyPassword(pw: string, stored: string): boolean {
   return expected.length === h.length && crypto.timingSafeEqual(h, expected);
 }
 
-// ── código de acesso da unidade: guardamos somente o hash ──
-export const hashAccessCode = (code: string) =>
-  crypto.createHash("sha256").update(code.trim().toUpperCase().replace(/[\s-]/g, "")).digest("hex");
-
-const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sem caracteres ambíguos
-export function generateAccessCode(): string {
-  const bytes = crypto.randomBytes(10);
-  const chars = Array.from(bytes, (b) => ALPHABET[b % ALPHABET.length]).join("");
-  return `${chars.slice(0, 5)}-${chars.slice(5)}`;
-}
-
