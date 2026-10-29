@@ -18,6 +18,8 @@ interface View {
   };
   photos: { id: string; type: Eq; review: "PENDENTE" | "APROVADA" | "REFAZER"; reviewNote: string | null }[];
   maxStep: number;
+  done: boolean[];
+  unlocked: boolean[];
   redo: Eq[];
 }
 type Run = <T>(fn: () => Promise<T>) => Promise<T | undefined>;
@@ -41,7 +43,7 @@ export function TutorialApp() {
     try {
       const [c, v] = await Promise.all([api<PublicStep[]>("/api/content"), api<View | null>("/api/submissions/me")]);
       setContent(c);
-      if (v) { setView(v); setOpen(Math.min(v.submission.step, v.maxStep)); }
+      if (v) { setView(v); setOpen(v.unlocked[v.submission.step] ? v.submission.step : Math.max(0, v.unlocked.findIndex((u, i) => u && !v.done[i]))); }
       setBoot("ready");
     } catch (e) {
       setBootError((e as Error).message);
@@ -96,15 +98,22 @@ export function TutorialApp() {
     );
   }
 
-  const maxStep = view?.maxStep ?? 0;
+  const done = view?.done ?? [];
+  const unlocked = view?.unlocked ?? [];
   const s = view?.submission;
   const format: Format = s?.format ?? "TEXTO";
   const submitted = !!s && s.status !== "EM_ANDAMENTO";
   const byKey = (k: string) => content.find((c) => c.key === k);
-  const doneCount = !view ? 0 : submitted ? STEPS.length : maxStep;
+  const doneCount = !view ? 0 : submitted ? STEPS.length : done.filter(Boolean).length;
 
+  /** Depois de concluir um equipamento, leva ao outro (se faltar); senão segue para as fotos. */
+  const after = (i: number) => {
+    const other = i === 3 ? 4 : i === 5 ? 2 : -1;
+    if (other >= 0 && !done[other] && unlocked[other]) return other;
+    return i === 3 || i === 5 ? 6 : i + 1;
+  };
   const next = (i: number) => (
-    <button type="button" className="btn primary block" disabled={busy || i >= maxStep} onClick={() => patch({}, i + 1)}>
+    <button type="button" className="btn primary block" disabled={busy || !done[i] || !unlocked[after(i)]} onClick={() => patch({}, after(i))}>
       Continuar <Icon name="arrowRight" size={18} />
     </button>
   );
@@ -116,7 +125,7 @@ export function TutorialApp() {
       case "dados":
         return <div className="stack"><p className="user-text"><strong>{s.contactName}</strong><br />{s.company}</p><p className="muted small">Seus dados já foram registrados. Você pode voltar a esta página a qualquer momento neste dispositivo e continuar de onde parou.</p>{next(i)}</div>;
       case "formato":
-        return <div className="stack"><FormatChoice current={s.format} busy={busy} onChoose={(f) => patch({ format: f })} />{next(i)}</div>;
+        return <div className="stack"><FormatChoice current={s.format} busy={busy} onChoose={(f) => patch({ format: f })} /><StartPicker enabled={!!s.format && !busy} done={[done[3], done[5]]} onPick={(n) => patch({}, n)} /></div>;
       case "atualizar-totem":
       case "atualizar-painel": {
         const field = key === "atualizar-totem" ? "totemUpdated" : "painelUpdated";
@@ -154,9 +163,9 @@ export function TutorialApp() {
   function status(i: number): { label: string; tone: "done" | "current" | "locked" } {
     if (!view) return i === 0 ? { label: "Comece por aqui", tone: "current" } : { label: "Conclua a etapa anterior", tone: "locked" };
     if (i === LAST && submitted) return { label: "Enviado", tone: "done" };
-    if (i < maxStep) return { label: "Concluída", tone: "done" };
-    if (i === maxStep) return { label: "Em andamento", tone: "current" };
-    return { label: "Conclua a etapa anterior", tone: "locked" };
+    if (done[i]) return { label: "Concluída", tone: "done" };
+    if (unlocked[i]) return { label: i === 2 || i === 4 ? "Disponível" : "Em andamento", tone: "current" };
+    return { label: i === 2 || i === 4 ? "Escolha o formato antes" : "Conclua a etapa anterior", tone: "locked" };
   }
 
   // Agrupa as etapas pelo nome do grupo, preservando a ordem do fluxo.
@@ -307,6 +316,30 @@ function FormatChoice({ current, busy, onChoose }: { current: Format | null; bus
           </label>
         ))}
       </fieldset>
+    </div>
+  );
+}
+
+/** Escolha de por qual equipamento começar. Os dois ficam liberados: o cliente decide a ordem. */
+function StartPicker({ enabled, done, onPick }: { enabled: boolean; done: boolean[]; onPick: (step: number) => void }) {
+  const items: { step: number; icon: IconName; title: string; text: string; done: boolean }[] = [
+    { step: 2, icon: "totem", title: "Totem", text: "Atualizar o aplicativo do totem de autoatendimento.", done: done[0] },
+    { step: 4, icon: "tv", title: "Painel de chamadas", text: "Atualizar o aplicativo do painel (TV) de chamadas.", done: done[1] },
+  ];
+  return (
+    <div className="stack">
+      <p><strong>Por onde você quer começar?</strong> Você precisa atualizar os dois; escolha o primeiro agora, o outro fica para depois.</p>
+      <div className="choice">
+        {items.map((it) => (
+          <button key={it.step} type="button" className="opt pick" disabled={!enabled} onClick={() => onPick(it.step)}>
+            <Icon name={it.icon} size={32} />
+            <strong>{it.title}</strong>
+            <span className="muted">{it.text}</span>
+            <span className="pick-go">{it.done ? "Concluído. Revisar" : "Começar por aqui"} <Icon name="arrowRight" size={16} /></span>
+          </button>
+        ))}
+      </div>
+      {!enabled && <p className="muted small">Escolha o formato do tutorial acima para continuar.</p>}
     </div>
   );
 }

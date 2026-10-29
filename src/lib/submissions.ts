@@ -17,7 +17,7 @@ export const photoOk = (photos: Photo[], type: PhotoType) => {
 };
 const framingDone = (f: Framing) => f === "CORRETO" || f === "PRECISA_SUPORTE";
 
-/** Maior etapa que o cliente já pode abrir. Impede pular verificações obrigatórias. */
+/** Maior etapa na ordem padrão (totem antes do painel). Mantida para os indicadores; a navegação usa `unlockedSteps`. */
 export function maxStep(s: Submission, photos: Photo[]): number {
   if (!s.format) return 1;
   if (!s.totemUpdated) return 2;
@@ -26,6 +26,31 @@ export function maxStep(s: Submission, photos: Photo[]): number {
   if (!framingDone(s.painelFraming)) return 5;
   if (!photoOk(photos, "TOTEM") || !photoOk(photos, "PAINEL")) return 6;
   return STEPS.length - 1;
+}
+
+/** Etapas já concluídas (índices de STEPS). A última só conta depois do envio. */
+export function doneSteps(s: Submission, photos: Photo[]): boolean[] {
+  return [
+    true,
+    !!s.format,
+    s.totemUpdated,
+    framingDone(s.totemFraming),
+    s.painelUpdated,
+    framingDone(s.painelFraming),
+    photoOk(photos, "TOTEM") && photoOk(photos, "PAINEL"),
+    s.status !== "EM_ANDAMENTO",
+  ];
+}
+
+/**
+ * Etapas que o cliente já pode abrir. Totem e painel são independentes: depois do formato, ele escolhe por qual começar.
+ * Dentro de cada equipamento a conferência da tela só abre depois da atualização; fotos e envio exigem os dois.
+ */
+export function unlockedSteps(s: Submission, photos: Photo[]): boolean[] {
+  const d = doneSteps(s, photos);
+  const fmt = d[1];
+  const equipamentos = d[3] && d[5];
+  return [true, true, fmt, fmt && d[2], fmt, fmt && d[4], equipamentos, equipamentos && d[6]];
 }
 
 async function log(submissionId: string, actor: "CLIENTE" | "EQUIPE", text: string) {
@@ -50,6 +75,8 @@ export async function loadView(id: string) {
     submission,
     photos: photos.map((p) => ({ id: p.id, type: p.type, review: p.review, reviewNote: p.review === "REFAZER" ? p.reviewNote : null, createdAt: p.createdAt })),
     maxStep: maxStep(s, photos),
+    done: doneSteps(s, photos),
+    unlocked: unlockedSteps(s, photos),
     redo: (["TOTEM", "PAINEL"] as const).filter((t) => latestPhoto(photos, t)?.review === "REFAZER"),
   };
 }
@@ -99,7 +126,7 @@ export async function patchSubmission(id: string, p: Patch) {
   if (p.step !== undefined) {
     const merged = { ...cur, ...data } as Submission;
     if (p.step < 0 || p.step >= STEPS.length) throw badRequest("Etapa inválida.");
-    if (p.step > maxStep(merged, cur.photos)) throw conflict("Conclua a etapa atual antes de avançar.");
+    if (!unlockedSteps(merged, cur.photos)[p.step]) throw conflict("Conclua a etapa anterior antes de avançar.");
     data.step = p.step;
   }
   if (Object.keys(data).length) await db.submission.update({ where: { id }, data });
@@ -132,7 +159,7 @@ export async function addPhoto(id: string, type: PhotoType, bytes: Buffer, mime:
 export async function submitFinal(id: string, d: { rating: number; comment?: string; hardestStep?: string }) {
   const cur = await db.submission.findUnique({ where: { id }, include: { photos: true } });
   if (!cur) throw notFound();
-  if (maxStep(cur, cur.photos) < STEPS.length - 1) throw conflict("Ainda há etapas pendentes antes do envio.");
+  if (!unlockedSteps(cur, cur.photos)[STEPS.length - 1]) throw conflict("Ainda há etapas pendentes antes do envio.");
   await db.submission.update({
     where: { id },
     data: {

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Photo, Submission } from "@prisma/client";
 import { resolveVideo, parseHosts, DEFAULT_VIDEO_HOSTS } from "@/lib/video";
 import { computeStats, type StatRow } from "@/lib/stats";
-import { maxStep } from "@/lib/submissions";
+import { maxStep, unlockedSteps } from "@/lib/submissions";
 import { sniffImage } from "@/lib/upload";
 import { parseRange, sanitizeLinks } from "@/lib/downloads";
 import { checkEnv } from "@/lib/preflight";
@@ -53,6 +53,17 @@ describe("navegação: não pula verificações", () => {
     const d = { ...c, painelUpdated: true, painelFraming: "CORRETO" } as Submission;
     expect(maxStep(d, [])).toBe(6);
     expect(maxStep(d, [photo("TOTEM"), photo("PAINEL")])).toBe(7);
+  });
+  it("totem e painel são independentes: o cliente escolhe a ordem", () => {
+    expect(unlockedSteps(base, [])).toEqual([true, true, false, false, false, false, false, false]);
+    const f = { ...base, format: "TEXTO" } as Submission;
+    expect(unlockedSteps(f, [])).toEqual([true, true, true, false, true, false, false, false]);
+    const painelPrimeiro = { ...f, painelUpdated: true, painelFraming: "CORRETO" } as Submission;
+    expect(unlockedSteps(painelPrimeiro, [])).toEqual([true, true, true, false, true, true, false, false]); // fotos só com os dois
+    const ambos = { ...painelPrimeiro, totemUpdated: true, totemFraming: "CORRETO" } as Submission;
+    expect(unlockedSteps(ambos, [])[6]).toBe(true);
+    expect(unlockedSteps(ambos, [])[7]).toBe(false);
+    expect(unlockedSteps(ambos, [photo("TOTEM"), photo("PAINEL")])[7]).toBe(true);
   });
   it("foto marcada para refazer volta a exigir foto; a nova substitui", () => {
     const s = { ...base, format: "TEXTO", totemUpdated: true, totemFraming: "CORRETO", painelUpdated: true, painelFraming: "CORRETO" } as Submission;

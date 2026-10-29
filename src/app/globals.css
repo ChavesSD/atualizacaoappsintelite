@@ -191,6 +191,10 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 @media (min-width: 560px) { .choice { grid-template-columns: 1fr 1fr; } }
 .choice .opt { flex-direction: column; gap: var(--s-1); padding: var(--s-4); min-height: 120px; }
 .choice .opt strong { font-size: var(--fs-2); }
+.opt.pick { font: inherit; color: inherit; text-align: left; width: 100%; }
+.opt.pick:hover:not(:disabled) { border-color: var(--brand); background: var(--brand-soft); }
+.opt.pick:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.pick-go { margin-top: var(--s-1); display: inline-flex; align-items: center; gap: var(--s-1); font-weight: 600; color: var(--brand-text); }
 .choice .opt .icon { color: var(--brand); width: 28px; height: 28px; }
 
 .seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: var(--r-md); padding: 3px; gap: 2px; background: var(--surface-2); margin: 0; min-width: 0; }

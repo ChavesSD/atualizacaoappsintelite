@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, request, test, type Page } from "@playwright/test";
 
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
 const next = (p: Page) => p.getByRole("button", { name: "Continuar" }).click();
@@ -68,9 +68,13 @@ test("página única em sanfona: cliente conclui no celular; equipe confirma; in
   // formato (sanfona abre sozinha na etapa atual; só uma aberta por vez)
   await expect(head(page, "Formato do tutorial")).toHaveAttribute("aria-expanded", "true");
   await expect(head(page, "Atualizar o totem")).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Continuar" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /Totem/ })).toBeDisabled(); // só depois de escolher o formato
   await page.getByRole("radio", { name: /Tutorial em vídeo/ }).click();
-  await next(page);
+  // totem e painel ficam liberados: o cliente escolhe por qual começar
+  await expect(head(page, "Atualizar o painel")).toBeEnabled();
+  await expect(head(page, "Conferir a tela do painel")).toBeDisabled();
+  await expect(head(page, "Enviar as fotos")).toBeDisabled();
+  await page.getByRole("button", { name: /Totem.*Começar por aqui/ }).click();
 
   // totem — conteúdo oficial, troca de formato sem perder a etapa
   await expect(head(page, "Atualizar o totem")).toHaveAttribute("aria-expanded", "true");
@@ -248,6 +252,33 @@ test("página única em sanfona: cliente conclui no celular; equipe confirma; in
   await admin.getByRole("button", { name: "Excluir envio" }).click();
   await expect(admin.getByRole("heading", { name: "Envios" })).toBeVisible();
   await expect(admin.getByText("Ainda não há envios.")).toBeVisible();
+});
+
+test("o cliente escolhe começar pelo painel; fotos só depois dos dois equipamentos", async ({ page }) => {
+  await page.goto("/");
+  await page.getByLabel("Seu nome").fill("Paulo Painel");
+  await page.getByLabel("Nome da empresa").fill("Empresa Painel Primeiro");
+  await page.getByRole("button", { name: "Começar" }).click();
+  await page.getByRole("radio", { name: /Tutorial por escrito/ }).click();
+  await page.getByRole("button", { name: /Painel de chamadas.*Começar por aqui/ }).click();
+  await expect(head(page, "Atualizar o painel")).toHaveAttribute("aria-expanded", "true");
+  await page.getByLabel(/Concluí a atualização do painel/).click();
+  await expect(page.getByLabel(/Concluí a atualização do painel/)).toBeChecked();
+  await next(page);
+  await page.getByRole("button", { name: /Está tudo certo na tela do painel/ }).click();
+  await expect(page.getByText(/Sua confirmação será conferida/)).toBeVisible();
+  await next(page); // depois do painel, leva ao totem (que falta)
+  await expect(head(page, "Atualizar o totem")).toHaveAttribute("aria-expanded", "true");
+  await expect(head(page, "Enviar as fotos")).toBeDisabled();
+  // a API também recusa pular o totem
+  const r = await page.request.patch("/api/submissions/me", { data: { step: 6 } });
+  expect(r.status()).toBe(409);
+  // limpeza
+  const admin = await request.newContext({ baseURL: "http://localhost:3200" });
+  await admin.post("/api/admin/login", { data: { email: "admin@intelite.local", password: "senha-e2e-123456" } });
+  const { items } = await (await admin.get("/api/admin/submissions?q=Empresa Painel Primeiro")).json();
+  for (const it of items) await admin.delete(`/api/admin/submissions/${it.id}`);
+  await admin.dispose();
 });
 
 test("cliente com várias lojas: reiniciar começa um envio novo e mantém o anterior", async ({ request }) => {
