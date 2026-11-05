@@ -26,9 +26,9 @@ O comando sobe um PostgreSQL local, cria as tabelas, cadastra o conteúdo inicia
 O aplicativo atual é **híbrido: o mesmo APK serve para o totem e para o painel**. Em “Atualizar o totem” e “Atualizar o painel”, o cliente vê as opções de download abaixo, para não ficar travado se uma falhar:
 
 1. **Opções 1 e 2: links curtos** (hoje `bit.ly/aihib15` e `shre.ink/aihib15`, iguais para totem e painel). São editáveis em `/admin/conteudo` → “Links de download” (até 5 por aplicativo, só https).
-2. **Opcional: download direto da página**, que serve um APK da pasta [`downloads/`](downloads). Está **desligado** (`file: null` em [`src/lib/downloads.ts`](src/lib/downloads.ts)) porque os APKs antigos da pasta são do totem e do painel separados (26.10), não do aplicativo híbrido. Para ligar: coloque o APK híbrido em `downloads/` e preencha `file`, `filename` e `version`. Aceita retomar um download interrompido (`Range`), o que ajuda em conexões instáveis.
+2. **Última opção: download direto da página**, que serve o APK híbrido da pasta [`downloads/`](downloads) (`ai-hibrido-1.5.apk`, o mesmo arquivo para totem e painel). Aceita retomar um download interrompido (`Range`), o que ajuda em conexões instáveis.
 
-Para publicar uma **nova versão** do APK: coloque o arquivo em `downloads/`, ajuste `version`, `file` e `filename` em [`src/lib/downloads.ts`](src/lib/downloads.ts) e faça o deploy. (Cada versão nova de APK aumenta o repositório em ~10–13 MB.)
+Para publicar uma **nova versão** do APK: coloque o arquivo em `downloads/`, ajuste `APK` (versão, arquivo e nome) em [`src/lib/downloads.ts`](src/lib/downloads.ts) e faça o deploy. (Cada versão nova de APK aumenta o repositório em ~10–13 MB.)
 
 Em qualquer texto de etapa, a linha `[[downloads:totem]]` ou `[[downloads:painel]]` mostra esse bloco de opções.
 

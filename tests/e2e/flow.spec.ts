@@ -12,9 +12,25 @@ test("downloads dos aplicativos: opções, download direto com Range e links edi
   const HIBRIDO = ["https://bit.ly/aihib15", "https://shre.ink/aihib15"];
   expect(totem.links).toEqual(HIBRIDO);
   expect(painel.links).toEqual(HIBRIDO);
-  // sem APK hospedado, só os links curtos aparecem
-  expect(totem.direct).toBeNull();
-  expect((await request.get("/api/download/totem")).status()).toBe(404);
+  // download direto do APK híbrido, o mesmo para totem e painel
+  expect(totem.direct).toBe("/api/download/totem");
+  expect(painel.direct).toBe("/api/download/painel");
+  expect(totem.sizeBytes).toBeGreaterThan(1_000_000);
+  const full = await request.get("/api/download/totem");
+  expect(full.status()).toBe(200);
+  expect(full.headers()["content-type"]).toBe("application/vnd.android.package-archive");
+  expect(full.headers()["content-disposition"]).toContain('filename="AI_Hibrido_1.5.apk"');
+  expect(full.headers()["accept-ranges"]).toBe("bytes");
+  const body = await full.body();
+  expect(body.length).toBe(totem.sizeBytes);
+  expect(body.subarray(0, 2).toString()).toBe("PK"); // APK é um ZIP
+
+  // retomar download: Range
+  const part = await request.get("/api/download/painel", { headers: { Range: "bytes=0-3" } });
+  expect(part.status()).toBe(206);
+  expect(part.headers()["content-range"]).toMatch(/^bytes 0-3\/\d+$/);
+  expect((await part.body()).toString()).toBe("PK");
+  expect((await request.get("/api/download/painel", { headers: { Range: "bytes=999999999-" } })).status()).toBe(416);
   expect((await request.get("/api/download/outro")).status()).toBe(404);
 
   // vídeos do tutorial: streaming com Range, miniaturas e lista permitida
@@ -76,7 +92,8 @@ test("página única em sanfona: cliente conclui no celular; equipe confirma; in
   await expect(page.getByRole("link", { name: /bit\.ly\/aihib15/ })).toBeVisible(); // opção 1
   await expect(page.getByRole("link", { name: /shre\.ink\/aihib15/ })).toBeVisible(); // opção 2
   await expect(page.getByText("É o mesmo aplicativo para o totem e para o painel")).toBeVisible();
-  await expect(page.getByRole("link", { name: /Baixar direto desta página/ })).toHaveCount(0); // sem APK hospedado
+  await expect(page.getByRole("link", { name: /Baixar direto desta página/ })).toBeVisible(); // opção 3
+  await expect(page.getByText(/copie o APK para um pendrive/)).toBeVisible();
   // formato vídeo: remover + instalar (sem o aviso de "etapa sem vídeo")
   await expect(page.getByRole("button", { name: "Reproduzir vídeo: Como remover a versão anterior" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Reproduzir vídeo: Como baixar e instalar a nova versão" })).toBeVisible();
