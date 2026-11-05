@@ -7,25 +7,14 @@ const head = (p: Page, name: string) => p.getByRole("button", { name: new RegExp
 test("downloads dos aplicativos: opções, download direto com Range e links editáveis", async ({ request }) => {
   const list = await (await request.get("/api/downloads")).json();
   const totem = list.find((x: { app: string }) => x.app === "totem");
-  expect(totem.links).toEqual(["https://bit.ly/aitotem26", "https://shre.ink/aitotem26"]);
-  expect(totem.direct).toBe("/api/download/totem");
-  expect(totem.sizeBytes).toBeGreaterThan(1_000_000);
-
-  const full = await request.get("/api/download/totem");
-  expect(full.status()).toBe(200);
-  expect(full.headers()["content-type"]).toBe("application/vnd.android.package-archive");
-  expect(full.headers()["content-disposition"]).toContain('filename="AI_Totem_26.10.apk"');
-  expect(full.headers()["accept-ranges"]).toBe("bytes");
-  const body = await full.body();
-  expect(body.length).toBe(totem.sizeBytes);
-  expect(body.subarray(0, 2).toString()).toBe("PK"); // APK é um ZIP
-
-  // retomar download: Range
-  const part = await request.get("/api/download/painel", { headers: { Range: "bytes=0-3" } });
-  expect(part.status()).toBe(206);
-  expect(part.headers()["content-range"]).toMatch(/^bytes 0-3\/\d+$/);
-  expect((await part.body()).toString()).toBe("PK\u0003\u0004");
-  expect((await request.get("/api/download/painel", { headers: { Range: "bytes=999999999-" } })).status()).toBe(416);
+  const painel = list.find((x: { app: string }) => x.app === "painel");
+  // aplicativo híbrido: os mesmos links servem para o totem e para o painel
+  const HIBRIDO = ["https://bit.ly/aihib15", "https://shre.ink/aihib15"];
+  expect(totem.links).toEqual(HIBRIDO);
+  expect(painel.links).toEqual(HIBRIDO);
+  // sem APK hospedado, só os links curtos aparecem
+  expect(totem.direct).toBeNull();
+  expect((await request.get("/api/download/totem")).status()).toBe(404);
   expect((await request.get("/api/download/outro")).status()).toBe(404);
 
   // vídeos do tutorial: streaming com Range, miniaturas e lista permitida
@@ -45,11 +34,16 @@ test("downloads dos aplicativos: opções, download direto com Range e links edi
   const login = await request.post("/api/admin/login", { data: { email: "admin@intelite.local", password: "senha-e2e-123456" } });
   expect(login.status()).toBe(200);
   expect((await request.put("/api/admin/settings", { data: { downloadLinks: { totem: ["http://inseguro.com/x"], painel: [] } } })).status()).toBe(400);
-  const ok = await request.put("/api/admin/settings", { data: { downloadLinks: { totem: ["bit.ly/novo-totem"], painel: ["bit.ly/aipainel26"] } } });
+  const ok = await request.put("/api/admin/settings", { data: { downloadLinks: { totem: ["bit.ly/novo-totem"], painel: ["bit.ly/aihib15"] } } });
   expect(ok.status()).toBe(200);
   expect((await (await request.get("/api/downloads")).json()).find((x: { app: string }) => x.app === "totem").links).toEqual(["https://bit.ly/novo-totem"]);
-  // restaura os padrões para não afetar os demais testes
+  // links antigos ainda salvos no banco (padrões anteriores) passam para o aplicativo híbrido
   await request.put("/api/admin/settings", { data: { downloadLinks: { totem: ["bit.ly/aitotem26", "shre.ink/aitotem26"], painel: ["bit.ly/aipainel26", "shre.ink/aipainel26"] } } });
+  const migrados = await (await request.get("/api/downloads")).json();
+  expect(migrados.find((x: { app: string }) => x.app === "totem").links).toEqual(["https://bit.ly/aihib15", "https://shre.ink/aihib15"]);
+  expect(migrados.find((x: { app: string }) => x.app === "painel").links).toEqual(["https://bit.ly/aihib15", "https://shre.ink/aihib15"]);
+  // restaura os padrões para não afetar os demais testes
+  await request.put("/api/admin/settings", { data: { downloadLinks: { totem: ["bit.ly/aihib15", "shre.ink/aihib15"], painel: ["bit.ly/aihib15", "shre.ink/aihib15"] } } });
 });
 
 test("página única em sanfona: cliente conclui no celular; equipe confirma; indicadores refletem", async ({ page, browser }) => {
@@ -79,9 +73,10 @@ test("página única em sanfona: cliente conclui no celular; equipe confirma; in
   // totem — conteúdo oficial, troca de formato sem perder a etapa
   await expect(head(page, "Atualizar o totem")).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByRole("heading", { name: "Remover a versão anterior" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /bit\.ly\/aitotem26/ })).toBeVisible(); // opção 1
-  await expect(page.getByRole("link", { name: /shre\.ink\/aitotem26/ })).toBeVisible(); // opção 2
-  await expect(page.getByRole("link", { name: /Baixar direto desta página/ })).toBeVisible(); // opção 3
+  await expect(page.getByRole("link", { name: /bit\.ly\/aihib15/ })).toBeVisible(); // opção 1
+  await expect(page.getByRole("link", { name: /shre\.ink\/aihib15/ })).toBeVisible(); // opção 2
+  await expect(page.getByText("É o mesmo aplicativo para o totem e para o painel")).toBeVisible();
+  await expect(page.getByRole("link", { name: /Baixar direto desta página/ })).toHaveCount(0); // sem APK hospedado
   // formato vídeo: remover + instalar (sem o aviso de "etapa sem vídeo")
   await expect(page.getByRole("button", { name: "Reproduzir vídeo: Como remover a versão anterior" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Reproduzir vídeo: Como baixar e instalar a nova versão" })).toBeVisible();
@@ -118,7 +113,7 @@ test("página única em sanfona: cliente conclui no celular; equipe confirma; in
   // painel: atualização → conferência
   await expect(head(page, "Atualizar o painel")).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByRole("heading", { name: "Remover a versão anterior" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /shre\.ink\/aipainel26/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /shre\.ink\/aihib15/ })).toBeVisible();
   await expect(page.getByText("Síntese de Voz")).toHaveCount(0); // etapa retirada
   await expect(head(page, "Conferir a tela do painel")).toBeDisabled();
   await page.getByLabel(/Concluí a atualização do painel/).click();

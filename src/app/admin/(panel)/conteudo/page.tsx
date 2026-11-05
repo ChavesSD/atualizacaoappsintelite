@@ -22,10 +22,10 @@ export default function ConteudoPage() {
       {msg && <div className={`alert ${msg.ok ? "ok" : "bad"}`} role="status">{msg.text}</div>}
 
       <section className="card stack"><h2>Links de download dos aplicativos</h2>
-        <p className="muted small">Um link por linha (https). Aparecem como “Opção 1, 2…” para o cliente, seguidos do download direto desta página. Deixe vazio para mostrar só o download direto.</p>
+        <p className="muted small">Um link por linha (https). Aparecem como “Opção 1, 2…” para o cliente. O aplicativo atual é o mesmo para totem e painel, por isso os dois campos têm os mesmos links.</p>
         <div className="grid2">
-          <label className="field"><span>Totem</span><textarea value={dl.totem} onChange={(e) => setDl({ ...dl, totem: e.target.value })} placeholder="bit.ly/aitotem26" /></label>
-          <label className="field"><span>Painel de chamadas</span><textarea value={dl.painel} onChange={(e) => setDl({ ...dl, painel: e.target.value })} placeholder="bit.ly/aipainel26" /></label>
+          <label className="field"><span>Totem</span><textarea value={dl.totem} onChange={(e) => setDl({ ...dl, totem: e.target.value })} placeholder="bit.ly/aihib15" /></label>
+          <label className="field"><span>Painel de chamadas</span><textarea value={dl.painel} onChange={(e) => setDl({ ...dl, painel: e.target.value })} placeholder="bit.ly/aihib15" /></label>
         </div>
         <button className="btn" style={{ alignSelf: "flex-start" }} onClick={async () => { try { const r = await api<{ downloadLinks: { totem: string[]; painel: string[] } }>("/api/admin/settings", { method: "PUT", body: { downloadLinks: { totem: dl.totem.split("\n"), painel: dl.painel.split("\n") } } }); setDl({ totem: r.downloadLinks.totem.join("\n"), painel: r.downloadLinks.painel.join("\n") }); setMsg({ ok: true, text: "Links de download salvos." }); } catch (e) { setMsg({ ok: false, text: (e as Error).message }); } }}>Salvar links</button>
       </section>

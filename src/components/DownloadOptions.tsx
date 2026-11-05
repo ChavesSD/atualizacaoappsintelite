@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/client-api";
 import { Alert, Icon, Skeleton } from "./ui";
 
-interface Info { app: "totem" | "painel"; label: string; version: string; links: string[]; direct: string | null; sizeBytes: number | null }
+interface Info { app: "totem" | "painel"; label: string; version: string | null; links: string[]; direct: string | null; sizeBytes: number | null }
 
 let cache: Promise<Info[]> | null = null;
 const load = () => (cache ??= api<Info[]>("/api/downloads").catch((e) => { cache = null; throw e; }));
@@ -38,8 +38,8 @@ export function DownloadOptions({ app }: { app: "totem" | "painel" }) {
   let n = 0;
   return (
     <div className="dl" role="group" aria-label={`Opções de download: ${info.label}`}>
-      <p style={{ margin: 0 }}><strong>Baixar o aplicativo: {info.label} (versão {info.version})</strong></p>
-      <p className="muted small" style={{ margin: "4px 0 8px" }}>Se uma opção não funcionar, tente a próxima.</p>
+      <p style={{ margin: 0 }}><strong>Baixar o aplicativo: {info.label}{info.version ? ` (versão ${info.version})` : ""}</strong></p>
+      <p className="muted small" style={{ margin: "4px 0 8px" }}>É o mesmo aplicativo para o totem e para o painel de chamadas. Se uma opção não funcionar, tente a próxima.</p>
       <div className="stack" style={{ gap: 8 }}>
         {info.links.map((l) => (
           <a key={l} className="opt-link" href={l} target="_blank" rel="noopener noreferrer">

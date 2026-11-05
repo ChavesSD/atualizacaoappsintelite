@@ -43,7 +43,7 @@ test("acessibilidade automática: cliente e admin, claro e escuro", async ({ pag
   await api.patch("/api/submissions/me", { data: { format: "TEXTO", step: 2 } });
   await page.reload();
   await page.getByRole("heading", { name: "Remover a versão anterior" }).waitFor();
-  await page.getByText("Opção 3").waitFor();
+  await page.getByText("Opção 2").waitFor();
   await scan(page, project, "cliente: atualizar totem (texto)");
 
   await api.patch("/api/submissions/me", { data: { format: "VIDEO" } });

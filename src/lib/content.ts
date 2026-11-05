@@ -19,7 +19,13 @@ export async function getDownloadLinks(): Promise<Record<DownloadApp, string[]>>
   if (!row) return defaults;
   try {
     const v = JSON.parse(row.value) as Partial<Record<DownloadApp, string[]>>;
-    return { totem: Array.isArray(v.totem) ? v.totem : defaults.totem, painel: Array.isArray(v.painel) ? v.painel : defaults.painel };
+    const pick = (app: DownloadApp) => {
+      const saved = v[app];
+      if (!Array.isArray(saved)) return defaults[app];
+      const igual = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
+      return DOWNLOAD_APPS[app].legacyLinks.some((l) => igual(l, saved)) ? defaults[app] : saved;
+    };
+    return { totem: pick("totem"), painel: pick("painel") };
   } catch {
     return defaults;
   }

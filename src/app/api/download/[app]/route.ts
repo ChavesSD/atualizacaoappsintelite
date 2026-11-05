@@ -8,9 +8,11 @@ export const dynamic = "force-dynamic";
 export const GET = route<{ params: Promise<{ app: string }> }>(async (req, { params }) => {
   const app = (await params).app;
   if (!isDownloadApp(app)) throw notFound();
-  return serveFile(req, downloadFilePath(app), {
+  const file = downloadFilePath(app);
+  if (!file || !DOWNLOAD_APPS[app].filename) throw notFound(); // sem APK hospedado: só os links curtos
+  return serveFile(req, file, {
     contentType: "application/vnd.android.package-archive",
     cache: "public, max-age=300",
-    filename: DOWNLOAD_APPS[app].filename,
+    filename: DOWNLOAD_APPS[app].filename as string,
   });
 });

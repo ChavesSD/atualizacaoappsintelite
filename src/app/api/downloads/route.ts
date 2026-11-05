@@ -11,9 +11,12 @@ export const GET = route(async () => {
   const out = [];
   for (const app of Object.keys(DOWNLOAD_APPS) as DownloadApp[]) {
     let sizeBytes: number | null = null;
-    try {
-      sizeBytes = (await fs.promises.stat(downloadFilePath(app))).size;
-    } catch { /* sem arquivo: só links */ }
+    const file = downloadFilePath(app);
+    if (file) {
+      try {
+        sizeBytes = (await fs.promises.stat(file)).size;
+      } catch { /* sem arquivo: só links */ }
+    }
     out.push({
       app,
       label: DOWNLOAD_APPS[app].label,
