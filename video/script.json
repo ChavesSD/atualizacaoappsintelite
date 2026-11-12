@@ -20,12 +20,12 @@
     {
       "id": "instalar",
       "title": "Instalar",
-      "text": "Na primeira vez, o Android pode avisar que este aplicativo não tem permissão para instalar apps de fontes desconhecidas. É normal. Toque em Configurações, ative a opção, volte e toque em Aceitar. Agora vem a parte importante. O Android pergunta se você quer instalar uma atualização para este aplicativo, e avisa que os seus dados não serão perdidos. Toque em Instalar e aguarde alguns segundos. Quando aparecer App instalado, toque em Abrir."
+      "text": "Na primeira vez, o Android pode avisar que este aplicativo não tem permissão para instalar apps de fontes desconhecidas. É normal. Toque em Configurações e ative a chave do Chrome. Depois, volte e abra o arquivo baixado de novo. Se aparecer o aviso de fontes desconhecidas, toque em Aceitar. Agora vem a parte importante. O Android pergunta se você quer instalar uma atualização para este aplicativo, e avisa que os seus dados não serão perdidos. Toque em Instalar e aguarde alguns segundos. Quando aparecer App instalado, toque em Abrir."
     },
     {
       "id": "abrir",
       "title": "Abrir",
-      "text": "Pronto! Na primeira abertura, o aplicativo mostra o MAC do equipamento e a versão instalada. Confira se aparece a versão nova. Em seguida, ele carrega. É só aguardar. Se aparecer que o MAC ainda não está cadastrado, avise a equipe da Intelite e informe o número que aparece na tela. Se você tem totem e painel, repita nos dois. Obrigada por atualizar com a gente!"
+      "text": "Pronto! Na primeira abertura, o aplicativo mostra o MAC do equipamento e a versão instalada. Ele pergunta se deve abrir sozinho ao ligar. Toque em Agora não, ou deixe o tempo passar. Depois, o aplicativo pede permissão para acessar fotos e mídia. Toque em Permitir. Em seguida, ele baixa o conteúdo e mostra o andamento. É só aguardar alguns segundos. Quando o conteúdo começar a rodar, a atualização está concluída. Se aparecer que o equipamento ainda não está cadastrado, avise a equipe da Intelite e informe o MAC. Se você tem totem e painel, repita nos dois. Obrigada por atualizar com a gente!"
     }
   ]
 }
