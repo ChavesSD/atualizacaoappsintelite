@@ -113,8 +113,8 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
   const COL_W = 0.36, COL_D = 0.23, COL_H = 0.8, BASE_Y = 0.05, COL_TOP = BASE_Y + COL_H, FRONT_Z = COL_D / 2;
 
   // base (pintura preta), com a frente alinhada à coluna, e quatro pezinhos
-  totem.add(rbox(0.44, BASE_Y, 0.56, 0.006, metal, 0, BASE_Y / 2, FRONT_Z - 0.28));
-  for (const sx of [-0.18, 0.18]) for (const z of [FRONT_Z - 0.05, FRONT_Z - 0.51]) {
+  totem.add(rbox(COL_W, BASE_Y, 0.56, 0.006, metal, 0, BASE_Y / 2, FRONT_Z - 0.28));
+  for (const sx of [-0.14, 0.14]) for (const z of [FRONT_Z - 0.05, FRONT_Z - 0.51]) {
     const f = new THREE.Mesh(track(new THREE.CylinderGeometry(0.016, 0.016, 0.022, 14)), rubber); f.position.set(sx, -0.011, z); totem.add(f);
   }
 
@@ -157,14 +157,14 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
 
   // cabeça: placa inclinada para trás, apoiada no alto da coluna
   const ALPHA = 0.58; // ~33° para trás
-  const HL = 0.66, HW = 0.42, HT = 0.08;
+  const HL = 0.66, HW = COL_W, HT = 0.07; // tudo na mesma largura do tronco; só o tronco é mais espesso na lateral
   const head = new THREE.Group(); head.position.set(0, COL_TOP, FRONT_Z); head.rotation.x = -ALPHA; totem.add(head);
   head.add(rbox(HW, HL, HT, 0.008, metal, 0, HL / 2, -HT / 2));
   // abas laterais e borda superior (dobras da chapa)
   head.add(rbox(0.012, HL, HT + 0.012, 0.004, metal, HW / 2 - 0.004, HL / 2, -HT / 2 + 0.001));
   head.add(rbox(0.012, HL, HT + 0.012, 0.004, metal, -HW / 2 + 0.004, HL / 2, -HT / 2 + 0.001));
   // abertura da tela: moldura rebaixada, vidro e a imagem
-  const SW = 0.285, SH = 0.46, SC = 0.345;
+  const SW = 0.27, SH = 0.45, SC = 0.345;
   head.add(rbox(SW + 0.018, SH + 0.018, 0.004, 0.004, lip, 0, SC, 0.0012));
   const screenMat = track(new THREE.MeshStandardMaterial({
     map: screenTex ?? null, emissiveMap: screenTex ?? null, emissive: new THREE.Color(0xffffff), emissiveIntensity: 0.78,
