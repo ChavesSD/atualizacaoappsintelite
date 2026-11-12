@@ -1,0 +1,225 @@
+"use client";
+import { useEffect, useRef, useState } from "react";
+
+/**
+ * Milly, a guia do tutorial. É o avatar (imagem única) "vestido" por um pequeno esqueleto de animação:
+ *  - boca desenhada por cima do rosto, aberta conforme o áudio do vídeo (linha do tempo gerada por video/lipsync.py);
+ *  - piscar de olhos, respiração e balanço da cabeça; acenos de cabeça e inclinações nos instantes de ênfase da fala;
+ *  - balão com a legenda do que ela está dizendo.
+ * Tudo é guiado pelo relógio do <video> (currentTime), então a fala, a boca e os gestos ficam sempre juntos, inclusive ao avançar ou voltar.
+ * Sem JavaScript de animação por quadro no React: os atributos do SVG são escritos direto (sem renderizar de novo a cada quadro).
+ */
+
+interface Timeline { fps: number; o: string; w: string; beats: number[]; pauses: number[] }
+interface Cue { start: number; end: number; text: string }
+
+const GREETING = "Oi! Eu sou a Milly. Aperte o play e eu te guio pelo passo a passo.";
+
+function parseVtt(text: string): Cue[] {
+  const cues: Cue[] = [];
+  const sec = (s: string) => { const p = s.trim().split(":").map(parseFloat); return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1]; };
+  for (const block of text.replace(/\r/g, "").split(/\n\n+/)) {
+    const lines = block.split("\n").filter(Boolean);
+    const i = lines.findIndex((l) => l.includes("-->"));
+    if (i < 0) continue;
+    const [a, b] = lines[i].split("-->");
+    cues.push({ start: sec(a), end: sec(b.trim().split(" ")[0]), text: lines.slice(i + 1).join(" ").replace(/<[^>]+>/g, "") });
+  }
+  return cues;
+}
+
+// ───────── geometria (coordenadas da imagem recortada: 940 × 1000) ─────────
+const MX = 453, MY = 464;                       // centro da boca
+const EYES = [{ x: 367, y: 336, hw: 52, top: 300, h: 74, plate: [290, 285, 150, 110] as const, id: "e" }, { x: 540, y: 334, hw: 58, top: 298, h: 74, plate: [455, 280, 170, 110] as const, id: "d" }];
+const PIVOT = { x: 453, y: 580 };               // "pescoço": a cabeça gira em torno dele
+
+const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const f = (n: number) => n.toFixed(1);
+
+/** Contornos da boca para abertura `o` (0..1) e formato `w` (0 = arredondada, 1 = aberta de lado). */
+function mouth(o: number, w: number) {
+  const a = 56 + 15 * w - 7 * o * (1 - w);                 // meia-largura
+  const h = o * 32;                                         // abertura no centro
+  const yl = MY - 10, yr = MY - 14;                          // cantos (o direito é um pouco mais alto, como no desenho)
+  const xl = MX - a, xr = MX + a, ym = (yl + yr) / 2;
+  const top = MY - 6 - h * 0.22, bot = MY - 6 + h * 0.8;      // bordas do vão no centro
+  const ct = 2 * top - ym, cb = 2 * bot - ym;                 // pontos de controle das curvas
+  const edgeTop = `M${f(xl)},${f(yl)} Q${f(MX)},${f(ct)} ${f(xr)},${f(yr)}`;
+  const edgeBotBack = `Q${f(MX)},${f(cb)} ${f(xl)},${f(yl)}`;
+  const cavity = `${edgeTop} ${edgeBotBack} Z`;
+  const th = Math.min(h * 0.3, 8);
+  const teeth = `M${f(xl)},${f(yl)} Q${f(MX)},${f(ct)} ${f(xr)},${f(yr)} L${f(xr)},${f(yr + th)} Q${f(MX)},${f(ct + th * 1.2)} ${f(xl)},${f(yl + th)} Z`;
+  const up = top - 11;
+  const upper = `M${f(xl)},${f(yl)} C${f(MX - a * 0.5)},${f(up - 2)} ${f(MX - 9)},${f(up - 4)} ${f(MX)},${f(up + 4)} C${f(MX + 9)},${f(up - 4)} ${f(MX + a * 0.5)},${f(up - 2)} ${f(xr)},${f(yr)} Q${f(MX)},${f(ct)} ${f(xl)},${f(yl)} Z`;
+  const lower = `M${f(xl)},${f(yl)} Q${f(MX)},${f(cb)} ${f(xr)},${f(yr)} C${f(MX + a * 0.62)},${f(bot + 22)} ${f(MX - a * 0.62)},${f(bot + 22)} ${f(xl)},${f(yl)} Z`;
+  return { cavity, teeth, upper, lower, tongueY: bot - h * 0.3, tongueRx: a * 0.4, tongueRy: Math.max(0.1, h * 0.2), bot };
+}
+
+export function Milly({ video, mouth: mouthSrc, captions, onStart }: { video: HTMLVideoElement | null; mouth: string | null; captions: string | null; onStart: () => void }) {
+  const root = useRef<HTMLDivElement>(null);
+  const svg = useRef<SVGSVGElement>(null);
+  const [text, setText] = useState(GREETING);
+  const [speaking, setSpeaking] = useState(false);
+  const timeline = useRef<Timeline | null>(null);
+  const cues = useRef<Cue[]>([]);
+  const videoRef = useRef(video); videoRef.current = video;
+  const textRef = useRef(GREETING);
+
+  useEffect(() => {
+    let dead = false;
+    if (mouthSrc) fetch(mouthSrc).then((r) => (r.ok ? r.json() : null)).then((j) => { if (!dead && j) timeline.current = j; }).catch(() => {});
+    if (captions) fetch(captions).then((r) => (r.ok ? r.text() : "")).then((t) => { if (!dead) cues.current = parseVtt(t); }).catch(() => {});
+    return () => { dead = true; };
+  }, [mouthSrc, captions]);
+
+  useEffect(() => {
+    const s = svg.current; const box = root.current;
+    if (!s || !box) return;
+    const q = <T extends Element>(sel: string) => s.querySelector(sel) as T;
+    const els = {
+      body: q<SVGGElement>("#m-body"), head: q<SVGGElement>("#m-head"), mouth: q<SVGGElement>("#m-mouth"),
+      cavity: q<SVGPathElement>("#m-cavity"), cavclip: q<SVGPathElement>("#m-cavclip-p"), teeth: q<SVGPathElement>("#m-teeth"), upper: q<SVGPathElement>("#m-upper"), lower: q<SVGPathElement>("#m-lower"),
+      tongue: q<SVGEllipseElement>("#m-tongue"), lids: EYES.map((e) => ({ g: q<SVGGElement>(`#m-lid-${e.id}`), clip: q<SVGRectElement>(`#m-clip-${e.id} rect`), lash: q<SVGPathElement>(`#m-lash-${e.id}`) })),
+    };
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let raf = 0, visible = true, last = performance.now() / 1000;
+    let o = 0, w = 0.5;                                  // boca suavizada
+    let ny = 0, nv = 0;                                  // aceno (mola)
+    let tilt = 0, tiltV = 0, tiltTarget = 0;             // inclinação da cabeça
+    let lean = 0, leanV = 0;                             // inclinação do corpo (ênfase maior)
+    let blinkAt = last + 1.6, blinkStart = -9;
+    let beatIdx = 0, beatCount = 0, pauseIdx = 0, prevT = 0;
+    let cueShown = -2;
+
+    const frame = () => {
+      raf = requestAnimationFrame(frame);
+      if (!visible || document.hidden) return;
+      const now = performance.now() / 1000; const dt = Math.min(0.05, now - last); last = now;
+      const v = videoRef.current; const tl = timeline.current;
+      const playing = !!v && !v.paused && !v.ended && v.readyState > 2;
+      const t = v ? v.currentTime : 0;
+
+      // boca
+      let to = 0, tw = 0.5;
+      if (playing && tl) {
+        const i = Math.min(tl.o.length - 1, Math.max(0, Math.floor((t + 0.02) * tl.fps)));
+        to = (tl.o.charCodeAt(i) - 48) / 9; tw = (tl.w.charCodeAt(i) - 48) / 9;
+        to = clamp(Math.pow(to, 1.35) * 0.95);
+      }
+      o += (to - o) * (1 - Math.exp(-dt * (to > o ? 38 : 22)));
+      w += (tw - w) * (1 - Math.exp(-dt * 20));
+
+      // gestos: ênfases e pausas da fala
+      if (tl && (!playing || Math.abs(t - prevT) > 1)) {                // pulou no vídeo: reposiciona os ponteiros
+        beatIdx = tl.beats.findIndex((b) => b > t); if (beatIdx < 0) beatIdx = tl.beats.length;
+        pauseIdx = tl.pauses.findIndex((p) => p > t); if (pauseIdx < 0) pauseIdx = tl.pauses.length;
+      }
+      if (playing && tl) {
+        while (beatIdx < tl.beats.length && tl.beats[beatIdx] <= t) {
+          beatCount++; nv += (beatCount % 3 === 0 ? 70 : 38);
+          if (beatCount % 3 === 0) leanV += (beatCount % 2 ? 5 : -5);
+          beatIdx++;
+        }
+        while (pauseIdx < tl.pauses.length && tl.pauses[pauseIdx] <= t) { tiltTarget = tiltTarget > 0 ? -1.3 : 1.3; pauseIdx++; }
+      } else tiltTarget = 0;
+      prevT = t;
+      const spring = (x: number, vel: number, k: number, c: number, target = 0): [number, number] => { vel += (-k * (x - target) - c * vel) * dt; return [x + vel * dt, vel]; };
+      [ny, nv] = spring(ny, nv, 140, 15);
+      [tilt, tiltV] = spring(tilt, tiltV, 40, 8, tiltTarget);
+      [lean, leanV] = spring(lean, leanV, 30, 7);
+
+      // piscar
+      if (now >= blinkAt) { blinkStart = now; blinkAt = now + 2.2 + Math.random() * 3.6; if (Math.random() < 0.18) blinkAt = now + 0.45; }
+      const bt = (now - blinkStart) / 0.18;
+      const blink = bt < 0 || bt > 1 ? 0 : bt < 0.4 ? bt / 0.4 : 1 - (bt - 0.4) / 0.6;
+
+      // movimento do corpo e da cabeça
+      const m = reduce ? 0 : 1;
+      const breathe = Math.sin(now * 1.7) * 1.6 * m;
+      const sway = Math.sin(now * 0.9) * 0.45 * m;
+      els.body.setAttribute("transform", `translate(470 1000) rotate(${f((lean * 0.12 + sway * 0.3) * m)}) scale(1 ${(1 + breathe * 0.0009).toFixed(4)}) translate(-470 -1000)`);
+      els.head.setAttribute("transform", `translate(0 ${f(breathe * 0.5 + ny * 0.5 * m)}) rotate(${f((sway + tilt + ny * 0.06 + lean * 0.05) * m)} ${PIVOT.x} ${PIVOT.y})`);
+
+      // boca
+      const open = clamp((o - 0.03) / 0.07);
+      els.mouth.setAttribute("opacity", open.toFixed(2));
+      if (open > 0) {
+        const g = mouth(o, w);
+        els.cavity.setAttribute("d", g.cavity); els.cavclip.setAttribute("d", g.cavity); els.teeth.setAttribute("d", g.teeth);
+        els.upper.setAttribute("d", g.upper); els.lower.setAttribute("d", g.lower);
+        els.tongue.setAttribute("cy", f(g.tongueY)); els.tongue.setAttribute("rx", f(g.tongueRx)); els.tongue.setAttribute("ry", f(g.tongueRy));
+        els.teeth.setAttribute("opacity", o > 0.18 ? "1" : "0");
+      }
+      // pálpebras
+      EYES.forEach((e, i) => {
+        const L = els.lids[i];
+        L.g.setAttribute("opacity", blink > 0.02 ? "1" : "0");
+        L.clip.setAttribute("height", f(e.h * blink));
+        const y = e.top + e.h * blink;
+        L.lash.setAttribute("d", `M${e.x - e.hw},${f(y - 4 * blink)} Q${e.x},${f(y + 7 * blink)} ${e.x + e.hw},${f(y - 4 * blink)}`);
+        L.lash.setAttribute("opacity", blink > 0.35 ? "1" : "0");
+      });
+
+      // legenda no balão
+      if (v && (playing || t > 0.3)) {
+        const c = cues.current; let idx = -1;
+        for (let k = 0; k < c.length; k++) if (t >= c[k].start - 0.05 && t < c[k].end + 0.3) { idx = k; break; }
+        if (idx !== cueShown && idx >= 0) { cueShown = idx; textRef.current = c[idx].text; setText(c[idx].text); }
+      } else if (cueShown !== -2 && !playing && t <= 0.3) { cueShown = -2; textRef.current = GREETING; setText(GREETING); }
+      setSpeaking((p) => (p === playing ? p : playing));
+    };
+    const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; });
+    io.observe(box);
+    raf = requestAnimationFrame(frame);
+    return () => { cancelAnimationFrame(raf); io.disconnect(); };
+  }, []);
+
+  return (
+    <div className="milly-wrap" ref={root}>
+      <div className="milly">
+        <button type="button" className="milly-avatar" onClick={onStart} aria-label="Ouvir a Milly explicar o passo a passo (iniciar o vídeo)">
+          <svg ref={svg} viewBox="0 0 940 1000" aria-hidden focusable="false" data-speaking={speaking || undefined}>
+            <defs>
+              <radialGradient id="m-fade" cx="0.5" cy="0.5" r="0.5"><stop offset="0.62" stopColor="#fff" /><stop offset="1" stopColor="#000" /></radialGradient>
+              <mask id="m-headmask" maskUnits="userSpaceOnUse" x="0" y="0" width="940" height="1000">
+                <rect width="940" height="1000" fill="#000" />
+                <ellipse cx="455" cy="330" rx="335" ry="395" fill="url(#m-fade)" />
+              </mask>
+              <radialGradient id="m-eyefade" cx="0.5" cy="0.5" r="0.5"><stop offset="0.7" stopColor="#fff" /><stop offset="1" stopColor="#000" /></radialGradient>
+              {EYES.map((e) => (
+                <mask key={e.id} id={`m-eyemask-${e.id}`} maskUnits="userSpaceOnUse" x="0" y="0" width="940" height="1000">
+                  <ellipse cx={e.x} cy={e.y} rx={e.hw + 14} ry="46" fill="url(#m-eyefade)" />
+                </mask>
+              ))}
+              {EYES.map((e) => <clipPath key={e.id} id={`m-clip-${e.id}`}><rect x={e.x - e.hw - 20} y={e.top - 14} width={e.hw * 2 + 40} height="0" /></clipPath>)}
+              <clipPath id="m-cavclip"><path id="m-cavclip-p" d="" /></clipPath>
+              <linearGradient id="m-lip" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ea8573" /><stop offset="1" stopColor="#d96a59" /></linearGradient>
+            </defs>
+            <g id="m-body"><image href="/milly/milly.webp" width="940" height="1000" /></g>
+            <g id="m-head">
+              <g mask="url(#m-headmask)"><image href="/milly/milly.webp" width="940" height="1000" /></g>
+              {EYES.map((e) => (
+                <g key={e.id} id={`m-lid-${e.id}`} opacity="0">
+                  <g mask={`url(#m-eyemask-${e.id})`}><g clipPath={`url(#m-clip-${e.id})`}><image href={`/milly/olho-${e.id}.png`} x={e.plate[0]} y={e.plate[1]} width={e.plate[2]} height={e.plate[3]} /></g></g>
+                  <path id={`m-lash-${e.id}`} d="" fill="none" stroke="#1d1210" strokeWidth="5" strokeLinecap="round" opacity="0" />
+                </g>
+              ))}
+              <g id="m-mouth" opacity="0">
+                <image href="/milly/boca.png" x="350" y="415" width="210" height="115" />
+                <path id="m-cavity" d="" fill="#4a1620" />
+                <path id="m-teeth" d="" fill="#fbf6f1" opacity="0" clipPath="url(#m-cavclip)" />
+                <ellipse id="m-tongue" cx={MX} cy={MY} rx="20" ry="4" fill="#d9666a" clipPath="url(#m-cavclip)" />
+                <path id="m-lower" d="" fill="url(#m-lip)" />
+                <path id="m-upper" d="" fill="#e0715f" />
+              </g>
+            </g>
+          </svg>
+        </button>
+        <div className="milly-bubble" aria-hidden>
+          <span className="milly-name">Milly</span>
+          <p>{text}</p>
+        </div>
+      </div>
+    </div>
+  );
+}

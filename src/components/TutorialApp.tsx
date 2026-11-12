@@ -5,6 +5,7 @@ import { CRITERIA, DEFAULT_SOLUTION, FIX_KEY, SOLUTIONS, STEPS } from "@/lib/flo
 import type { GuideVideo as Guide } from "@/lib/videos";
 import { BrandBar } from "./Brand";
 import { GuideVideo, type GuidePlayer } from "./GuideVideo";
+import { Milly } from "./Milly";
 import { Totem3D } from "./Totem3D";
 import { Inline, Lines, StepContent, toBlocks, type PublicStep } from "./StepContent";
 import { Alert, Icon, Skeleton, type IconName } from "./ui";
@@ -235,6 +236,7 @@ function UpdatePhase({ head, first, step, video, installed, busy, onInstalled, o
 }) {
   const player = useRef<GuidePlayer>(null);
   const [active, setActive] = useState(0);
+  const [vid, setVid] = useState<HTMLVideoElement | null>(null);
   const blocks = useMemo(() => toBlocks(step?.instructions ?? []), [step]);
   const chapters = video?.chapters ?? [];
   const total = blocks.length;
@@ -258,10 +260,11 @@ function UpdatePhase({ head, first, step, video, installed, busy, onInstalled, o
       <div className="fit-grid">
         <div className="fit-video">
           {video
-            ? <GuideVideo ref={player} video={video} active={cur} onChapter={setActive} />
+            ? <GuideVideo ref={player} video={video} active={cur} onChapter={setActive} onVideo={setVid} />
             : step?.video
               ? <div className="player"><iframe src={step.video.src} title={step.video.title} loading="lazy" allow="fullscreen; picture-in-picture" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation allow-popups" /></div>
               : <div className="player-empty"><div><Icon name="play" size={32} /><p style={{ margin: "8px 0 0" }}><strong>O vídeo completo está sendo preparado.</strong><br />Enquanto isso, siga o passo a passo escrito.</p></div></div>}
+          {video && <Milly video={vid} mouth={video.mouth} captions={video.captions} onStart={() => { if (!vid || vid.paused) player.current?.seek(vid ? vid.currentTime : 0, true); else vid.pause(); }} />}
         </div>
 
         <section className="stepbox" aria-label={block ? `Passo ${cur + 1} de ${total}: ${block.heading ?? ""}` : "Passo a passo"}>
