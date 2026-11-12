@@ -172,12 +172,10 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
   // abertura da tela: moldura rebaixada, vidro e a imagem
   const SW = 0.27, SH = 0.481, SC = 0.345; // proporção da imagem da tela (996×1775)
   head.add(rbox(SW + 0.018, SH + 0.018, 0.004, 0.004, lip, 0, SC, 0.0012));
-  const screenMat = track(new THREE.MeshStandardMaterial({
-    map: screenTex ?? null, emissiveMap: screenTex ?? null, emissive: new THREE.Color(0xffffff), emissiveIntensity: 0.5,
-    color: screenTex ? 0xb4b4b4 : 0x14295c, roughness: 0.2, metalness: 0, envMapIntensity: 0.8,
-  }));
+  // a tela emite luz própria: cores fiéis à imagem, sem passar pela iluminação nem pelo tone mapping (sem brilho nem contraste exagerados)
+  const screenMat = track(new THREE.MeshBasicMaterial({ map: screenTex ?? null, color: screenTex ? 0xf2f2f2 : 0x14295c, toneMapped: false }));
   head.add(plane(SW, SH, screenMat, 0, SC, 0.0042));
-  head.add(plane(SW, SH, track(new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.045, roughness: 0.03, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02 })), 0, SC, 0.0052));
+  head.add(plane(SW, SH, track(new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.012, roughness: 0.2, metalness: 0, clearcoat: 0.2, clearcoatRoughness: 0.3, envMapIntensity: 0.15 })), 0, SC, 0.0052));
   // ventilação no verso da cabeça
   for (const gx of [-1, 1]) for (let i = 0; i < 12; i++) {
     const v = plane(0.0035, 0.085, slotMat, gx * 0.1 + (i - 5.5) * 0.011, 0.26, -HT - 0.0004); v.rotation.y = Math.PI; head.add(v);
