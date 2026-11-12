@@ -6,28 +6,12 @@ import { LIP_LINE, LIP_X0 } from "./milly-lips";
  * Milly, a guia do tutorial. É o avatar (imagem única) "vestido" por um pequeno esqueleto de animação:
  *  - boca desenhada por cima do rosto, aberta conforme o áudio do vídeo (linha do tempo gerada por video/lipsync.py);
  *  - piscar de olhos, respiração e balanço da cabeça; acenos de cabeça e inclinações nos instantes de ênfase da fala;
- *  - balão com a legenda do que ela está dizendo.
+ *  - o texto do passo a passo ao lado faz o papel do balão de fala dela (a legenda e o texto não se repetem).
  * Tudo é guiado pelo relógio do <video> (currentTime), então a fala, a boca e os gestos ficam sempre juntos, inclusive ao avançar ou voltar.
  * Sem JavaScript de animação por quadro no React: os atributos do SVG são escritos direto (sem renderizar de novo a cada quadro).
  */
 
 interface Timeline { fps: number; o: string; w: string; beats: number[]; pauses: number[] }
-interface Cue { start: number; end: number; text: string }
-
-const GREETING = "Oi! Eu sou a Milly. Aperte o play e eu te guio pelo passo a passo.";
-
-function parseVtt(text: string): Cue[] {
-  const cues: Cue[] = [];
-  const sec = (s: string) => { const p = s.trim().split(":").map(parseFloat); return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1]; };
-  for (const block of text.replace(/\r/g, "").split(/\n\n+/)) {
-    const lines = block.split("\n").filter(Boolean);
-    const i = lines.findIndex((l) => l.includes("-->"));
-    if (i < 0) continue;
-    const [a, b] = lines[i].split("-->");
-    cues.push({ start: sec(a), end: sec(b.trim().split(" ")[0]), text: lines.slice(i + 1).join(" ").replace(/<[^>]+>/g, "") });
-  }
-  return cues;
-}
 
 // ───────── geometria (coordenadas da imagem recortada: 940 × 1000) ─────────
 const EYES = [{ x: 367, y: 336, hw: 52, top: 300, h: 74, plate: [290, 285, 150, 110] as const, id: "e" }, { x: 540, y: 334, hw: 58, top: 298, h: 74, plate: [455, 280, 170, 110] as const, id: "d" }];
@@ -61,22 +45,17 @@ function mouth(o: number) {
   };
 }
 
-export function Milly({ video, mouth: mouthSrc, captions, onStart }: { video: HTMLVideoElement | null; mouth: string | null; captions: string | null; onStart: () => void }) {
+export function Milly({ video, mouth: mouthSrc, onStart }: { video: HTMLVideoElement | null; mouth: string | null; onStart: () => void }) {
   const root = useRef<HTMLDivElement>(null);
   const svg = useRef<SVGSVGElement>(null);
-  const [text, setText] = useState(GREETING);
-  const [speaking, setSpeaking] = useState(false);
   const timeline = useRef<Timeline | null>(null);
-  const cues = useRef<Cue[]>([]);
   const videoRef = useRef(video); videoRef.current = video;
-  const textRef = useRef(GREETING);
 
   useEffect(() => {
     let dead = false;
     if (mouthSrc) fetch(mouthSrc).then((r) => (r.ok ? r.json() : null)).then((j) => { if (!dead && j) timeline.current = j; }).catch(() => {});
-    if (captions) fetch(captions).then((r) => (r.ok ? r.text() : "")).then((t) => { if (!dead) cues.current = parseVtt(t); }).catch(() => {});
     return () => { dead = true; };
-  }, [mouthSrc, captions]);
+  }, [mouthSrc]);
 
   useEffect(() => {
     const s = svg.current; const box = root.current;
@@ -96,7 +75,6 @@ export function Milly({ video, mouth: mouthSrc, captions, onStart }: { video: HT
     let lean = 0, leanV = 0;                             // inclinação do corpo (ênfase maior)
     let blinkAt = last + 1.6, blinkStart = -9;
     let beatIdx = 0, beatCount = 0, pauseIdx = 0, prevT = 0;
-    let cueShown = -2;
 
     const frame = () => {
       raf = requestAnimationFrame(frame);
@@ -168,13 +146,6 @@ export function Milly({ video, mouth: mouthSrc, captions, onStart }: { video: HT
         L.lash.setAttribute("opacity", blink > 0.35 ? "1" : "0");
       });
 
-      // legenda no balão
-      if (v && (playing || t > 0.3)) {
-        const c = cues.current; let idx = -1;
-        for (let k = 0; k < c.length; k++) if (t >= c[k].start - 0.05 && t < c[k].end + 0.3) { idx = k; break; }
-        if (idx !== cueShown && idx >= 0) { cueShown = idx; textRef.current = c[idx].text; setText(c[idx].text); }
-      } else if (cueShown !== -2 && !playing && t <= 0.3) { cueShown = -2; textRef.current = GREETING; setText(GREETING); }
-      setSpeaking((p) => (p === playing ? p : playing));
     };
     const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; });
     io.observe(box);
@@ -186,7 +157,7 @@ export function Milly({ video, mouth: mouthSrc, captions, onStart }: { video: HT
     <div className="milly-wrap" ref={root}>
       <div className="milly">
         <button type="button" className="milly-avatar" onClick={onStart} aria-label="Ouvir a Milly explicar o passo a passo (iniciar o vídeo)">
-          <svg ref={svg} viewBox="0 0 940 1000" aria-hidden focusable="false" data-speaking={speaking || undefined}>
+          <svg ref={svg} viewBox="0 0 940 1000" aria-hidden focusable="false">
             <defs>
               <radialGradient id="m-fade" cx="0.5" cy="0.5" r="0.5"><stop offset="0.62" stopColor="#fff" /><stop offset="1" stopColor="#000" /></radialGradient>
               <mask id="m-headmask" maskUnits="userSpaceOnUse" x="0" y="0" width="940" height="1000">
@@ -233,10 +204,6 @@ export function Milly({ video, mouth: mouthSrc, captions, onStart }: { video: HT
             </g>
           </svg>
         </button>
-        <div className="milly-bubble" aria-hidden>
-          <span className="milly-name">Milly</span>
-          <p>{text}</p>
-        </div>
       </div>
     </div>
   );

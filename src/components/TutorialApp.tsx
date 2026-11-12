@@ -264,10 +264,10 @@ function UpdatePhase({ head, first, step, video, installed, busy, onInstalled, o
             : step?.video
               ? <div className="player"><iframe src={step.video.src} title={step.video.title} loading="lazy" allow="fullscreen; picture-in-picture" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation allow-popups" /></div>
               : <div className="player-empty"><div><Icon name="play" size={32} /><p style={{ margin: "8px 0 0" }}><strong>O vídeo completo está sendo preparado.</strong><br />Enquanto isso, siga o passo a passo escrito.</p></div></div>}
-          {video && <Milly video={vid} mouth={video.mouth} captions={video.captions} onStart={() => { if (!vid || vid.paused) player.current?.seek(vid ? vid.currentTime : 0, true); else vid.pause(); }} />}
+          {video && <Milly video={vid} mouth={video.mouth} onStart={() => { if (!vid || vid.paused) player.current?.seek(vid ? vid.currentTime : 0, true); else vid.pause(); }} />}
         </div>
 
-        <section className="stepbox" aria-label={block ? `Passo ${cur + 1} de ${total}: ${block.heading ?? ""}` : "Passo a passo"}>
+        <section className={`stepbox${video ? " has-guide" : ""}`} aria-label={block ? `Passo ${cur + 1} de ${total}: ${block.heading ?? ""}` : "Passo a passo"}>
           {!step && <Alert tone="info">O conteúdo desta etapa ainda está sendo preparado pela equipe da Intelite.</Alert>}
           {block && (
             <>

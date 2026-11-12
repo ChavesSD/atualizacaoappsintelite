@@ -445,16 +445,17 @@ details > summary { cursor: pointer; min-height: 32px; }
 .milly-wrap { display: none; }
 @media (min-width: 1000px) {
   .milly-wrap { display: block; flex: 1 1 0; min-height: 0; container-type: size; margin-top: var(--s-3); }
-  .milly { height: 100%; display: flex; align-items: flex-end; gap: var(--s-4); }
+  .milly { height: 100%; display: flex; align-items: flex-end; justify-content: flex-end; }
   @container (max-height: 120px) { .milly { display: none; } }
 }
 .milly-avatar { flex: 0 0 auto; height: 100%; aspect-ratio: 940 / 1000; max-height: 100%; padding: 0; border: 0; background: none; cursor: pointer; border-radius: var(--r-lg); }
 .milly-avatar svg { display: block; height: 100%; width: auto; overflow: visible; filter: drop-shadow(0 12px 24px rgba(0, 0, 0, .55)); }
 .milly-avatar:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
-.milly-bubble { position: relative; align-self: center; max-width: 34ch; background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: var(--r-lg); border-bottom-left-radius: 6px; padding: var(--s-3) var(--s-4); }
-.milly-bubble::before { content: ""; position: absolute; left: -8px; bottom: 16px; width: 14px; height: 14px; background: var(--surface-2); border-left: 1px solid var(--border-strong); border-bottom: 1px solid var(--border-strong); transform: rotate(45deg); }
-.milly-name { display: block; font-size: .75rem; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--brand-text); margin-bottom: 2px; }
-.milly-bubble p { margin: 0; font-size: var(--fs-0); line-height: 1.45; color: var(--text); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+/* o passo a passo é o "balão de fala" da Milly: uma ponta sai da caixa em direção a ela */
+.stepbox { position: relative; }
+@media (min-width: 1000px) {
+  .stepbox.has-guide::before { content: ""; position: absolute; left: -11px; bottom: 150px; width: 20px; height: 20px; background: var(--surface); border-left: 1px solid var(--brand); border-bottom: 1px solid var(--brand); transform: rotate(45deg); border-bottom-left-radius: 4px; }
+}
 
 .stepbox { min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--brand); border-radius: var(--r-xl); padding: var(--s-4) var(--s-5); box-shadow: 0 0 0 1px var(--brand), 0 18px 50px -20px var(--brand-glow); }
 .stepbox-head { flex: 0 0 auto; display: flex; align-items: center; gap: var(--s-3); padding-bottom: var(--s-3); }
