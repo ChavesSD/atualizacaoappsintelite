@@ -110,7 +110,7 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
   scene.add(totem);
 
   // ── medidas (em metros, a partir das fotos): coluna à frente, base larga e baixa para trás ──
-  const COL_W = 0.36, COL_D = 0.23, COL_H = 0.8, BASE_Y = 0.05, COL_TOP = BASE_Y + COL_H, FRONT_Z = COL_D / 2;
+  const COL_W = 0.36, COL_D = 0.15, COL_H = 0.8, BASE_Y = 0.05, COL_TOP = BASE_Y + COL_H, FRONT_Z = COL_D / 2;
 
   // base (pintura preta), com a frente alinhada à coluna, e quatro pezinhos
   totem.add(rbox(COL_W, BASE_Y, 0.56, 0.006, metal, 0, BASE_Y / 2, FRONT_Z - 0.28));
