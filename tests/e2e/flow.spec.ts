@@ -89,24 +89,43 @@ test("cliente conclui o guia no celular; equipe confirma; indicadores refletem",
   const hasVideo = !!(await (await page.request.get("/api/content")).json()).guideVideo;
   if (hasVideo) await expect(page.getByRole("button", { name: /Reproduzir vídeo: Como atualizar o aplicativo/ })).toBeVisible();
   else await expect(page.getByText("O vídeo completo está sendo preparado")).toBeVisible();
-  for (const t of ["Prepare o Mini PC", "Baixe o aplicativo", "Instale por cima da versão atual", "Abra e aguarde carregar"]) {
-    await expect(page.getByRole("heading", { level: 2, name: t })).toBeVisible();
-  }
+  // o texto mostra só o passo em andamento (nada de lista inteira) e a tela cabe sem rolagem vertical
+  const h2 = (t: string) => page.getByRole("heading", { level: 2, name: t });
+  await expect(h2("Prepare o Mini PC")).toBeVisible();
+  await expect(page.getByText("Passo 1 de 4")).toBeVisible();
+  for (const t of ["Baixe o aplicativo", "Instale por cima da versão atual", "Abra e aguarde carregar"]) await expect(h2(t)).toHaveCount(0);
   await expect(page.getByText("Remover a versão anterior")).toHaveCount(0);
   await expect(page.getByText("Mostrar apps do sistema")).toHaveCount(0);
-  await expect(page.getByText(/Você não precisa desinstalar nada/)).toBeVisible();
+  await expect(page.getByText("Escolha o formato")).toHaveCount(0); // texto e vídeo juntos: não há mais escolha de formato
+  const overflowY = () => page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight);
+  expect(await overflowY()).toBeLessThanOrEqual(2);
+  await expect(page.getByRole("button", { name: /Anterior/ })).toBeDisabled();
+  await page.getByRole("button", { name: /Próximo passo/ }).click();
+  await expect(h2("Baixe o aplicativo")).toBeVisible();
+  await expect(h2("Prepare o Mini PC")).toHaveCount(0);
   await expect(page.getByRole("link", { name: /is\.gd\/aihib19/ })).toBeVisible(); // opção 1
   await expect(page.getByRole("link", { name: /v\.gd\/aihib19/ })).toBeVisible(); // opção 2
   await expect(page.getByText("É o mesmo aplicativo para o totem e para o painel").first()).toBeVisible();
   await expect(page.getByRole("link", { name: /Baixar direto desta página/ })).toBeVisible(); // opção 3
   await expect(page.getByText(/copie o APK para um pendrive/)).toBeVisible();
-  await expect(page.getByText("Escolha o formato")).toHaveCount(0); // texto e vídeo juntos: não há mais escolha de formato
-  // "Ver no vídeo" leva o player ao capítulo do passo
+  expect(await overflowY()).toBeLessThanOrEqual(2);
+  await page.getByRole("button", { name: /Próximo passo/ }).click();
+  await expect(h2("Instale por cima da versão atual")).toBeVisible();
+  await expect(page.getByText(/Você não precisa desinstalar nada/)).toBeVisible();
+  // escolher um capítulo do vídeo troca o passo mostrado (e o vídeo vai ao capítulo)
   if (hasVideo) {
-    await page.getByRole("button", { name: "Ver no vídeo" }).nth(1).click();
+    await page.getByRole("button", { name: /^1 Preparar/ }).click();
+    await expect(h2("Prepare o Mini PC")).toBeVisible();
     await expect(page.locator("video")).toBeVisible();
-    await expect(page.getByRole("button", { name: /^Baixar \d/ })).toHaveAttribute("aria-current", "true");
+    await page.getByRole("button", { name: /^2 Baixar/ }).click();
+    await expect(h2("Baixe o aplicativo")).toBeVisible();
+    await expect(page.getByRole("button", { name: /^2 Baixar/ })).toHaveAttribute("aria-current", "step");
+    await page.getByRole("button", { name: /^3 Instalar/ }).click();
+    await expect(h2("Instale por cima da versão atual")).toBeVisible();
   }
+  await page.getByRole("button", { name: /Próximo passo/ }).click();
+  await expect(h2("Abra e aguarde carregar")).toBeVisible();
+  await expect(page.getByText("Passo 4 de 4")).toBeVisible();
   // fases seguintes bloqueadas até concluir esta
   await expect(page.getByRole("button", { name: /Foto/ })).toHaveAttribute("aria-disabled", "true");
   await expect(page.getByRole("button", { name: /^Continuar/ })).toBeDisabled();

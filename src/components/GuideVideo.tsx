@@ -3,21 +3,23 @@ import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from "
 import type { GuideVideo as Guide } from "@/lib/videos";
 import { Alert, Icon } from "./ui";
 
-export interface GuidePlayer { seek: (seconds: number) => void }
+/** `seek(segundos, tocar)`: leva o vídeo a um instante. Com `tocar = false` só posiciona (o passo escolhido no texto não dispara o som). */
+export interface GuidePlayer { seek: (seconds: number, play?: boolean) => void }
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
 /**
  * Vídeo principal do guia, com legendas e capítulos. Informa o capítulo atual (onChapter) conforme o vídeo avança, e
- * `seek()` leva o vídeo a um instante e começa a tocar: é assim que o texto e o vídeo andam juntos.
+ * `seek()` leva o vídeo a um instante: é assim que o texto e o vídeo andam juntos. `active` é o passo mostrado ao lado
+ * (vindo do vídeo ou escolhido no texto) e destaca o capítulo correspondente.
  * O arquivo só é baixado depois do toque em ▶ (economiza dados no celular).
  */
-export const GuideVideo = forwardRef<GuidePlayer, { video: Guide; onChapter: (index: number) => void }>(function GuideVideo({ video, onChapter }, ref) {
+export const GuideVideo = forwardRef<GuidePlayer, { video: Guide; active: number; onChapter: (index: number) => void }>(function GuideVideo({ video, active, onChapter }, ref) {
   const el = useRef<HTMLVideoElement>(null);
   const pending = useRef<number | null>(null);
+  const last = useRef(-1);
   const [on, setOn] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [current, setCurrent] = useState(0);
 
   const chapterAt = useCallback((t: number) => {
     let idx = 0;
@@ -27,22 +29,22 @@ export const GuideVideo = forwardRef<GuidePlayer, { video: Guide; onChapter: (in
 
   const update = useCallback((t: number) => {
     const idx = chapterAt(t);
-    setCurrent((prev) => { if (prev !== idx) onChapter(idx); return idx; });
+    if (idx !== last.current) { last.current = idx; onChapter(idx); }
   }, [chapterAt, onChapter]);
 
-  const seek = useCallback((seconds: number) => {
+  const seek = useCallback((seconds: number, play = true) => {
     const v = el.current;
-    if (!v) { pending.current = seconds; setOn(true); return; } // ainda não carregou: começa já no capítulo
+    last.current = chapterAt(seconds); // o texto já mostra esse passo: não precisa avisar de volta
+    if (!v) { pending.current = seconds; if (play) setOn(true); return; } // ainda não carregou: começa já no capítulo
     v.currentTime = seconds;
-    v.play().catch(() => { /* o navegador pode exigir o toque no player */ });
-    update(seconds);
-  }, [update]);
+    if (play) v.play().catch(() => { /* o navegador pode exigir o toque no player */ });
+  }, [chapterAt]);
   useImperativeHandle(ref, () => ({ seek }), [seek]);
 
   if (failed) return <Alert tone="warn" role="alert">Não foi possível reproduzir o vídeo agora. Siga o passo a passo escrito ao lado.</Alert>;
 
   return (
-    <figure>
+    <figure className="vfig">
       <div className="player">
         {!on ? (
           <button type="button" className="poster" style={video.poster ? { backgroundImage: `url(${video.poster})` } : undefined} onClick={() => setOn(true)} aria-label={`Reproduzir vídeo: ${video.title}`}>
@@ -52,9 +54,12 @@ export const GuideVideo = forwardRef<GuidePlayer, { video: Guide; onChapter: (in
           <video
             ref={(node) => {
               el.current = node;
-              if (node && pending.current !== null) { const t = pending.current; pending.current = null; node.addEventListener("loadedmetadata", () => { node.currentTime = t; node.play().catch(() => {}); update(t); }, { once: true }); }
+              if (node && pending.current !== null) {
+                const t = pending.current; pending.current = null;
+                node.addEventListener("loadedmetadata", () => { node.currentTime = t; node.play().catch(() => {}); }, { once: true });
+              }
             }}
-            controls autoPlay={pending.current === null} playsInline preload="metadata" poster={video.poster ?? undefined}
+            controls autoPlay playsInline preload="metadata" poster={video.poster ?? undefined}
             onTimeUpdate={(e) => update(e.currentTarget.currentTime)} onSeeked={(e) => update(e.currentTarget.currentTime)} onError={() => setFailed(true)}
             aria-label={video.title}
           >
@@ -63,15 +68,12 @@ export const GuideVideo = forwardRef<GuidePlayer, { video: Guide; onChapter: (in
           </video>
         )}
       </div>
-      <figcaption className="player-cap">
-        <span><strong>{video.title}</strong> · {mmss(video.durationSec)} · com narração e legendas</span>
-      </figcaption>
       {video.chapters.length > 0 && (
-        <ol className="chapters" aria-label="Capítulos do vídeo">
+        <ol className="chapters" aria-label="Capítulos do vídeo (escolha o passo)">
           {video.chapters.map((c, i) => (
             <li key={c.title}>
-              <button type="button" aria-current={on && current === i ? "true" : undefined} onClick={() => seek(c.start)}>
-                {c.title} <span className="time">{mmss(c.start)}</span>
+              <button type="button" aria-current={active === i ? "step" : undefined} onClick={() => { seek(c.start, true); onChapter(i); }}>
+                <span className="n">{i + 1}</span>{c.title} <span className="time">{mmss(c.start)}</span>
               </button>
             </li>
           ))}

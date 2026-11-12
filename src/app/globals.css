@@ -265,17 +265,6 @@ fieldset legend { padding: 0; font-weight: 600; font-size: var(--fs-0); color: v
 .nav-row { display: flex; flex-wrap: wrap; gap: var(--s-3); margin-top: var(--s-6); align-items: center; }
 .nav-row .grow { flex: 1 1 auto; }
 
-/* passo a passo: vídeo à esquerda (fixo), passos à direita */
-.guide-grid { display: grid; gap: var(--s-6); align-items: start; }
-@media (min-width: 1000px) { .guide-grid { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--s-7); } .player-col { position: sticky; top: 88px; } }
-/* celular: o vídeo fica fixo no alto enquanto o cliente rola os passos (o passo ativo continua à vista do vídeo) */
-@media (max-width: 999px) {
-  .player-col { position: sticky; top: 64px; z-index: 15; background: var(--bg); padding: var(--s-2) 0 var(--s-3); margin-inline: calc(var(--s-4) * -1); padding-inline: var(--s-4); border-bottom: 1px solid var(--border); }
-  .player-col .player { max-height: 30svh; margin-inline: auto; border-radius: var(--r-lg); box-shadow: none; }
-  .player-col .player-cap { display: none; }
-  .player-col .chapters { flex-wrap: nowrap; overflow-x: auto; margin-top: var(--s-2); padding-bottom: 2px; scrollbar-width: none; }
-  .player-col .chapters li { flex: 0 0 auto; }
-}
 
 .player { position: relative; border-radius: var(--r-xl); overflow: hidden; background: #000; border: 1px solid var(--border-strong); box-shadow: 0 0 0 1px #000, 0 30px 80px -20px var(--brand-glow), var(--shadow-2); aspect-ratio: 16 / 9; }
 .player video, .player iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #000; }
@@ -295,16 +284,6 @@ fieldset legend { padding: 0; font-weight: 600; font-size: var(--fs-0); color: v
 .chapters button[aria-current="true"] .time { color: var(--brand-text); }
 @media (hover: hover) and (pointer: fine) { .chapters button:hover { border-color: var(--border-input); color: var(--text); } }
 
-/* cada passo escrito acompanha um capítulo do vídeo */
-.subs { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-3); counter-reset: sub; }
-.sub { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: var(--s-4) var(--s-4) var(--s-4) var(--s-4); transition: border-color var(--t-med) var(--ease-out), background-color var(--t-med) var(--ease-out), box-shadow var(--t-med) var(--ease-out); }
-.sub.active { border-color: var(--brand); background: var(--surface-2); box-shadow: 0 0 0 1px var(--brand), 0 12px 40px -16px var(--brand-glow); }
-.sub-head { display: flex; align-items: center; gap: var(--s-3); margin-bottom: var(--s-3); }
-.sub-num { flex: 0 0 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 650; font-size: var(--fs-0); background: var(--surface-3); color: var(--text-2); font-variant-numeric: tabular-nums; transition: background-color var(--t-med) var(--ease-out), color var(--t-med) var(--ease-out); }
-.sub.active .sub-num { background: var(--brand); color: var(--brand-contrast); }
-.sub-head h2 { margin: 0; flex: 1 1 auto; min-width: 0; font-size: var(--fs-2); }
-.sub-go { flex: 0 0 auto; }
-.sub-body { display: grid; gap: var(--s-3); }
 ol.lines { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-3); counter-reset: l; }
 ol.lines > li { display: grid; grid-template-columns: 22px 1fr; gap: var(--s-3); color: var(--text-2); }
 ol.lines > li::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--border-input); margin: 10px auto 0; }
@@ -437,4 +416,67 @@ details > summary { cursor: pointer; min-height: 32px; }
 
 .split .verdicts { grid-template-columns: 1fr; margin-top: 0; }
 
-.guide-grid > *, .split > * { min-width: 0; }
+.split > * { min-width: 0; }
+
+/* ═════════ fase "Atualizar": tudo numa tela, sem rolagem vertical ═════════
+   O texto mostra só o passo em andamento (o do capítulo que está tocando ou o escolhido); vídeo e passo ocupam a altura que sobra. */
+.shell.fit-page { display: flex; flex-direction: column; height: calc(100dvh - 64px); min-height: 0; padding-block: var(--s-3) var(--s-3); overflow: hidden; }
+.shell.fit-page .stepper { margin-bottom: var(--s-3); flex: 0 0 auto; }
+.shell.fit-page .stepper button { padding-top: var(--s-3); min-height: 40px; }
+.fit { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+.fit .phase-head { flex: 0 0 auto; margin-bottom: var(--s-3); }
+.fit .phase-head h1 { font-size: clamp(1.5rem, 1rem + 1.6vw, 2.25rem); margin: 0 0 2px; }
+.fit .phase-head p { font-size: var(--fs-0); color: var(--muted); }
+.fit-grid { flex: 1 1 0; min-height: 0; display: grid; gap: var(--s-4); grid-template-rows: auto minmax(0, 1fr); }
+@media (min-width: 1000px) { .fit-grid { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: var(--s-6); } }
+.fit-video { min-height: 0; min-width: 0; display: flex; flex-direction: column; justify-content: flex-start; }
+.vfig { margin: 0; display: flex; flex-direction: column; gap: var(--s-3); min-height: 0; }
+/* o vídeo cresce até caber: a largura acompanha a altura disponível (16:9) */
+.fit-video .player { width: min(100%, calc((100dvh - 330px) * 16 / 9)); max-height: calc(100dvh - 330px); }
+@media (max-width: 999px) { .fit-video .player { width: min(100%, calc(32dvh * 16 / 9)); max-height: 32dvh; margin-inline: auto; border-radius: var(--r-lg); box-shadow: none; } }
+.fit-video .chapters { margin: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.fit-video .chapters li { flex: 0 0 auto; }
+.chapters .n { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--surface-3); font-size: .75rem; font-weight: 650; color: var(--text-2); }
+.chapters button[aria-current="step"] { background: var(--brand-soft); border-color: var(--brand); color: var(--brand-text); }
+.chapters button[aria-current="step"] .n { background: var(--brand); color: var(--brand-contrast); }
+.chapters button[aria-current="step"] .time { color: var(--brand-text); }
+
+.stepbox { min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--brand); border-radius: var(--r-xl); padding: var(--s-4) var(--s-5); box-shadow: 0 0 0 1px var(--brand), 0 18px 50px -20px var(--brand-glow); }
+.stepbox-head { flex: 0 0 auto; display: flex; align-items: center; gap: var(--s-3); padding-bottom: var(--s-3); }
+.stepbox-head h2 { margin: 0; font-size: var(--fs-3); letter-spacing: -.02em; }
+.stepbox-count { display: block; color: var(--muted); font-size: .8125rem; font-weight: 600; }
+.sub-num { flex: 0 0 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 650; font-variant-numeric: tabular-nums; background: var(--brand); color: var(--brand-contrast); }
+/* só esta área rola, e só se o passo for muito longo (ex.: o das opções de download em tela baixa) */
+.stepbox-body { flex: 1 1 0; min-height: 0; overflow-y: auto; display: grid; align-content: start; gap: var(--s-3); padding-right: 2px; overscroll-behavior: contain; }
+@media (prefers-reduced-motion: no-preference) { .stepbox-body { animation: step-in 260ms var(--ease-out) both; } }
+@keyframes step-in { from { opacity: 0; transform: translateX(10px); } }
+.stepbox-nav { flex: 0 0 auto; display: grid; gap: var(--s-3); padding-top: var(--s-3); margin-top: var(--s-2); border-top: 1px solid var(--border); }
+.stepbox-actions { display: flex; align-items: center; gap: var(--s-3); }
+.stepbox-nav .check { min-height: 48px; padding: var(--s-2) var(--s-3); }
+.dots { list-style: none; display: flex; gap: var(--s-2); margin: 0; padding: 0; }
+.dots button { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--text-2); font: inherit; font-weight: 650; cursor: pointer; }
+.dots button[aria-current="step"] { background: var(--brand); border-color: var(--brand); color: var(--brand-contrast); }
+@media (max-height: 760px) { .stepbox { padding: var(--s-3) var(--s-4); } .stepbox-head { padding-bottom: var(--s-2); } .sub-num { flex-basis: 34px; height: 34px; } }
+
+/* ajustes finos do layout de uma tela só */
+.stepbox .dl .opt-link { min-height: 44px; padding-block: 4px; }
+.stepbox .dl .dl-head { padding-bottom: var(--s-2); }
+.stepbox .dl .dl-head p { font-size: .8125rem; line-height: 1.4; }
+.stepbox .dl .opt-link.direct { margin-top: var(--s-2); }
+.stepbox .dl .dl-note { font-size: .8125rem; line-height: 1.4; margin-top: var(--s-2); }
+@media (max-width: 999px) {
+  .fit .phase-head p { display: none; }
+  .fit .phase-head h1 { font-size: 1.35rem; }
+  .shell.fit-page .stepper .t { font-size: .75rem; }
+  .shell.fit-page .stepper .n { font-size: .75rem; }
+}
+@media (max-width: 999px) and (max-height: 780px) {
+  .fit-video .player { width: min(100%, calc(24dvh * 16 / 9)); max-height: 24dvh; }
+  .fit .phase-head { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); margin: 0; }
+}
+/* telas muito baixas: não dá para caber tudo; volta a rolagem normal em vez de espremer o texto */
+@media (max-height: 640px) {
+  .shell.fit-page { height: auto; min-height: calc(100dvh - 64px); overflow: visible; }
+  .fit-video .player { max-height: none; }
+  .stepbox-body { overflow: visible; }
+}

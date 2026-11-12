@@ -114,7 +114,7 @@ export function TutorialApp() {
       <BrandBar>
         <div className="where"><span className="who user-text">{s.contactName} · {s.company}</span></div>
       </BrandBar>
-      <main id="conteudo" className="shell" tabIndex={-1}>
+      <main id="conteudo" className={`shell ${phase === 0 ? "fit-page" : ""}`} tabIndex={-1}>
         <nav aria-label="Etapas">
           <ol className="stepper">
             {STEPS.map((st, i) => {
@@ -143,9 +143,9 @@ export function TutorialApp() {
         {phase === 2 && <PhotoPhase key="p2" head={headRef} content={byKey("fotos")} view={view} run={run} onView={setView} onBack={() => go(1)} onNext={() => patch({}, 3)} />}
         {phase === 3 && <FinishPhase key="p3" head={headRef} view={view} run={run} onView={setView} submitted={submitted} onBack={() => go(2)} onNew={async () => { await api("/api/submissions/reset", { method: "POST" }); setView(null); setError(null); }} />}
 
-        <footer className="foot">
+        {phase !== 0 && <footer className="foot">
           <span>Intelite Tecnologia · seu progresso fica salvo neste aparelho.</span>
-        </footer>
+        </footer>}
       </main>
     </>
   );
@@ -244,64 +244,76 @@ function UpdatePhase({ head, first, step, video, installed, busy, onInstalled, o
   onInstalled: (v: boolean) => void; onNext: () => void;
 }) {
   const player = useRef<GuidePlayer>(null);
-  const playerBox = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   const blocks = useMemo(() => toBlocks(step?.instructions ?? []), [step]);
   const chapters = video?.chapters ?? [];
+  const total = blocks.length;
+  const cur = Math.min(active, Math.max(0, total - 1));
+  const block = blocks[cur];
+  const lastStep = cur === total - 1;
 
-  const watch = (i: number) => {
-    const c = chapters[i];
-    if (!c) return;
-    // Em tela de uma coluna o vídeo fica acima dos passos: traz o player para a vista antes de tocar.
-    if (window.matchMedia("(max-width: 999px)").matches) playerBox.current?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
-    player.current?.seek(c.start);
-    setActive(i);
+  // O texto mostra só o passo em andamento: o do capítulo que está tocando ou o que o cliente escolheu.
+  const select = (i: number) => {
+    const n = Math.max(0, Math.min(total - 1, i));
+    setActive(n);
+    if (chapters[n]) player.current?.seek(chapters[n].start, false);
   };
 
   return (
-    <section className="phase" aria-labelledby="h-phase">
+    <section className="phase fit" aria-labelledby="h-phase">
       <header className="phase-head">
         <h1 id="h-phase" ref={head} tabIndex={-1}>Atualizar o aplicativo</h1>
-        <p>Oi, <span className="user-text">{first}</span>! Assista ao vídeo e acompanhe os passos ao lado: eles andam juntos. Se preferir, é só ler.</p>
+        <p>Oi, <span className="user-text">{first}</span>! Assista ao vídeo ou leia: o passo ao lado acompanha o que está passando.</p>
       </header>
-      <div className="guide-grid">
-        <div className="player-col" ref={playerBox}>
+      <div className="fit-grid">
+        <div className="fit-video">
           {video
-            ? <GuideVideo ref={player} video={video} onChapter={setActive} />
+            ? <GuideVideo ref={player} video={video} active={cur} onChapter={setActive} />
             : step?.video
               ? <div className="player"><iframe src={step.video.src} title={step.video.title} loading="lazy" allow="fullscreen; picture-in-picture" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation allow-popups" /></div>
               : <div className="player-empty"><div><Icon name="play" size={32} /><p style={{ margin: "8px 0 0" }}><strong>O vídeo completo está sendo preparado.</strong><br />Enquanto isso, siga o passo a passo escrito.</p></div></div>}
         </div>
 
-        <div className="stack">
+        <section className="stepbox" aria-label={block ? `Passo ${cur + 1} de ${total}: ${block.heading ?? ""}` : "Passo a passo"}>
           {!step && <Alert tone="info">O conteúdo desta etapa ainda está sendo preparado pela equipe da Intelite.</Alert>}
-          <ol className="subs">
-            {blocks.map((b, i) => (
-              <li key={i} className={`sub ${active === i && video ? "active" : ""}`} aria-current={active === i && video ? "step" : undefined}>
-                <div className="sub-head">
-                  <span className="sub-num" aria-hidden>{i + 1}</span>
-                  <h2 style={{ fontSize: "var(--fs-2)", margin: 0, flex: "1 1 auto" }}>{b.heading ?? `Passo ${i + 1}`}</h2>
-                  {video && chapters[i] && (
-                    <button type="button" className="btn sm sub-go" onClick={() => watch(i)}>
-                      <Icon name="play" size={14} /> <span>Ver no vídeo</span>
-                    </button>
-                  )}
+          {block && (
+            <>
+              <div className="stepbox-head">
+                <span className="sub-num" aria-hidden>{cur + 1}</span>
+                <div className="grow">
+                  <span className="stepbox-count">Passo {cur + 1} de {total}</span>
+                  <h2>{block.heading ?? `Passo ${cur + 1}`}</h2>
                 </div>
-                <div className="sub-body"><Lines items={b.items} /></div>
-              </li>
-            ))}
-          </ol>
-          {step?.warning && <Alert tone="info" role="note"><Inline text={step.warning} /></Alert>}
-          {step?.imagePath && <img className="refimg" loading="lazy" src={`/api/assets/${step.imagePath}`} alt={`Imagem de referência: ${step.title}`} />}
-          <label className="check">
-            <input type="checkbox" checked={installed} disabled={busy} onChange={(e) => onInstalled(e.target.checked)} />
-            <span>Terminei a atualização e o aplicativo abriu. <span className="hint">Marque quando estiver com o aplicativo aberto no equipamento.</span></span>
-          </label>
-          <div>
-            <button type="button" className="btn primary lg block" disabled={busy || !installed} onClick={onNext}>Continuar <Icon name="arrowRight" size={20} /></button>
-            {!installed && <p className="why">Marque “Terminei a atualização” para continuar.</p>}
-          </div>
-        </div>
+              </div>
+              <div className="stepbox-body" key={cur} tabIndex={0} role="region" aria-label={`Instruções do passo ${cur + 1}`}>
+                <Lines items={block.items} />
+                {lastStep && step?.warning && <Alert tone="info" role="note"><Inline text={step.warning} /></Alert>}
+                {lastStep && step?.imagePath && <img className="refimg" loading="lazy" src={`/api/assets/${step.imagePath}`} alt={`Imagem de referência: ${step.title}`} />}
+              </div>
+              <div className="stepbox-nav">
+                {!video && total > 1 && (
+                  <ol className="dots" aria-label="Passos">
+                    {blocks.map((b, i) => <li key={i}><button type="button" aria-current={i === cur ? "step" : undefined} aria-label={`Passo ${i + 1}: ${b.heading ?? ""}`} onClick={() => select(i)}>{i + 1}</button></li>)}
+                  </ol>
+                )}
+                {lastStep ? (
+                  <label className="check">
+                    <input type="checkbox" checked={installed} disabled={busy} onChange={(e) => onInstalled(e.target.checked)} />
+                    <span>Terminei a atualização e o aplicativo abriu.</span>
+                  </label>
+                ) : null}
+                <div className="stepbox-actions">
+                  <button type="button" className="btn" disabled={cur === 0} onClick={() => select(cur - 1)}><Icon name="arrowLeft" size={18} /> Anterior</button>
+                  <span className="grow" />
+                  {lastStep
+                    ? <button type="button" className="btn primary" disabled={busy || !installed} onClick={onNext}>Continuar <Icon name="arrowRight" size={18} /></button>
+                    : <button type="button" className="btn primary" onClick={() => select(cur + 1)}>Próximo passo <Icon name="arrowRight" size={18} /></button>}
+                </div>
+                {lastStep && !installed && <p className="why">Marque “Terminei a atualização” para continuar.</p>}
+              </div>
+            </>
+          )}
+        </section>
       </div>
     </section>
   );

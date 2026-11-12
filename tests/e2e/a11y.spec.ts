@@ -38,14 +38,19 @@ test("acessibilidade automática: cliente e admin, claro e escuro", async ({ pag
   await api.post("/api/submissions", { data: { company: "Rede Exemplo Ltda", contactName: "Maria Souza" } });
   await page.reload();
   await page.getByRole("heading", { level: 1, name: "Atualizar o aplicativo" }).waitFor();
-  await page.getByText("Opção 2").waitFor();
+  await page.getByRole("heading", { level: 2, name: "Prepare o Mini PC" }).waitFor();
   await scan(page, project, "cliente: atualizar (vídeo e passos)");
 
-  if (await page.getByRole("button", { name: "Ver no vídeo" }).count()) {
-    await page.getByRole("button", { name: "Ver no vídeo" }).nth(1).click();
+  await page.getByRole("button", { name: /Próximo passo/ }).click();
+  await page.getByRole("heading", { level: 2, name: "Baixe o aplicativo" }).waitFor();
+  await scan(page, project, "cliente: atualizar (passo com download)");
+  if (await page.getByRole("button", { name: /^2 Baixar/ }).count()) {
+    await page.getByRole("button", { name: /^3 Instalar/ }).click();
     await page.locator("video").waitFor();
     await scan(page, project, "cliente: atualizar (vídeo tocando)");
   }
+  await page.getByRole("button", { name: /Próximo passo/ }).click();
+  await scan(page, project, "cliente: atualizar (último passo)");
 
   await api.patch("/api/submissions/me", { data: { installed: true, step: 1 } });
   await page.reload();

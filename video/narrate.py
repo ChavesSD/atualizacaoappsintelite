@@ -17,7 +17,9 @@ def probe(path):
 
 async def synth(cfg, ch, outdir):
     mp3 = outdir / f"{ch['id']}.mp3"
-    com = edge_tts.Communicate(ch["text"], cfg["voice"], rate=cfg.get("rate", "+0%"), pitch=cfg.get("pitch", "+0Hz"), boundary="SentenceBoundary")
+    # pronúncia: a voz lê "Intelite" como "Inteláite"; com acento escrito ("Intélite") ela fala certo. A legenda volta a "Intelite".
+    spoken = ch["text"].replace("Intelite", "Intélite")
+    com = edge_tts.Communicate(spoken, cfg["voice"], rate=cfg.get("rate", "+0%"), pitch=cfg.get("pitch", "+0Hz"), boundary="SentenceBoundary")
     sentences = []
     with open(mp3, "wb") as f:
         async for chunk in com.stream():
@@ -25,7 +27,7 @@ async def synth(cfg, ch, outdir):
                 f.write(chunk["data"])
             elif chunk["type"] == "SentenceBoundary":
                 start = chunk["offset"] / TICKS
-                sentences.append({"start": start, "end": start + chunk["duration"] / TICKS, "text": chunk["text"].strip()})
+                sentences.append({"start": start, "end": start + chunk["duration"] / TICKS, "text": chunk["text"].strip().replace("Intélite", "Intelite")})
     dur = probe(mp3)
     if sentences:
         sentences[-1]["end"] = min(max(sentences[-1]["end"], sentences[-1]["start"] + 0.5), dur)
