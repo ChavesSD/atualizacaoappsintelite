@@ -480,3 +480,15 @@ details > summary { cursor: pointer; min-height: 32px; }
   .fit-video .player { max-height: none; }
   .stepbox-body { overflow: visible; }
 }
+
+/* abertura: totem 3D */
+.totem3d { position: relative; width: 100%; max-width: 520px; height: min(74dvh, 700px); min-height: 440px; margin-inline: auto; }
+.totem3d-canvas { position: absolute; inset: 0; }
+.totem3d-canvas canvas { display: block; outline: none; }
+.totem3d.loading .totem3d-canvas { opacity: 0; }
+.totem3d.ready .totem3d-canvas { animation: totem-in 700ms var(--ease-out) both; }
+@keyframes totem-in { from { opacity: 0; transform: translateY(14px) scale(.98); } }
+@media (prefers-reduced-motion: reduce) { .totem3d.ready .totem3d-canvas { animation: none; } }
+.totem3d-hint { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); color: var(--muted); font-size: .8125rem; pointer-events: none; }
+.totem-fallback { width: 100%; }
+.hero-art { align-items: center; }

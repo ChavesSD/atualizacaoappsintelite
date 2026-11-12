@@ -5,7 +5,7 @@ import { CRITERIA, DEFAULT_SOLUTION, FIX_KEY, SOLUTIONS, STEPS } from "@/lib/flo
 import type { GuideVideo as Guide } from "@/lib/videos";
 import { BrandBar } from "./Brand";
 import { GuideVideo, type GuidePlayer } from "./GuideVideo";
-import { HeroArt } from "./HeroArt";
+import { Totem3D } from "./Totem3D";
 import { Inline, Lines, StepContent, toBlocks, type PublicStep } from "./StepContent";
 import { Alert, Icon, Skeleton, type IconName } from "./ui";
 
@@ -99,7 +99,7 @@ export function TutorialApp() {
   }
 
   if (!view) {
-    return <Hero video={content.guideVideo} onCreated={(v) => { setView(v); setPhase(0); moved.current = false; window.scrollTo({ top: 0 }); }} />;
+    return <Hero onCreated={(v) => { setView(v); setPhase(0); moved.current = false; window.scrollTo({ top: 0 }); }} />;
   }
 
   const s = view.submission;
@@ -153,7 +153,7 @@ export function TutorialApp() {
 
 // ───────── abertura: pergunta, solução e dados ─────────
 
-function Hero({ onCreated, video }: { onCreated: (v: View) => void; video: Guide | null }) {
+function Hero({ onCreated }: { onCreated: (v: View) => void }) {
   const [solution, setSolution] = useState<string>(DEFAULT_SOLUTION);
   const [f, setF] = useState({ contactName: "", company: "" });
   const [errors, setErrors] = useState<{ contactName?: string; company?: string }>({});
@@ -218,22 +218,10 @@ function Hero({ onCreated, video }: { onCreated: (v: View) => void; video: Guide
               <p className="muted small" style={{ margin: 0 }}>Usamos seu nome, sua empresa e a foto da tela só para acompanhar esta atualização.</p>
             </form>
           </div>
-          <div className="hero-art rise" style={{ "--i": 3 } as React.CSSProperties}>{video?.poster ? <HeroPreview video={video} /> : <HeroArt />}</div>
+          <div className="hero-art rise" style={{ "--i": 3 } as React.CSSProperties}><Totem3D /></div>
         </div>
       </main>
     </>
-  );
-}
-
-/** Prévia do que o cliente vai ver: o vídeo (poster) e os capítulos que acompanham o passo a passo. Decorativa. */
-function HeroPreview({ video }: { video: Guide }) {
-  return (
-    <div className="preview" aria-hidden>
-      <div className="player">
-        <div className="poster" style={{ backgroundImage: `url(${video.poster})` }}><span className="play"><Icon name="playSolid" /></span></div>
-      </div>
-      <ol className="chapters">{video.chapters.map((c, i) => <li key={c.title}><span>{i + 1} · {c.title}</span></li>)}</ol>
-    </div>
   );
 }
 
