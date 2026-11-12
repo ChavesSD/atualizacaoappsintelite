@@ -110,20 +110,32 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
   scene.add(totem);
 
   // ── medidas (em metros, a partir das fotos): coluna à frente, base larga e baixa para trás ──
-  const COL_W = 0.36, COL_D = 0.15, COL_H = 0.8, BASE_Y = 0.05, COL_TOP = BASE_Y + COL_H, FRONT_Z = COL_D / 2;
+  const COL_W = 0.36, COL_D = 0.1, COL_H = 0.8, BASE_Y = 0.05, COL_TOP = BASE_Y + COL_H, FRONT_Z = COL_D / 2;
+  const ALPHA = 0.58; // inclinação da cabeça para trás (~33°)
+  const HL = 0.66, HW = COL_W, HT = COL_D; // base, tronco e cabeça: mesma largura (frente) e tronco com a mesma espessura da cabeça (lateral)
 
-  // base (pintura preta), com a frente alinhada à coluna, e quatro pezinhos
-  totem.add(rbox(COL_W, BASE_Y, 0.56, 0.006, metal, 0, BASE_Y / 2, FRONT_Z - 0.28));
-  for (const sx of [-0.14, 0.14]) for (const z of [FRONT_Z - 0.05, FRONT_Z - 0.51]) {
+  // corpo em peça única: o perfil lateral (base + tronco + cabeça inclinada) é extrudado na largura, com cantos suavizados,
+  // sem emendas entre base, tronco e tela
+  const BASE_L = 0.56, ZB = FRONT_Z - BASE_L, sa = Math.sin(ALPHA), ca = Math.cos(ALPHA);
+  const K: [number, number] = [FRONT_Z, COL_TOP];
+  const P2: [number, number] = [K[0] - HL * sa, K[1] + HL * ca];            // topo da face da tela
+  const P3: [number, number] = [P2[0] - HT * ca, P2[1] - HT * sa];          // topo do verso da cabeça
+  const sBack = (-COL_D / 2 - P3[0]) / sa;                                   // onde o verso da cabeça encontra o verso do tronco
+  const J: [number, number] = [-COL_D / 2, P3[1] - sBack * ca];
+  const prof = new THREE.Shape();
+  prof.moveTo(ZB, 0); prof.lineTo(FRONT_Z, 0); prof.lineTo(K[0], K[1]); prof.lineTo(P2[0], P2[1]); prof.lineTo(P3[0], P3[1]);
+  prof.lineTo(J[0], J[1]); prof.lineTo(-COL_D / 2, BASE_Y); prof.lineTo(ZB, BASE_Y); prof.closePath();
+  const BEV = 0.007;
+  const bodyGeo = track(new THREE.ExtrudeGeometry(prof, { depth: COL_W - BEV * 2, bevelEnabled: true, bevelThickness: BEV, bevelSize: BEV, bevelOffset: -BEV, bevelSegments: 4, curveSegments: 4 }));
+  bodyGeo.translate(0, 0, -(COL_W - BEV * 2) / 2);
+  bodyGeo.computeVertexNormals();
+  const bodyMesh = new THREE.Mesh(bodyGeo, metal);
+  bodyMesh.rotation.y = -Math.PI / 2; // o perfil (x = profundidade, y = altura) passa a ficar no plano z–y, extrudado em x
+  totem.add(bodyMesh);
+  // quatro pezinhos de borracha sob a base
+  for (const sx of [-0.14, 0.14]) for (const z of [FRONT_Z - 0.05, ZB + 0.05]) {
     const f = new THREE.Mesh(track(new THREE.CylinderGeometry(0.016, 0.016, 0.022, 14)), rubber); f.position.set(sx, -0.011, z); totem.add(f);
   }
-
-  // coluna
-  totem.add(rbox(COL_W, COL_H, COL_D, 0.007, metal, 0, BASE_Y + COL_H / 2, 0));
-  // frestas da porta de manutenção (lado direito e fundo)
-  const seamMat = track(new THREE.MeshBasicMaterial({ color: 0x000000 }));
-  const sideSeam = plane(0.003, COL_H - 0.12, seamMat, COL_W / 2 + 0.0006, BASE_Y + COL_H / 2 - 0.02, -0.02); sideSeam.rotation.y = Math.PI / 2; totem.add(sideSeam);
-  const seam2 = plane(COL_W - 0.06, 0.003, seamMat, 0, BASE_Y + 0.17, FRONT_Z + 0.0006); totem.add(seam2);
 
   // janela de saída da senha (retângulo escuro, com moldura levemente mais clara)
   totem.add(rbox(0.098, 0.064, 0.006, 0.004, lip, 0, 0.695, FRONT_Z));
@@ -156,13 +168,7 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
   const emblem = plane(0.03, 0.03, track(new THREE.MeshBasicMaterial({ color: 0x1b1c21 })), 0, 0.06, -0.0555); emblem.rotation.y = Math.PI; back.add(emblem);
 
   // cabeça: placa inclinada para trás, apoiada no alto da coluna
-  const ALPHA = 0.58; // ~33° para trás
-  const HL = 0.66, HW = COL_W, HT = 0.07; // tudo na mesma largura do tronco; só o tronco é mais espesso na lateral
   const head = new THREE.Group(); head.position.set(0, COL_TOP, FRONT_Z); head.rotation.x = -ALPHA; totem.add(head);
-  head.add(rbox(HW, HL, HT, 0.008, metal, 0, HL / 2, -HT / 2));
-  // abas laterais e borda superior (dobras da chapa)
-  head.add(rbox(0.012, HL, HT + 0.012, 0.004, metal, HW / 2 - 0.004, HL / 2, -HT / 2 + 0.001));
-  head.add(rbox(0.012, HL, HT + 0.012, 0.004, metal, -HW / 2 + 0.004, HL / 2, -HT / 2 + 0.001));
   // abertura da tela: moldura rebaixada, vidro e a imagem
   const SW = 0.27, SH = 0.45, SC = 0.345;
   head.add(rbox(SW + 0.018, SH + 0.018, 0.004, 0.004, lip, 0, SC, 0.0012));
