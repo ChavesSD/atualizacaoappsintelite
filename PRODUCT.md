@@ -26,7 +26,7 @@ Um único aplicativo híbrido atende totem e painel de chamadas, então há um s
 ## Operating Context
 
 - O Mini PC é um Android TV box (por exemplo, TV Box SmartPRO) ligado ao totem ou à TV; controle por mouse USB ou controle remoto.
-- O download do aplicativo é feito pelo Chrome do próprio Mini PC, por links curtos (bit.ly e shre.ink `aihib15`) ou pelo download direto da página (APK híbrido 1.19); o direto exige copiar o APK para um pendrive para instalar no Mini PC.
+- O download do aplicativo é feito pelo Chrome do próprio Mini PC, por links curtos (`is.gd/aihib19` e `v.gd/aihib19`, que apontam para o download do próprio site) ou pelo download direto da página (APK híbrido 1.19); o direto exige copiar o APK para um pendrive para instalar no Mini PC.
 - A atualização é feita instalando por cima da versão atual: não é preciso desinstalar o aplicativo antigo.
 - Hoje só existe uma solução (Atendimento Inteligente); a página deve aceitar outras no futuro.
 

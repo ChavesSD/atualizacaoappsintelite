@@ -11,9 +11,10 @@ export const APP = {
   version: "1.19" as string | null,
   file: "ai-hibrido-1.19.apk" as string | null,
   filename: "AI_Hibrido_1.19.apk" as string | null,
-  defaultLinks: ["https://bit.ly/aihib15", "https://shre.ink/aihib15"],
+  defaultLinks: ["https://is.gd/aihib19", "https://v.gd/aihib19"],
   /** Padrões de antes da unificação (totem/painel separados): se o banco ainda tiver exatamente estes, passam para o atual. */
   legacyLinks: [
+    ["https://bit.ly/aihib15", "https://shre.ink/aihib15"],
     ["https://bit.ly/aitotem26", "https://shre.ink/aitotem26"],
     ["https://bit.ly/aipainel26", "https://shre.ink/aipainel26"],
     ["https://bit.ly/totem2026"],

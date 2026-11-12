@@ -22,7 +22,7 @@ export default function ConteudoPage() {
 
       <section className="card stack"><h2>Links de download do aplicativo</h2>
         <p className="muted small">O aplicativo é o mesmo para totem e painel. Um link por linha (https): aparecem como “Opção 1, 2…” para o cliente, seguidos do download direto desta página.</p>
-        <label className="field"><span>Links (um por linha)</span><textarea value={links} onChange={(e) => setLinks(e.target.value)} placeholder="bit.ly/aihib15" /></label>
+        <label className="field"><span>Links (um por linha)</span><textarea value={links} onChange={(e) => setLinks(e.target.value)} placeholder="is.gd/aihib19" /></label>
         <button className="btn" style={{ alignSelf: "flex-start" }} onClick={async () => { try { const r = await api<{ links: string[] }>("/api/admin/settings", { method: "PUT", body: { links: links.split("\n") } }); setLinks(r.links.join("\n")); setMsg({ ok: true, text: "Links de download salvos." }); } catch (e) { setMsg({ ok: false, text: (e as Error).message }); } }}>Salvar links</button>
       </section>
 
