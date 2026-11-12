@@ -193,8 +193,10 @@ function Hero({ onCreated }: { onCreated: (v: View) => void }) {
                 {SOLUTIONS.map((sol) => (
                   <label key={sol.id} className="opt sol">
                     <input type="radio" name="solucao" value={sol.id} checked={solution === sol.id} onChange={() => setSolution(sol.id)} />
-                    <span className="glyphs" aria-hidden><Icon name="totem" /><Icon name="tv" /></span>
-                    <span><strong>{sol.name}</strong><span className="sol-sub">{sol.description}</span></span>
+                    <span className="sol-body">
+                      <img className="sol-logo" src="/logo-atendimento-inteligente.png" alt={sol.name} width={298} height={76} />
+                      <span className="sol-sub">{sol.description}</span>
+                    </span>
                     {solution === sol.id && <span className="tick" aria-hidden><Icon name="check" /></span>}
                   </label>
                 ))}

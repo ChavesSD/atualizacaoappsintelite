@@ -221,8 +221,8 @@ fieldset legend { padding: 0; font-weight: 600; font-size: var(--fs-0); color: v
 
 .sol { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); min-width: 0; overflow-wrap: anywhere; }
 .sol > span { min-width: 0; }
-.sol .glyphs { display: flex; gap: 6px; flex: 0 0 auto; color: var(--brand); }
-.sol .glyphs .icon { width: 30px; height: 30px; }
+.sol-body { display: grid; gap: var(--s-2); min-width: 0; }
+.sol .sol-logo { display: block; height: 48px; width: auto; max-width: 100%; }
 .sol strong { display: block; font-size: var(--fs-2); letter-spacing: -.01em; }
 .sol .sol-sub { color: var(--muted); font-size: var(--fs-0); font-weight: 400; display: block; }
 .sol .tick { margin-left: auto; flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; background: var(--brand); color: var(--brand-contrast); display: grid; place-items: center; }
