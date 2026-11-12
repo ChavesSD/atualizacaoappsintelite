@@ -2,7 +2,7 @@
 
 Duas partes no mesmo projeto (Next.js + TypeScript, PostgreSQL/Prisma):
 
-- **Página pública (`/`)**: uma tela só, com as etapas em sanfona, uma abaixo da outra e na ordem. Cada etapa concluída libera a próxima. O cliente informa nome e empresa, segue o tutorial (texto ou vídeo), baixa os aplicativos, confere a tela do totem e do painel, envia fotos e avalia. Sem login: o progresso fica salvo e ele retoma pelo mesmo dispositivo.
+- **Página pública (`/`)**, tema preto: abre com “Quer atualizar seu app Intelite?”, o cliente escolhe a solução (hoje só o Atendimento Inteligente) e informa nome e empresa. Em seguida segue quatro fases, em ordem: **Atualizar** (vídeo com narração e legendas e passo a passo escrito lado a lado, sincronizados), **Conferir a tela**, **Foto** e **Finalizar**. Um só aplicativo (híbrido) atende totem e painel. Sem login: o progresso fica salvo e ele retoma pelo mesmo dispositivo.
 - **Administração (`/admin`)**: indicadores e lista de envios, fotos ampliáveis, aprovação e pedido de nova foto, confirmação do enquadramento, pedidos de ajuda (com “marcar como atendido”), edição do conteúdo do tutorial e dos links de download, exportação CSV, exclusão de envio (LGPD), usuários do admin e troca de senha.
 
 ## Rodar localmente
@@ -23,22 +23,22 @@ O comando sobe um PostgreSQL local, cria as tabelas, cadastra o conteúdo inicia
 
 ## Download dos aplicativos
 
-O aplicativo atual é **híbrido: o mesmo APK serve para o totem e para o painel**. Em “Atualizar o totem” e “Atualizar o painel”, o cliente vê as opções de download abaixo, para não ficar travado se uma falhar:
+O aplicativo atual é **híbrido: o mesmo APK serve para o totem e para o painel**. Na fase “Atualizar”, o cliente vê as opções de download abaixo, para não ficar travado se uma falhar:
 
 1. **Opções 1 e 2: links curtos** (hoje `bit.ly/aihib15` e `shre.ink/aihib15`, iguais para totem e painel). São editáveis em `/admin/conteudo` → “Links de download” (até 5 por aplicativo, só https).
-2. **Última opção: download direto da página**, que serve o APK híbrido da pasta [`downloads/`](downloads) (`ai-hibrido-1.5.apk`, o mesmo arquivo para totem e painel). Aceita retomar um download interrompido (`Range`), o que ajuda em conexões instáveis.
+2. **Última opção: download direto da página**, que serve o APK híbrido da pasta [`downloads/`](downloads) (`ai-hibrido-1.19.apk`, o mesmo arquivo para totem e painel). Aceita retomar um download interrompido (`Range`), o que ajuda em conexões instáveis.
 
 Para publicar uma **nova versão** do APK: coloque o arquivo em `downloads/`, ajuste `APK` (versão, arquivo e nome) em [`src/lib/downloads.ts`](src/lib/downloads.ts) e faça o deploy. (Cada versão nova de APK aumenta o repositório em ~10–13 MB.)
 
-Em qualquer texto de etapa, a linha `[[downloads:totem]]` ou `[[downloads:painel]]` mostra esse bloco de opções.
+Em qualquer texto de etapa, a linha `[[downloads]]` mostra esse bloco de opções.
 
 ## Vídeos do tutorial
 
-Quem escolhe o formato **vídeo** vê três vídeos de apoio (gravações da Intelite), no mesmo passo em que aparecem as instruções escritas: **remover** a versão anterior e **instalar** a nova (nas etapas do totem e do painel) e **ajustar** a proporção da tela (na correção do painel). Quem escolhe **texto** não vê os vídeos, e o texto segue o mesmo caminho deles.
+O vídeo completo da atualização (`tutorial.mp4`, com narração e legendas) aparece ao lado do passo a passo. Cada bloco `## Título` do texto da fase “Atualizar” corresponde a um capítulo do vídeo, na mesma ordem: o passo acende conforme o vídeo avança, e “Ver no vídeo” leva o player ao capítulo. O vídeo de ajuste da tela (`ajustar`) fica no tutorial de “tela cortada”.
 
-- Os arquivos estão em [`downloads/videos`](downloads/videos) (`remover`, `instalar`, `ajustar`, em MP4 720p, com miniatura `.jpg`) e são servidos com `Range`, então avançam e carregam bem no celular. O vídeo só é baixado depois do toque em ▶.
-- No texto de uma etapa (`/admin/conteudo`), a linha `[[video:remover]]`, `[[video:instalar]]` ou `[[video:ajustar]]` mostra o vídeo no ponto desejado.
-- Para trocar um vídeo: substitua o `.mp4` (e a miniatura) em `downloads/videos`, mantendo o nome, e faça o deploy. Para um vídeo novo, cadastre-o em [`src/lib/videos.ts`](src/lib/videos.ts).
+- Os arquivos estão em [`downloads/videos`](downloads/videos): `tutorial.mp4` (+ `tutorial.jpg` miniatura, `tutorial.vtt` legendas e `tutorial.json` com título, duração e capítulos) e `ajustar.mp4`. São servidos com `Range`, então avançam e carregam bem no celular; o vídeo só é baixado depois do toque em ▶. Como refazer o vídeo: veja [`video/`](video).
+- No texto de uma etapa (`/admin/conteudo`), a linha `[[video:ajustar]]` mostra o vídeo de ajuste no ponto desejado.
+- Para trocar o vídeo principal: substitua os quatro arquivos `tutorial.*` mantendo os nomes e faça o deploy.
 - Além desses, o campo “Link do vídeo” de cada etapa continua aceitando YouTube/Vimeo de domínios autorizados.
 
 ## Publicar no Render
@@ -86,20 +86,20 @@ Notas:
 
 ## Etapas (na ordem)
 
-Início: dados · formato. Totem: atualizar · conferir a tela. Painel: atualizar · conferir a tela. Conclusão: fotos · confirmar e avaliar.
+**Abertura** (solução, nome e empresa) → **1 Atualizar** → **2 Conferir a tela** → **3 Foto** → **4 Finalizar** (avaliação).
 
 Quem tem várias lojas pode iniciar outro envio no mesmo aparelho (botão ao final); o envio anterior continua registrado.
 
-Não dá para pular etapas: uma tela com problema aberto bloqueia o avanço até ser corrigida ou o suporte ser pedido. O formato pode ser trocado a qualquer momento sem perder nada, e assistir ao vídeo nunca é obrigatório.
+Não dá para pular etapas: uma tela com problema aberto bloqueia o avanço até ser corrigida ou o suporte ser pedido. Assistir ao vídeo nunca é obrigatório: o texto cobre tudo, e o vídeo é o mesmo caminho.
 
 ## Regras que importam
 
 - **Declarado ≠ confirmado.** O cliente declara que a tela está correta; só a **equipe** confirma, e isso exige uma foto aprovada. Se o cliente verificar de novo, a confirmação some.
-- **Nada é inventado.** Os textos vêm do admin (`/admin/conteudo`). Para a **correção de tela do totem**, sem ajuste técnico cadastrado a página orienta o cliente a pedir suporte; quando houver procedimento oficial, basta editar a etapa.
+- **Nada é inventado.** Os textos vêm do admin (`/admin/conteudo`). O tutorial de ajuste de tela (“tela cortada”) também é editável.
 - **Texto dos passos**: um passo por linha; `## Título` abre um bloco, `**texto**` põe em negrito, links viram clicáveis.
 - **Vídeos** só de domínios autorizados (editável no admin; padrão YouTube/Vimeo — ajuste conforme a Intelite), carregados sob demanda. O texto continua visível se o vídeo falhar.
 - **Fotos**: tipo conferido pelos bytes, até 12 MB, visíveis só ao dono e à equipe.
-- **Indicadores**: cada cliente conta uma vez, no formato inicial (quem trocou aparece à parte). “Confirmados” = confirmados pela equipe.
+- **Indicadores**: funil por fase, tempo típico até concluir (mediana) e pedidos de ajuda em aberto. “Confirmadas” = confirmadas pela equipe.
 
 ## Outras formas de implantação
 

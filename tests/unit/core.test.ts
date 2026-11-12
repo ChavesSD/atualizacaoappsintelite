@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Photo, Submission } from "@prisma/client";
 import { resolveVideo, parseHosts, DEFAULT_VIDEO_HOSTS } from "@/lib/video";
-import { computeStats, type StatRow } from "@/lib/stats";
-import { maxStep, unlockedSteps } from "@/lib/submissions";
+import { computeStats, medianMinutes, type StatRow } from "@/lib/stats";
+import { doneSteps, pendingRedo, photoOk, unlockedSteps } from "@/lib/submissions";
 import { sniffImage } from "@/lib/upload";
 import { parseRange, sanitizeLinks } from "@/lib/downloads";
 import { checkEnv } from "@/lib/preflight";
@@ -38,74 +38,72 @@ describe("upload", () => {
 });
 
 describe("navegação: não pula verificações", () => {
-  const base = { format: null, totemUpdated: false, painelUpdated: false, totemFraming: "NAO_VERIFICADO", painelFraming: "NAO_VERIFICADO" } as unknown as Submission;
-  const photo = (type: "TOTEM" | "PAINEL", review: Photo["review"] = "PENDENTE", t = 1): Photo =>
-    ({ id: `${type}${t}`, type, review, createdAt: new Date(t) }) as Photo;
-  it("exige cada etapa na ordem", () => {
-    expect(maxStep(base, [])).toBe(1);
-    expect(maxStep({ ...base, format: "TEXTO" }, [])).toBe(2);
-    const a = { ...base, format: "TEXTO", totemUpdated: true } as Submission;
-    expect(maxStep(a, [])).toBe(3);
-    const b = { ...a, totemFraming: "INCORRETO" } as Submission;
-    expect(maxStep(b, [])).toBe(3); // problema aberto bloqueia
-    const c = { ...a, totemFraming: "CORRETO" } as Submission;
-    expect(maxStep(c, [])).toBe(4);
-    const d = { ...c, painelUpdated: true, painelFraming: "CORRETO" } as Submission;
-    expect(maxStep(d, [])).toBe(6);
-    expect(maxStep(d, [photo("TOTEM"), photo("PAINEL")])).toBe(7);
+  const base = { installed: false, framing: "NAO_VERIFICADO", status: "EM_ANDAMENTO" } as unknown as Submission;
+  const photo = (review: Photo["review"] = "PENDENTE", t = 1): Photo => ({ id: `p${t}`, type: "TELA", review, createdAt: new Date(t) }) as Photo;
+  it("cada fase exige a anterior concluída", () => {
+    expect(unlockedSteps(base, [])).toEqual([true, false, false, false]);
+    const a = { ...base, installed: true } as Submission;
+    expect(unlockedSteps(a, [])).toEqual([true, true, false, false]);
+    const b = { ...a, framing: "INCORRETO" } as Submission;
+    expect(unlockedSteps(b, [])).toEqual([true, true, false, false]); // problema aberto bloqueia a foto
+    const c = { ...a, framing: "CORRETO" } as Submission;
+    expect(unlockedSteps(c, [])).toEqual([true, true, true, false]);
+    expect(unlockedSteps({ ...a, framing: "PRECISA_SUPORTE" } as Submission, [])[2]).toBe(true); // pedir suporte também segue
+    expect(unlockedSteps(c, [photo()])).toEqual([true, true, true, true]);
   });
-  it("totem e painel são independentes: o cliente escolhe a ordem", () => {
-    expect(unlockedSteps(base, [])).toEqual([true, true, false, false, false, false, false, false]);
-    const f = { ...base, format: "TEXTO" } as Submission;
-    expect(unlockedSteps(f, [])).toEqual([true, true, true, false, true, false, false, false]);
-    const painelPrimeiro = { ...f, painelUpdated: true, painelFraming: "CORRETO" } as Submission;
-    expect(unlockedSteps(painelPrimeiro, [])).toEqual([true, true, true, false, true, true, false, false]); // fotos só com os dois
-    const ambos = { ...painelPrimeiro, totemUpdated: true, totemFraming: "CORRETO" } as Submission;
-    expect(unlockedSteps(ambos, [])[6]).toBe(true);
-    expect(unlockedSteps(ambos, [])[7]).toBe(false);
-    expect(unlockedSteps(ambos, [photo("TOTEM"), photo("PAINEL")])[7]).toBe(true);
+  it("marca como concluídas só as fases realmente feitas", () => {
+    const c = { ...base, installed: true, framing: "CORRETO" } as Submission;
+    expect(doneSteps(c, [])).toEqual([true, true, false, false]);
+    expect(doneSteps(c, [photo()])).toEqual([true, true, true, false]);
+    expect(doneSteps({ ...c, status: "ENVIADO" } as Submission, [photo()])).toEqual([true, true, true, true]);
   });
-  it("foto marcada para refazer volta a exigir foto; a nova substitui", () => {
-    const s = { ...base, format: "TEXTO", totemUpdated: true, totemFraming: "CORRETO", painelUpdated: true, painelFraming: "CORRETO" } as Submission;
-    expect(maxStep(s, [photo("TOTEM", "REFAZER"), photo("PAINEL")])).toBe(6);
-    expect(maxStep(s, [photo("TOTEM", "REFAZER", 1), photo("TOTEM", "PENDENTE", 2), photo("PAINEL")])).toBe(7);
+  it("foto marcada para refazer volta a exigir foto; uma nova aceitável substitui", () => {
+    const c = { ...base, installed: true, framing: "CORRETO" } as Submission;
+    expect(photoOk([photo("REFAZER", 1)])).toBe(false);
+    expect(unlockedSteps(c, [photo("REFAZER", 1)])[3]).toBe(false);
+    expect(photoOk([photo("REFAZER", 1), photo("PENDENTE", 2)])).toBe(true);
+    expect(photoOk([photo("REFAZER", 1), photo("REFAZER", 2)])).toBe(false);
+    expect(pendingRedo([photo("REFAZER", 1), photo("PENDENTE", 2)])).toHaveLength(0);
+    expect(photoOk([])).toBe(false);
   });
 });
 
 describe("indicadores", () => {
-  const row = (o: Partial<StatRow>): StatRow => ({ status: "EM_ANDAMENTO", initialFormat: null, formatChanges: 0, totemFraming: "NAO_VERIFICADO", painelFraming: "NAO_VERIFICADO", totemConfirmed: false, painelConfirmed: false, helpRequested: false, helpResolved: false, pendingPhotos: 0, totemUpdated: false, painelUpdated: false, photoCount: 0, ...o });
-  it("conta cada cliente uma vez e separa declarado de confirmado", () => {
+  const row = (o: Partial<StatRow>): StatRow => ({ status: "EM_ANDAMENTO", framing: "NAO_VERIFICADO", confirmed: false, helpRequested: false, helpResolved: false, pendingPhotos: 0, installed: false, photoCount: 0, ...o });
+  it("separa declarado de confirmado e conta o que está em aberto", () => {
     const s = computeStats([
-      row({ initialFormat: "VIDEO", formatChanges: 2, status: "APROVADO", totemFraming: "CORRETO", painelFraming: "CORRETO", totemConfirmed: true, painelConfirmed: true }),
-      row({ initialFormat: "TEXTO", status: "ENVIADO", totemFraming: "CORRETO", painelFraming: "INCORRETO", helpRequested: true, pendingPhotos: 2 }),
+      row({ status: "APROVADO", framing: "CORRETO", confirmed: true }),
+      row({ status: "ENVIADO", framing: "INCORRETO", helpRequested: true, pendingPhotos: 2 }),
+      row({ framing: "PRECISA_SUPORTE" }),
       row({}),
     ]);
-    expect(s.total).toBe(3);
-    expect(s.formato.VIDEO).toMatchObject({ chosen: 1, finished: 1, finishRate: 100, help: 0 });
-    expect(s.formato.TEXTO).toMatchObject({ chosen: 1, finished: 1, help: 1, helpRate: 100 });
-    expect(s.formato.trocaram).toBe(1);
-    expect(s.formato.semEscolha).toBe(1);
-    expect(s.formato.VIDEO.chosen + s.formato.TEXTO.chosen + s.formato.semEscolha).toBe(s.total);
-    expect(s.totem).toMatchObject({ confirmados: 1, declaradosCorretos: 2 });
-    expect(s.painel).toMatchObject({ confirmados: 1, declaradosCorretos: 1, comProblema: 1 });
+    expect(s.total).toBe(4);
+    expect(s.tela).toMatchObject({ confirmadas: 1, declaradasCorretas: 1, comProblema: 1, suporte: 1 });
     expect(s.fotosParaAnalisar).toBe(2);
     expect(s.pedidosDeAjuda).toBe(1); // em aberto
     expect(computeStats([row({ helpRequested: true, helpResolved: true })]).pedidosDeAjuda).toBe(0); // atendido sai do aberto
-    expect(computeStats([row({ initialFormat: "TEXTO", helpRequested: true, helpResolved: true })]).formato.TEXTO.help).toBe(1); // mas continua contando na taxa por formato
   });
   it("funil: cada etapa conta quem chegou até ela, a partir dos campos reais", () => {
     const f = computeStats([
-      row({ initialFormat: "TEXTO", totemUpdated: true, totemFraming: "CORRETO", painelUpdated: true, painelFraming: "CORRETO", photoCount: 2, status: "ENVIADO" }),
-      row({ initialFormat: "VIDEO", totemUpdated: true, totemFraming: "INCORRETO" }),
-      row({ initialFormat: "TEXTO", totemUpdated: true }),
+      row({ installed: true, framing: "CORRETO", photoCount: 1, status: "ENVIADO" }),
+      row({ installed: true, framing: "INCORRETO" }),
+      row({ installed: true }),
       row({}),
     ]).funil;
-    expect(f.map((x) => x.count)).toEqual([4, 3, 3, 2, 1, 1, 1, 1]);
+    expect(f.map((x) => x.count)).toEqual([4, 3, 2, 1, 1]);
     expect(f[0].label).toBe("Iniciaram");
     expect(f[f.length - 1].label).toBe("Concluíram o envio");
   });
-  it("devolve null (não 0%) sem base", () => {
-    expect(computeStats([]).formato.TEXTO.finishRate).toBeNull();
+  it("tempo típico: mediana entre iniciar e enviar, ignorando quem não concluiu", () => {
+    const at = (min: number) => new Date(Date.UTC(2026, 10, 1, 10, min));
+    const rows = [
+      row({ createdAt: at(0), submittedAt: at(6) }),
+      row({ createdAt: at(0), submittedAt: at(10) }),
+      row({ createdAt: at(0), submittedAt: at(30) }),
+      row({ createdAt: at(0), submittedAt: null }),
+    ];
+    expect(medianMinutes(rows)).toBe(10);
+    expect(medianMinutes([row({})])).toBeNull(); // sem base: null, não 0
   });
 });
 

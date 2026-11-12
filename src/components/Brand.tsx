@@ -1,10 +1,10 @@
-/** Faixa de marca no topo. A logo é branca com fundo transparente, então vive sobre o azul institucional. */
+/** Barra de topo: logo da Intelite (branca, fundo transparente) sobre o preto. `children` fica à direita. */
 export function BrandBar({ children, wide }: { children?: React.ReactNode; wide?: boolean }) {
   return (
-    <header className="brandbar">
-      <div className={`container brandbar-in ${wide ? "wide" : ""}`}>
+    <header className="topbar">
+      <div className={`topbar-in ${wide ? "wide" : ""}`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="logo" src="/logo-intelite.webp" alt="Intelite Tecnologia" width={141} height={52} />
+        <img className="logo" src="/logo-intelite.webp" alt="Intelite Tecnologia" width={108} height={40} />
         {children}
       </div>
     </header>

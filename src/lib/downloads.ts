@@ -1,39 +1,27 @@
 import path from "node:path";
 
 /**
- * Aplicativos disponíveis para download. O aplicativo atual é híbrido: o mesmo APK serve para o totem e para o painel,
- * então as duas entradas usam os mesmos links.
- * Download direto: o APK fica na pasta /downloads (vai junto no deploy). Para publicar uma versão nova, troque o arquivo e
- * ajuste `APK` abaixo; com `file: null`, só os links curtos aparecem. Os links curtos são editáveis no admin; os abaixo são só o valor inicial.
+ * O aplicativo é híbrido: o mesmo APK serve para o totem e para o painel de chamadas, então há um só download.
+ * Download direto: o APK fica na pasta /downloads (vai junto no deploy). Para publicar uma versão nova, troque o arquivo
+ * e ajuste `APP`; com `file: null`, só os links curtos aparecem. Os links curtos são editáveis no admin; os abaixo são
+ * só o valor inicial.
  */
-export type DownloadApp = "totem" | "painel";
-
-interface AppInfo { label: string; version: string | null; file: string | null; filename: string | null; defaultLinks: string[]; legacyLinks: string[][] }
-
-const HIBRIDO = ["https://bit.ly/aihib15", "https://shre.ink/aihib15"];
-const APK = { version: "1.5", file: "ai-hibrido-1.5.apk", filename: "AI_Hibrido_1.5.apk" };
-
-export const DOWNLOAD_APPS: Record<DownloadApp, AppInfo> = {
-  totem: {
-    label: "Atendimento Inteligente (totem)",
-    ...APK,
-    defaultLinks: HIBRIDO,
-    // padrões anteriores: se o banco ainda tiver exatamente estes, passam para o novo (edições da equipe são preservadas)
-    legacyLinks: [["https://bit.ly/aitotem26", "https://shre.ink/aitotem26"], ["https://bit.ly/totem2026"]],
-  },
-  painel: {
-    label: "Atendimento Inteligente (painel de chamadas)",
-    ...APK,
-    defaultLinks: HIBRIDO,
-    legacyLinks: [["https://bit.ly/aipainel26", "https://shre.ink/aipainel26"], ["https://bit.ly/painel26"]],
-  },
+export const APP = {
+  label: "Atendimento Inteligente",
+  version: "1.19" as string | null,
+  file: "ai-hibrido-1.19.apk" as string | null,
+  filename: "AI_Hibrido_1.19.apk" as string | null,
+  defaultLinks: ["https://bit.ly/aihib15", "https://shre.ink/aihib15"],
+  /** Padrões de antes da unificação (totem/painel separados): se o banco ainda tiver exatamente estes, passam para o atual. */
+  legacyLinks: [
+    ["https://bit.ly/aitotem26", "https://shre.ink/aitotem26"],
+    ["https://bit.ly/aipainel26", "https://shre.ink/aipainel26"],
+    ["https://bit.ly/totem2026"],
+    ["https://bit.ly/painel26"],
+  ] as string[][],
 };
 
-export const isDownloadApp = (v: string): v is DownloadApp => Object.prototype.hasOwnProperty.call(DOWNLOAD_APPS, v);
-export const downloadFilePath = (app: DownloadApp) => {
-  const file = DOWNLOAD_APPS[app].file;
-  return file ? path.join(process.cwd(), "downloads", file) : null;
-};
+export const appFilePath = () => (APP.file ? path.join(process.cwd(), "downloads", APP.file) : null);
 
 /**
  * Interpreta o cabeçalho Range (um único intervalo). Navegadores e gerenciadores de download do Android usam

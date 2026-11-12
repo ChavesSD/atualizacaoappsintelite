@@ -1,0 +1,31 @@
+{
+  "title": "Como atualizar o aplicativo",
+  "voice": "pt-BR-FranciscaNeural",
+  "rate": "-3%",
+  "pitch": "+0Hz",
+  "lead": 0.5,
+  "tail": 0.8,
+  "introLead": 2.4,
+  "chapters": [
+    {
+      "id": "preparar",
+      "title": "Preparar",
+      "text": "Oi! Eu vou te mostrar, em poucos minutos, como atualizar o aplicativo da Intelite. O passo a passo é o mesmo para o totem e para o painel de chamadas. E o melhor: você não precisa desinstalar nada. Primeiro, ligue o Mini PC e confirme que ele está conectado à internet. Se ajudar, conecte um mouse USB. Se preferir, use o controle remoto. Agora, abra o Google Chrome."
+    },
+    {
+      "id": "baixar",
+      "title": "Baixar",
+      "text": "Vamos baixar o aplicativo. No Chrome, digite o endereço do link que aparece na página e confirme. Se um link não funcionar, tente o próximo. Todos levam ao mesmo arquivo. Se o Chrome pedir acesso ao armazenamento, toque em Continuar e depois em Permitir. Quando o download terminar, toque em Abrir."
+    },
+    {
+      "id": "instalar",
+      "title": "Instalar",
+      "text": "Na primeira vez, o Android pode avisar que este aplicativo não tem permissão para instalar apps de fontes desconhecidas. É normal. Toque em Configurações, ative a opção, volte e toque em Aceitar. Agora vem a parte importante. O Android pergunta se você quer instalar uma atualização para este aplicativo, e avisa que os seus dados não serão perdidos. Toque em Instalar e aguarde alguns segundos. Quando aparecer App instalado, toque em Abrir."
+    },
+    {
+      "id": "abrir",
+      "title": "Abrir",
+      "text": "Pronto! Na primeira abertura, o aplicativo mostra o MAC do equipamento e a versão instalada. Confira se aparece a versão nova. Em seguida, ele carrega o conteúdo e mostra o andamento até chegar a cem por cento. É só aguardar. Se aparecer que o MAC ainda não está cadastrado, avise a equipe da Intelite e informe o número que aparece na tela. Se você tem totem e painel, repita nos dois. Obrigada por atualizar com a gente!"
+    }
+  ]
+}

@@ -22,7 +22,7 @@ export default function EnvioPage({ params }: { params: Promise<{ id: string }> 
   const act = async (fn: () => Promise<unknown>) => { setError(null); try { await fn(); await load(); } catch (e) { setError((e as Error).message); } };
   const patch = (body: object) => act(() => api(`/api/admin/submissions/${id}`, { method: "PATCH", body }));
 
-  if (!s) return error ? <div className="alert bad">{error}</div> : <p className="muted">Carregando…</p>;
+  if (!s) return error ? <div className="alert bad" role="alert">{error}</div> : <p className="muted">Carregando…</p>;
 
   return (
     <div className="stack">
@@ -31,34 +31,28 @@ export default function EnvioPage({ params }: { params: Promise<{ id: string }> 
         <span className="badge info">{STATUS_LABEL[s.status as keyof typeof STATUS_LABEL]}</span></div>
       {error && <div className="alert bad" role="alert">{error}</div>}
       {s.helpRequested && (
-        <div className={`alert ${s.helpResolved ? "ok" : "warn"}`}><strong>{s.helpResolved ? "Pedido de ajuda atendido" : "Pediu ajuda"}</strong> na etapa “{s.helpStep}” ({s.helpFormat === "VIDEO" ? "vídeo" : "texto"}){s.helpMessage ? `: ${s.helpMessage}` : "."}
+        <div className={`alert ${s.helpResolved ? "ok" : "warn"}`}><strong>{s.helpResolved ? "Pedido de ajuda atendido" : "Pediu ajuda"}</strong> na etapa “{s.helpStep}”{s.helpMessage ? `: ${s.helpMessage}` : "."}
           <div style={{ marginTop: 8 }}><button className="btn sm" onClick={() => patch({ helpResolved: !s.helpResolved })}>{s.helpResolved ? "Reabrir pedido" : "Marcar como atendido"}</button></div></div>
       )}
-      <p className="muted small">Início {dt(s.createdAt)} · formato inicial {s.initialFormat ?? "—"}, atual {s.format ?? "—"}, {s.formatChanges} troca(s){s.submittedAt ? ` · enviado em ${dt(s.submittedAt)}` : ""}{s.rating ? ` · avaliação ${s.rating}/5` : ""}{s.hardestStep ? ` · mais difícil: ${s.hardestStep}` : ""}{s.comment ? ` · “${s.comment}”` : ""}</p>
+      <p className="muted small">Início {dt(s.createdAt)}{s.submittedAt ? ` · enviado em ${dt(s.submittedAt)}` : ""}{s.rating ? ` · avaliação ${s.rating}/5` : ""}{s.hardestStep ? ` · mais difícil: ${s.hardestStep}` : ""}{s.comment ? ` · “${s.comment}”` : ""}</p>
 
-      {(["TOTEM", "PAINEL"] as const).map((t) => {
-        const k = t === "TOTEM" ? "totem" : "painel";
-        const photos = s.photos.filter((p: any) => p.type === t);
-        return (
-          <section className="card stack" key={t}>
-            <div className="row between"><h2 style={{ margin: 0 }}>{t === "TOTEM" ? "Totem" : "Painel de chamadas"}</h2>
-              <span>
-                <span className="badge">Cliente: {FRAMING_LABEL[s[`${k}Framing`] as keyof typeof FRAMING_LABEL]}</span>{" "}
-                <span className={`badge ${s[`${k}Confirmed`] ? "ok" : ""}`}>Equipe: {s[`${k}Confirmed`] ? "confirmado" : "não confirmado"}</span></span></div>
-            <p className="small muted">Atualização {s[`${k}Updated`] ? "marcada como feita" : "não marcada"}.
-              {s[`${k}Issues`].length > 0 && <> Problemas informados: <strong>{s[`${k}Issues`].join(", ")}</strong>.</>}
-              {s[`${k}Notes`] && <> Obs.: “{s[`${k}Notes`]}”.</>}</p>
-            {photos.length === 0 && <p className="muted">Nenhuma foto enviada.</p>}
-            <div className="grid2">{photos.map((p: any) => <Photo key={p.id} p={p} onZoom={() => setZoom(p.id)} onReview={(review, note) => act(() => api(`/api/admin/photos/${p.id}`, { body: { review, note } }))} />)}</div>
-            <div className="row">
-              {!s[`${k}Confirmed`]
-                ? <button className="btn primary" onClick={() => patch({ [`${k}Confirmed`]: true })}>Confirmar enquadramento do {k}</button>
-                : <button className="btn" onClick={() => patch({ [`${k}Confirmed`]: false })}>Remover confirmação</button>}
-              <span className="muted small">A confirmação exige uma foto aprovada.</span>
-            </div>
-          </section>
-        );
-      })}
+      <section className="card stack">
+        <div className="row between"><h2 style={{ margin: 0 }}>Atualização e tela</h2>
+          <span>
+            <span className="badge">Cliente: {FRAMING_LABEL[s.framing as keyof typeof FRAMING_LABEL]}</span>{" "}
+            <span className={`badge ${s.confirmed ? "ok" : ""}`}>Equipe: {s.confirmed ? "confirmado" : "não confirmado"}</span></span></div>
+        <p className="small muted">Atualização do aplicativo {s.installed ? "marcada como feita" : "não marcada"}.
+          {s.framingIssues.length > 0 && <> Problemas informados: <strong>{s.framingIssues.join(", ")}</strong>.</>}
+          {s.framingNotes && <> Obs.: “{s.framingNotes}”.</>}</p>
+        {s.photos.length === 0 && <p className="muted">Nenhuma foto enviada.</p>}
+        <div className="grid2">{s.photos.map((p: any) => <Photo key={p.id} p={p} onZoom={() => setZoom(p.id)} onReview={(review, note) => act(() => api(`/api/admin/photos/${p.id}`, { body: { review, note } }))} />)}</div>
+        <div className="row">
+          {!s.confirmed
+            ? <button className="btn primary" onClick={() => patch({ confirmed: true })}>Confirmar enquadramento</button>
+            : <button className="btn" onClick={() => patch({ confirmed: false })}>Remover confirmação</button>}
+          <span className="muted small">A confirmação exige uma foto aprovada.</span>
+        </div>
+      </section>
 
       <section className="card stack"><h2>Decisão</h2>
         <div className="row">
@@ -73,7 +67,7 @@ export default function EnvioPage({ params }: { params: Promise<{ id: string }> 
         <button className="btn danger" style={{ alignSelf: "flex-start" }} onClick={() => confirm("Excluir definitivamente este envio e todas as fotos?") && act(async () => { await api(`/api/admin/submissions/${id}`, { method: "DELETE" }); router.push("/admin"); })}>Excluir envio</button></section>
 
       <section className="card"><h2>Linha do tempo</h2>
-        <div className="tablewrap"><table><tbody>{s.activities.map((a: any) => <tr key={a.id}><td className="small" style={{ whiteSpace: "nowrap" }}>{dt(a.at)}</td><td><span className={`badge ${a.actor === "EQUIPE" ? "info" : ""}`}>{a.actor === "EQUIPE" ? "equipe" : "cliente"}</span></td><td>{a.text}</td></tr>)}</tbody></table></div>
+        <div className="tablewrap" tabIndex={0} role="region" aria-label="Linha do tempo (rolável)"><table><tbody>{s.activities.map((a: any) => <tr key={a.id}><td className="small" style={{ whiteSpace: "nowrap" }}>{dt(a.at)}</td><td><span className={`badge ${a.actor === "EQUIPE" ? "info" : ""}`}>{a.actor === "EQUIPE" ? "equipe" : "cliente"}</span></td><td>{a.text}</td></tr>)}</tbody></table></div>
       </section>
       {zoom && <Zoom id={zoom} onClose={() => setZoom(null)} />}
     </div>

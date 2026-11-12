@@ -8,6 +8,8 @@ const lanHosts = Object.values(os.networkInterfaces())
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Permite compilar em outra pasta (ex.: NEXT_DIST_DIR=.next-build) sem atrapalhar um servidor de desenvolvimento aberto.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   poweredByHeader: false,
   serverExternalPackages: ["@prisma/client"],
   allowedDevOrigins: lanHosts,

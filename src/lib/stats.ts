@@ -1,65 +1,61 @@
 export interface StatRow {
   status: "EM_ANDAMENTO" | "ENVIADO" | "APROVADO" | "PRECISA_AJUSTE";
-  initialFormat: "TEXTO" | "VIDEO" | null;
-  formatChanges: number;
-  totemFraming: string;
-  painelFraming: string;
-  totemConfirmed: boolean;
-  painelConfirmed: boolean;
+  installed: boolean;
+  framing: string;
+  confirmed: boolean;
   helpRequested: boolean;
   helpResolved: boolean;
   pendingPhotos: number;
-  totemUpdated: boolean;
-  painelUpdated: boolean;
   photoCount: number;
+  createdAt?: Date | string;
+  submittedAt?: Date | string | null;
 }
 
-const pct = (n: number, d: number) => (d === 0 ? null : Math.round((n / d) * 1000) / 10);
-
-/**
- * Indicadores a partir dos envios reais. Cada envio é UM cliente: quem trocou de formato é contado uma vez,
- * no formato inicial (a quantidade de trocas aparece à parte).
- * "Confirmado" = confirmado pela equipe, não apenas declarado pelo cliente.
- */
 /**
  * Funil: quantos clientes chegaram a cada etapa, derivado dos campos do envio (nada é estimado).
- * Mostra onde o tutorial perde gente (ex.: muita gente atualiza o totem mas não confere a tela).
+ * Mostra onde o tutorial perde gente (ex.: muita gente atualiza o app mas não confere a tela).
  */
 export function computeFunnel(rows: StatRow[]): { label: string; count: number }[] {
   const stages: [string, (r: StatRow) => boolean][] = [
     ["Iniciaram", () => true],
-    ["Escolheram o formato", (r) => r.initialFormat !== null],
-    ["Atualizaram o totem", (r) => r.totemUpdated],
-    ["Conferiram a tela do totem", (r) => r.totemFraming !== "NAO_VERIFICADO"],
-    ["Atualizaram o painel", (r) => r.painelUpdated],
-    ["Conferiram a tela do painel", (r) => r.painelFraming !== "NAO_VERIFICADO"],
-    ["Enviaram as fotos", (r) => r.photoCount >= 2],
+    ["Atualizaram o aplicativo", (r) => r.installed],
+    ["Conferiram a tela", (r) => r.framing !== "NAO_VERIFICADO"],
+    ["Enviaram a foto", (r) => r.photoCount >= 1],
     ["Concluíram o envio", (r) => r.status !== "EM_ANDAMENTO"],
   ];
   return stages.map(([label, ok]) => ({ label, count: rows.filter(ok).length }));
 }
 
+/** Mediana, em minutos, entre iniciar e concluir (quem ainda não concluiu não entra). null sem dados. */
+export function medianMinutes(rows: StatRow[]): number | null {
+  const mins = rows
+    .filter((r) => r.createdAt && r.submittedAt)
+    .map((r) => (new Date(r.submittedAt as string).getTime() - new Date(r.createdAt as string).getTime()) / 60000)
+    .filter((m) => m >= 0)
+    .sort((a, b) => a - b);
+  if (mins.length === 0) return null;
+  const mid = Math.floor(mins.length / 2);
+  return Math.round(mins.length % 2 ? mins[mid] : (mins[mid - 1] + mins[mid]) / 2);
+}
+
+/** Indicadores a partir dos envios reais. "Confirmado" = confirmado pela equipe, não apenas declarado pelo cliente. */
 export function computeStats(rows: StatRow[]) {
-  const total = rows.length;
-  const done = (r: StatRow) => r.status === "ENVIADO" || r.status === "APROVADO" || r.status === "PRECISA_AJUSTE";
-  const byFormat = (f: "TEXTO" | "VIDEO") => {
-    const list = rows.filter((r) => r.initialFormat === f);
-    const finished = list.filter(done).length;
-    const help = list.filter((r) => r.helpRequested).length;
-    return { chosen: list.length, finished, finishRate: pct(finished, list.length), help, helpRate: pct(help, list.length) };
-  };
   return {
-    total,
+    total: rows.length,
     funil: computeFunnel(rows),
     emAndamento: rows.filter((r) => r.status === "EM_ANDAMENTO").length,
     enviados: rows.filter((r) => r.status === "ENVIADO").length,
     aprovados: rows.filter((r) => r.status === "APROVADO").length,
     precisaAjuste: rows.filter((r) => r.status === "PRECISA_AJUSTE").length,
-    totem: { confirmados: rows.filter((r) => r.totemConfirmed).length, declaradosCorretos: rows.filter((r) => r.totemFraming === "CORRETO").length, comProblema: rows.filter((r) => r.totemFraming === "INCORRETO").length, suporte: rows.filter((r) => r.totemFraming === "PRECISA_SUPORTE").length },
-    painel: { confirmados: rows.filter((r) => r.painelConfirmed).length, declaradosCorretos: rows.filter((r) => r.painelFraming === "CORRETO").length, comProblema: rows.filter((r) => r.painelFraming === "INCORRETO").length, suporte: rows.filter((r) => r.painelFraming === "PRECISA_SUPORTE").length },
+    tela: {
+      confirmadas: rows.filter((r) => r.confirmed).length,
+      declaradasCorretas: rows.filter((r) => r.framing === "CORRETO").length,
+      comProblema: rows.filter((r) => r.framing === "INCORRETO").length,
+      suporte: rows.filter((r) => r.framing === "PRECISA_SUPORTE").length,
+    },
     fotosParaAnalisar: rows.reduce((s, r) => s + r.pendingPhotos, 0),
     pedidosDeAjuda: rows.filter((r) => r.helpRequested && !r.helpResolved).length, // em aberto
-    formato: { TEXTO: byFormat("TEXTO"), VIDEO: byFormat("VIDEO"), trocaram: rows.filter((r) => r.formatChanges > 0).length, semEscolha: rows.filter((r) => !r.initialFormat).length },
+    tempoMedianoMin: medianMinutes(rows),
   };
 }
 export type Stats = ReturnType<typeof computeStats>;

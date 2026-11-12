@@ -10,3 +10,7 @@ next-env.d.ts
 .dev-db.log
 .next-start.log
 nohup.out
+
+.next-*
+.impeccable/review
+.impeccable/mocks

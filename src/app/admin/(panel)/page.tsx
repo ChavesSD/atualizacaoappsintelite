@@ -40,7 +40,7 @@ function CopyLink() {
 }
 
 export default function EnviosPage() {
-  const [f, setF] = useState({ q: "", status: "", format: "", from: "", to: "" });
+  const [f, setF] = useState({ q: "", status: "", from: "", to: "" });
   const [data, setData] = useState<{ items: any[]; stats: Stats } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const qs = useMemo(() => new URLSearchParams(Object.entries(f).filter(([, v]) => v)).toString(), [f]);
@@ -69,13 +69,13 @@ export default function EnviosPage() {
             <Kpi n={st.enviados} label="Aguardando a equipe" sub={`${st.fotosParaAnalisar} foto(s) para analisar`} flag={st.enviados > 0 ? { tone: "warn", text: "Ação da equipe" } : null} />
             <Kpi n={st.aprovados} label="Aprovados" />
             <Kpi n={st.precisaAjuste} label="Precisam de ajuste" flag={st.precisaAjuste > 0 ? { tone: "bad", text: "Atenção" } : null} />
-            <Kpi n={st.totem.confirmados} label="Totens confirmados" sub={`${st.totem.declaradosCorretos} declarados corretos pelo cliente`} />
-            <Kpi n={st.painel.confirmados} label="Painéis confirmados" sub={`${st.painel.declaradosCorretos} declarados corretos pelo cliente`} />
-            <Kpi n={st.totem.comProblema + st.painel.comProblema} label="Telas com problema" sub={`totem ${st.totem.comProblema} · painel ${st.painel.comProblema}`} flag={st.totem.comProblema + st.painel.comProblema > 0 ? { tone: "bad", text: "Atenção" } : null} />
+            <Kpi n={st.tela.confirmadas} label="Telas confirmadas pela equipe" sub={`${st.tela.declaradasCorretas} declaradas corretas pelo cliente`} />
+            <Kpi n={st.tela.comProblema + st.tela.suporte} label="Telas com problema" sub={`${st.tela.comProblema} com ajuste · ${st.tela.suporte} pediram suporte`} flag={st.tela.comProblema + st.tela.suporte > 0 ? { tone: "bad", text: "Atenção" } : null} />
+            <Kpi n={st.tempoMedianoMin === null ? "—" : `${st.tempoMedianoMin} min`} label="Tempo típico até concluir" sub="mediana entre iniciar e enviar" />
             <Kpi n={st.pedidosDeAjuda} label="Pedidos de ajuda em aberto" flag={st.pedidosDeAjuda > 0 ? { tone: "warn", text: "Ação da equipe" } : null} />
           </ul>
 
-          <div className="grid2">
+          <div>
             <section className="card" aria-labelledby="h-funil">
               <h2 id="h-funil">Onde os clientes avançam</h2>
               <p className="muted small">Quantos clientes chegaram a cada etapa. Uma queda grande entre duas etapas mostra onde o tutorial perde gente.</p>
@@ -89,17 +89,6 @@ export default function EnviosPage() {
                 ))}
               </ol>
             </section>
-            <section className="card" aria-labelledby="h-formato">
-              <h2 id="h-formato">Texto × vídeo</h2>
-              <div className="tablewrap"><table>
-                <caption className="visually-hidden">Comparação entre os formatos do tutorial</caption>
-                <thead><tr><th scope="col">Formato inicial</th><th scope="col">Escolheram</th><th scope="col">Concluíram</th><th scope="col">Pediram ajuda</th></tr></thead>
-                <tbody>
-                  {(["TEXTO", "VIDEO"] as const).map((k) => <tr key={k}><th scope="row">{k === "TEXTO" ? "Texto" : "Vídeo"}</th><td>{st.formato[k].chosen}</td><td>{st.formato[k].finished} ({pct(st.formato[k].finishRate)})</td><td>{st.formato[k].help} ({pct(st.formato[k].helpRate)})</td></tr>)}
-                </tbody>
-              </table></div>
-              <p className="muted small" style={{ marginTop: 12 }}>Cada cliente conta uma vez, no formato inicial. {st.formato.trocaram} trocaram de formato durante o tutorial; {st.formato.semEscolha} ainda não escolheram.</p>
-            </section>
           </div>
         </>
       )}
@@ -107,17 +96,16 @@ export default function EnviosPage() {
       <form className="card filters" role="search" aria-label="Filtrar envios" onSubmit={(e) => e.preventDefault()}>
         <label className="field"><span>Buscar</span><input type="text" placeholder="Nome ou empresa" value={f.q} onChange={set("q")} autoComplete="off" /></label>
         <label className="field"><span>Status</span><select value={f.status} onChange={set("status")}><option value="">Todos</option>{Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
-        <label className="field"><span>Formato</span><select value={f.format} onChange={set("format")}><option value="">Todos</option><option value="TEXTO">Texto</option><option value="VIDEO">Vídeo</option></select></label>
         <label className="field"><span>De</span><input type="date" value={f.from} onChange={set("from")} /></label>
         <label className="field"><span>Até</span><input type="date" value={f.to} onChange={set("to")} /></label>
-        {filtered && <button type="button" className="btn" onClick={() => setF({ q: "", status: "", format: "", from: "", to: "" })}>Limpar filtros</button>}
+        {filtered && <button type="button" className="btn" onClick={() => setF({ q: "", status: "", from: "", to: "" })}>Limpar filtros</button>}
       </form>
 
       <div className="card tablewrap" aria-live="polite">
         {!data && !error && <div className="stack" aria-busy="true"><Skeleton h={20} /><Skeleton h={20} /><Skeleton h={20} /></div>}
         {data && data.items.length === 0 && (
           filtered ? (
-            <div className="stack"><p><strong>Nenhum envio encontrado com esses filtros.</strong></p><button type="button" className="btn" onClick={() => setF({ q: "", status: "", format: "", from: "", to: "" })}>Limpar filtros</button></div>
+            <div className="stack"><p><strong>Nenhum envio encontrado com esses filtros.</strong></p><button type="button" className="btn" onClick={() => setF({ q: "", status: "", from: "", to: "" })}>Limpar filtros</button></div>
           ) : (
             <div className="stack">
               <p><strong>Ainda não há envios.</strong></p>
@@ -129,14 +117,13 @@ export default function EnviosPage() {
         {data && data.items.length > 0 && (
           <table className="cards">
             <caption className="visually-hidden">Lista de envios</caption>
-            <thead><tr><th scope="col">Cliente</th><th scope="col">Status</th><th scope="col">Totem</th><th scope="col">Painel</th><th scope="col">Fotos</th><th scope="col">Início</th><th scope="col"><span className="visually-hidden">Ações</span></th></tr></thead>
+            <thead><tr><th scope="col">Cliente</th><th scope="col">Status</th><th scope="col">Tela</th><th scope="col">Fotos</th><th scope="col">Início</th><th scope="col"><span className="visually-hidden">Ações</span></th></tr></thead>
             <tbody>
               {data.items.map((r) => (
                 <tr key={r.id}>
                   <td className="cell-main user-text"><strong>{r.contactName}</strong><div className="muted small">{r.company}</div>{r.helpRequested && !r.helpResolved && <span className="badge warn"><Icon name="alert" />pediu ajuda</span>}</td>
-                  <td data-label="Status"><span><span className={`badge ${TONE[r.status]}`}><Icon name={STATUS_ICON[r.status]} />{STATUS_LABEL[r.status as keyof typeof STATUS_LABEL]}</span><span className="muted small" style={{ display: "block" }}>{r.initialFormat === "VIDEO" ? "vídeo" : r.initialFormat === "TEXTO" ? "texto" : ""}</span></span></td>
-                  <td data-label="Totem"><span>{FRAMING_LABEL[r.totemFraming as keyof typeof FRAMING_LABEL]}{r.totemConfirmed && <span className="badge ok" style={{ marginLeft: 6 }}><Icon name="check" />confirmado</span>}</span></td>
-                  <td data-label="Painel"><span>{FRAMING_LABEL[r.painelFraming as keyof typeof FRAMING_LABEL]}{r.painelConfirmed && <span className="badge ok" style={{ marginLeft: 6 }}><Icon name="check" />confirmado</span>}</span></td>
+                  <td data-label="Status"><span><span className={`badge ${TONE[r.status]}`}><Icon name={STATUS_ICON[r.status]} />{STATUS_LABEL[r.status as keyof typeof STATUS_LABEL]}</span></span></td>
+                  <td data-label="Tela"><span>{FRAMING_LABEL[r.framing as keyof typeof FRAMING_LABEL]}{r.confirmed && <span className="badge ok" style={{ marginLeft: 6 }}><Icon name="check" />confirmada</span>}</span></td>
                   <td data-label="Fotos"><span>{r.photoCount}{r.pendingPhotos > 0 && <span className="badge warn" style={{ marginLeft: 6 }}>{r.pendingPhotos} a analisar</span>}</span></td>
                   <td data-label="Início">{new Date(r.createdAt).toLocaleDateString("pt-BR")}</td>
                   <td><Link className="btn sm" href={`/admin/envios/${r.id}`}>Abrir<span className="visually-hidden"> envio de {r.contactName}</span></Link></td>

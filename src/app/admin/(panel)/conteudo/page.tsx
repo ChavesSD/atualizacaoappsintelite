@@ -6,28 +6,24 @@ import { api } from "@/lib/client-api";
 export default function ConteudoPage() {
   const [steps, setSteps] = useState<any[] | null>(null);
   const [hosts, setHosts] = useState("");
-  const [dl, setDl] = useState({ totem: "", painel: "" });
+  const [links, setLinks] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const load = useCallback(() => {
     api<any[]>("/api/admin/steps").then(setSteps).catch((e) => setMsg({ ok: false, text: e.message }));
-    api<{ videoHosts: string; downloadLinks: { totem: string[]; painel: string[] } }>("/api/admin/settings").then((s) => { setHosts(s.videoHosts); setDl({ totem: s.downloadLinks.totem.join("\n"), painel: s.downloadLinks.painel.join("\n") }); }).catch(() => {});
+    api<{ videoHosts: string; links: string[] }>("/api/admin/settings").then((s) => { setHosts(s.videoHosts); setLinks(s.links.join("\n")); }).catch(() => {});
   }, []);
   useEffect(() => { load(); }, [load]);
 
   return (
     <div className="stack">
       <h1>Conteúdo do tutorial</h1>
-      <p className="muted">Edite o texto de cada etapa (um passo por linha; use `## Título` para criar um bloco, `**texto**` para negrito em botões e menus, `[[video:remover]]`, `[[video:instalar]]` ou `[[video:ajustar]]` para um vídeo de apoio e `[[downloads:totem]]` ou `[[downloads:painel]]` para as opções de download), o aviso, uma imagem de referência e o vídeo. As mudanças valem na hora para quem abrir a página pública. Para ver como ficou, abra a página pública em outra aba.</p>
-      <div className="alert info small">Ainda falta cadastrar o procedimento de <strong>correção da tela do totem</strong>: enquanto isso, o cliente vê “procedimento ainda não cadastrado”.</div>
+      <p className="muted">Edite o texto de cada etapa: um passo por linha; <code>## Título</code> cria um bloco (na etapa “Atualizar”, cada bloco acompanha um capítulo do vídeo, na mesma ordem); <code>**texto**</code> deixa em negrito nomes de botões e menus; <code>[[downloads]]</code> mostra as opções de download e <code>[[video:ajustar]]</code> o vídeo de ajuste da tela. Também dá para definir o aviso e uma imagem de referência. As mudanças valem na hora para quem abrir a página pública.</p>
       {msg && <div className={`alert ${msg.ok ? "ok" : "bad"}`} role="status">{msg.text}</div>}
 
-      <section className="card stack"><h2>Links de download dos aplicativos</h2>
-        <p className="muted small">Um link por linha (https). Aparecem como “Opção 1, 2…” para o cliente. O aplicativo atual é o mesmo para totem e painel, por isso os dois campos têm os mesmos links.</p>
-        <div className="grid2">
-          <label className="field"><span>Totem</span><textarea value={dl.totem} onChange={(e) => setDl({ ...dl, totem: e.target.value })} placeholder="bit.ly/aihib15" /></label>
-          <label className="field"><span>Painel de chamadas</span><textarea value={dl.painel} onChange={(e) => setDl({ ...dl, painel: e.target.value })} placeholder="bit.ly/aihib15" /></label>
-        </div>
-        <button className="btn" style={{ alignSelf: "flex-start" }} onClick={async () => { try { const r = await api<{ downloadLinks: { totem: string[]; painel: string[] } }>("/api/admin/settings", { method: "PUT", body: { downloadLinks: { totem: dl.totem.split("\n"), painel: dl.painel.split("\n") } } }); setDl({ totem: r.downloadLinks.totem.join("\n"), painel: r.downloadLinks.painel.join("\n") }); setMsg({ ok: true, text: "Links de download salvos." }); } catch (e) { setMsg({ ok: false, text: (e as Error).message }); } }}>Salvar links</button>
+      <section className="card stack"><h2>Links de download do aplicativo</h2>
+        <p className="muted small">O aplicativo é o mesmo para totem e painel. Um link por linha (https): aparecem como “Opção 1, 2…” para o cliente, seguidos do download direto desta página.</p>
+        <label className="field"><span>Links (um por linha)</span><textarea value={links} onChange={(e) => setLinks(e.target.value)} placeholder="bit.ly/aihib15" /></label>
+        <button className="btn" style={{ alignSelf: "flex-start" }} onClick={async () => { try { const r = await api<{ links: string[] }>("/api/admin/settings", { method: "PUT", body: { links: links.split("\n") } }); setLinks(r.links.join("\n")); setMsg({ ok: true, text: "Links de download salvos." }); } catch (e) { setMsg({ ok: false, text: (e as Error).message }); } }}>Salvar links</button>
       </section>
 
       <section className="card stack"><h2>Domínios de vídeo autorizados</h2>

@@ -19,12 +19,9 @@ export const GET = route(async () => {
 
 const patch = z.object({
   step: z.number().int().min(0).max(20).optional(),
-  format: z.enum(["TEXTO", "VIDEO"]).optional(),
-  totemUpdated: z.boolean().optional(),
-  painelUpdated: z.boolean().optional(),
+  installed: z.boolean().optional(),
   framing: z
     .object({
-      type: z.enum(["TOTEM", "PAINEL"]),
       outcome: z.enum(["CORRETO", "INCORRETO", "PRECISA_SUPORTE"]),
       issues: z.array(z.string().max(80)).max(10).default([]),
       notes: z.string().max(1000).optional(),

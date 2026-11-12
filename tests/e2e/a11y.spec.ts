@@ -33,51 +33,43 @@ test("acessibilidade automática: cliente e admin, claro e escuro", async ({ pag
   // ── cliente ──
   await page.goto("/");
   await page.getByLabel("Seu nome").waitFor();
-  await scan(page, project, "cliente: dados");
+  await scan(page, project, "cliente: abertura");
 
   await api.post("/api/submissions", { data: { company: "Rede Exemplo Ltda", contactName: "Maria Souza" } });
   await page.reload();
-  await page.getByRole("radio", { name: /Tutorial por escrito/ }).waitFor();
-  await scan(page, project, "cliente: formato");
-
-  await api.patch("/api/submissions/me", { data: { format: "TEXTO", step: 2 } });
-  await page.reload();
-  await page.getByRole("heading", { name: "Remover a versão anterior" }).waitFor();
+  await page.getByRole("heading", { level: 1, name: "Atualizar o aplicativo" }).waitFor();
   await page.getByText("Opção 2").waitFor();
-  await scan(page, project, "cliente: atualizar totem (texto)");
+  await scan(page, project, "cliente: atualizar (vídeo e passos)");
 
-  await api.patch("/api/submissions/me", { data: { format: "VIDEO" } });
+  if (await page.getByRole("button", { name: "Ver no vídeo" }).count()) {
+    await page.getByRole("button", { name: "Ver no vídeo" }).nth(1).click();
+    await page.locator("video").waitFor();
+    await scan(page, project, "cliente: atualizar (vídeo tocando)");
+  }
+
+  await api.patch("/api/submissions/me", { data: { installed: true, step: 1 } });
   await page.reload();
-  await page.getByRole("button", { name: /Reproduzir vídeo: Como remover/ }).waitFor();
-  await scan(page, project, "cliente: atualizar totem (vídeo)");
+  await page.getByText("O que precisa estar correto").waitFor();
+  await scan(page, project, "cliente: conferir a tela");
 
-  await api.patch("/api/submissions/me", { data: { format: "TEXTO", totemUpdated: true, step: 3 } });
-  await page.reload();
-  await page.getByText("O que precisa estar correto na tela do totem").waitFor();
-  await scan(page, project, "cliente: conferir tela do totem");
-
-  await page.getByRole("button", { name: "Minha tela está cortada ou desalinhada" }).click();
+  await page.getByRole("button", { name: /Minha tela está cortada ou desalinhada/ }).click();
   await page.getByText("Ajuste necessário").waitFor();
   await scan(page, project, "cliente: ajuste de tela");
 
-  await api.patch("/api/submissions/me", { data: { framing: { type: "TOTEM", outcome: "CORRETO", issues: [] } } });
-  await api.patch("/api/submissions/me", { data: { painelUpdated: true } });
-  await api.patch("/api/submissions/me", { data: { framing: { type: "PAINEL", outcome: "CORRETO", issues: [] }, step: 6 } });
+  await api.patch("/api/submissions/me", { data: { framing: { outcome: "CORRETO", issues: [] }, step: 2 } });
   await page.reload();
-  await page.getByText("Foto do totem").waitFor();
-  await scan(page, project, "cliente: fotos (vazio)");
+  await page.getByRole("heading", { level: 1, name: "Enviar uma foto" }).waitFor();
+  await scan(page, project, "cliente: foto (vazio)");
 
-  for (const type of ["TOTEM", "PAINEL"]) {
-    await api.post("/api/submissions/me/photos", { multipart: { type, file: { name: "f.png", mimeType: "image/png", buffer: PNG } } });
-  }
+  await api.post("/api/submissions/me/photos", { multipart: { file: { name: "f.png", mimeType: "image/png", buffer: PNG } } });
   await page.reload();
-  await page.getByAltText("Foto do totem enviada").waitFor();
-  await scan(page, project, "cliente: fotos (enviadas)");
+  await page.getByAltText("Foto 1 da tela enviada").waitFor();
+  await scan(page, project, "cliente: foto (enviada)");
 
-  await api.patch("/api/submissions/me", { data: { step: 7 } });
+  await api.patch("/api/submissions/me", { data: { step: 3 } });
   await page.reload();
   await page.getByText("Como foi a experiência?").waitFor();
-  await scan(page, project, "cliente: avaliação");
+  await scan(page, project, "cliente: finalizar");
 
   await api.post("/api/submissions/me/submit", { data: { rating: 5 } });
   await page.reload();
@@ -143,8 +135,8 @@ test.describe("teclado e zoom", () => {
     expect(outline.style).not.toBe("none");
     expect(outline.width).toBeGreaterThanOrEqual(2);
     await page.keyboard.press("Tab");
-    await page.keyboard.press("Enter"); // botão "Começar"
-    await expect(page.getByRole("radio", { name: /Tutorial por escrito/ })).toBeVisible();
+    await page.keyboard.press("Enter"); // botão "Ver o passo a passo"
+    await expect(page.getByRole("heading", { level: 1, name: "Atualizar o aplicativo" })).toBeVisible();
 
     // limpeza: apaga o envio criado por este teste (para não interferir nos demais)
     const admin = await request.newContext({ baseURL: "http://localhost:3200" });

@@ -30,6 +30,8 @@ enum SubmissionStatus {
 }
 
 enum PhotoType {
+  /// Foto da tela do equipamento (totem ou painel: o aplicativo é o mesmo). TOTEM/PAINEL só existem em envios antigos.
+  TELA
   TOTEM
   PAINEL
 }
@@ -53,20 +55,27 @@ model Submission {
   format        Format?
   formatChanges Int     @default(0)
 
-  totemUpdated  Boolean @default(false)
-  painelUpdated Boolean @default(false)
+  /// Solução escolhida na abertura da página (hoje só existe o Atendimento Inteligente).
+  solution String @default("atendimento-inteligente")
+
+  // Um só aplicativo (híbrido) atende totem e painel, então há um só fluxo. As colunas mantêm os nomes antigos do banco
+  // (@map) para não exigir migração; os campos painel* abaixo só existem em envios feitos antes da unificação.
+  installed Boolean @default(false) @map("totemUpdated")
 
   // Autodeclaração do cliente
-  totemFraming  Framing  @default(NAO_VERIFICADO)
-  totemIssues   String[]
-  totemNotes    String?
-  painelFraming Framing  @default(NAO_VERIFICADO)
-  painelIssues  String[]
-  painelNotes   String?
+  framing       Framing  @default(NAO_VERIFICADO) @map("totemFraming")
+  framingIssues String[] @map("totemIssues")
+  framingNotes  String?  @map("totemNotes")
 
-  // Confirmação da equipe (campos separados da autodeclaração)
-  totemConfirmed  Boolean @default(false)
-  painelConfirmed Boolean @default(false)
+  // Confirmação da equipe (campo separado da autodeclaração)
+  confirmed Boolean @default(false) @map("totemConfirmed")
+
+  // legado (envios anteriores à unificação; não usados pelo fluxo atual)
+  painelUpdated   Boolean  @default(false)
+  painelFraming   Framing  @default(NAO_VERIFICADO)
+  painelIssues    String[]
+  painelNotes     String?
+  painelConfirmed Boolean  @default(false)
 
   helpRequested Boolean @default(false)
   helpResolved  Boolean @default(false)

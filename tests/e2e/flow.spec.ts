@@ -1,221 +1,201 @@
+import { PrismaClient } from "@prisma/client";
 import { expect, request, test, type Page } from "@playwright/test";
 
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
-const next = (p: Page) => p.getByRole("button", { name: "Continuar" }).click();
-const head = (p: Page, name: string) => p.getByRole("button", { name: new RegExp(name) });
+const DB = "postgresql://postgres:postgres@localhost:5546/intelite_e2e";
+const ADMIN = { email: "admin@intelite.local", password: "senha-e2e-123456" };
+const next = (p: Page) => p.getByRole("button", { name: /^Continuar/ }).click();
+const phaseTitle = (p: Page, name: string) => p.getByRole("heading", { level: 1, name });
 
-test("downloads dos aplicativos: opções, download direto com Range e links editáveis", async ({ request }) => {
-  const list = await (await request.get("/api/downloads")).json();
-  const totem = list.find((x: { app: string }) => x.app === "totem");
-  const painel = list.find((x: { app: string }) => x.app === "painel");
-  // aplicativo híbrido: os mesmos links servem para o totem e para o painel
-  const HIBRIDO = ["https://bit.ly/aihib15", "https://shre.ink/aihib15"];
-  expect(totem.links).toEqual(HIBRIDO);
-  expect(painel.links).toEqual(HIBRIDO);
-  // download direto do APK híbrido, o mesmo para totem e painel
-  expect(totem.direct).toBe("/api/download/totem");
-  expect(painel.direct).toBe("/api/download/painel");
-  expect(totem.sizeBytes).toBeGreaterThan(1_000_000);
-  const full = await request.get("/api/download/totem");
+test("download do aplicativo: links, APK direto com Range e links editáveis", async ({ request }) => {
+  const info = await (await request.get("/api/downloads")).json();
+  // aplicativo híbrido: um só, para totem e painel
+  expect(info.links).toEqual(["https://bit.ly/aihib15", "https://shre.ink/aihib15"]);
+  expect(info.direct).toBe("/api/download");
+  expect(info.sizeBytes).toBeGreaterThan(1_000_000);
+
+  const full = await request.get("/api/download");
   expect(full.status()).toBe(200);
   expect(full.headers()["content-type"]).toBe("application/vnd.android.package-archive");
-  expect(full.headers()["content-disposition"]).toContain('filename="AI_Hibrido_1.5.apk"');
+  expect(full.headers()["content-disposition"]).toMatch(/filename="AI_Hibrido_[\d.]+\.apk"/);
   expect(full.headers()["accept-ranges"]).toBe("bytes");
   const body = await full.body();
-  expect(body.length).toBe(totem.sizeBytes);
+  expect(body.length).toBe(info.sizeBytes);
   expect(body.subarray(0, 2).toString()).toBe("PK"); // APK é um ZIP
 
   // retomar download: Range
-  const part = await request.get("/api/download/painel", { headers: { Range: "bytes=0-3" } });
+  const part = await request.get("/api/download", { headers: { Range: "bytes=0-3" } });
   expect(part.status()).toBe(206);
   expect(part.headers()["content-range"]).toMatch(/^bytes 0-3\/\d+$/);
-  expect((await part.body()).toString()).toBe("PK");
-  expect((await request.get("/api/download/painel", { headers: { Range: "bytes=999999999-" } })).status()).toBe(416);
-  expect((await request.get("/api/download/outro")).status()).toBe(404);
+  expect((await part.body()).toString()).toBe("PK\u0003\u0004");
+  expect((await request.get("/api/download", { headers: { Range: "bytes=999999999-" } })).status()).toBe(416);
 
-  // vídeos do tutorial: streaming com Range, miniaturas e lista permitida
-  const mp4 = await request.get("/api/videos/remover.mp4", { headers: { Range: "bytes=0-1023" } });
+  // vídeos do tutorial: streaming com Range, legendas e lista permitida
+  const mp4 = await request.get("/api/videos/ajustar.mp4", { headers: { Range: "bytes=0-1023" } });
   expect(mp4.status()).toBe(206);
   expect(mp4.headers()["content-type"]).toBe("video/mp4");
   expect(mp4.headers()["content-range"]).toMatch(/^bytes 0-1023\/\d+$/);
   expect((await mp4.body()).length).toBe(1024);
-  expect((await request.get("/api/videos/remover.jpg")).headers()["content-type"]).toBe("image/jpeg");
-  expect((await request.get("/api/videos/instalar.mp4", { headers: { Range: "bytes=999999999-" } })).status()).toBe(416);
-  for (const ruim of ["outro.mp4", "..%2Fpackage.json", "remover.exe", "remover.mp4.txt"]) {
+  expect((await request.get("/api/videos/ajustar.jpg")).headers()["content-type"]).toBe("image/jpeg");
+  expect((await request.get("/api/videos/ajustar.mp4", { headers: { Range: "bytes=999999999-" } })).status()).toBe(416);
+  for (const ruim of ["outro.mp4", "..%2Fpackage.json", "ajustar.exe", "ajustar.mp4.txt", "remover.mp4", "tutorial.json"]) {
     expect((await request.get(`/api/videos/${ruim}`)).status(), ruim).toBe(404);
+  }
+  // vídeo principal do guia: capítulos e legendas vêm junto do conteúdo
+  const content = await (await request.get("/api/content")).json();
+  expect(content.steps.map((s: { key: string }) => s.key)).toEqual(["atualizar", "conferir", "correcao", "fotos"]);
+  if (content.guideVideo) { // enquanto o vídeo novo não foi gravado, a página mostra um aviso no lugar do player
+    expect(content.guideVideo.chapters.length).toBeGreaterThanOrEqual(4);
+    expect((await request.get(content.guideVideo.src, { headers: { Range: "bytes=0-99" } })).status()).toBe(206);
+    if (content.guideVideo.captions) expect((await request.get(content.guideVideo.captions)).headers()["content-type"]).toContain("text/vtt");
   }
 
   // links editáveis só pelo admin, somente https
-  expect((await request.put("/api/admin/settings", { data: { downloadLinks: { totem: [], painel: [] } } })).status()).toBe(401);
-  const login = await request.post("/api/admin/login", { data: { email: "admin@intelite.local", password: "senha-e2e-123456" } });
-  expect(login.status()).toBe(200);
-  expect((await request.put("/api/admin/settings", { data: { downloadLinks: { totem: ["http://inseguro.com/x"], painel: [] } } })).status()).toBe(400);
-  const ok = await request.put("/api/admin/settings", { data: { downloadLinks: { totem: ["bit.ly/novo-totem"], painel: ["bit.ly/aihib15"] } } });
-  expect(ok.status()).toBe(200);
-  expect((await (await request.get("/api/downloads")).json()).find((x: { app: string }) => x.app === "totem").links).toEqual(["https://bit.ly/novo-totem"]);
-  // links antigos ainda salvos no banco (padrões anteriores) passam para o aplicativo híbrido
-  await request.put("/api/admin/settings", { data: { downloadLinks: { totem: ["bit.ly/aitotem26", "shre.ink/aitotem26"], painel: ["bit.ly/aipainel26", "shre.ink/aipainel26"] } } });
-  const migrados = await (await request.get("/api/downloads")).json();
-  expect(migrados.find((x: { app: string }) => x.app === "totem").links).toEqual(["https://bit.ly/aihib15", "https://shre.ink/aihib15"]);
-  expect(migrados.find((x: { app: string }) => x.app === "painel").links).toEqual(["https://bit.ly/aihib15", "https://shre.ink/aihib15"]);
-  // restaura os padrões para não afetar os demais testes
-  await request.put("/api/admin/settings", { data: { downloadLinks: { totem: ["bit.ly/aihib15", "shre.ink/aihib15"], painel: ["bit.ly/aihib15", "shre.ink/aihib15"] } } });
+  expect((await request.put("/api/admin/settings", { data: { links: [] } })).status()).toBe(401);
+  expect((await request.post("/api/admin/login", { data: ADMIN })).status()).toBe(200);
+  expect((await request.put("/api/admin/settings", { data: { links: ["http://inseguro.com/x"] } })).status()).toBe(400);
+  expect((await request.put("/api/admin/settings", { data: { links: ["bit.ly/novo-app"] } })).status()).toBe(200);
+  expect((await (await request.get("/api/downloads")).json()).links).toEqual(["https://bit.ly/novo-app"]);
+
+  // padrões antigos (totem/painel separados) ainda salvos no banco passam para o aplicativo atual; edições da equipe ficam
+  const prisma = new PrismaClient({ datasources: { db: { url: DB } } });
+  try {
+    await prisma.setting.deleteMany({ where: { key: "appLinks" } });
+    await prisma.setting.upsert({ where: { key: "downloadLinks" }, update: { value: JSON.stringify({ totem: ["https://bit.ly/aitotem26", "https://shre.ink/aitotem26"], painel: ["https://bit.ly/aipainel26", "https://shre.ink/aipainel26"] }) }, create: { key: "downloadLinks", value: JSON.stringify({ totem: ["https://bit.ly/aitotem26", "https://shre.ink/aitotem26"], painel: ["https://bit.ly/aipainel26", "https://shre.ink/aipainel26"] }) } });
+    expect((await (await request.get("/api/downloads")).json()).links).toEqual(["https://bit.ly/aihib15", "https://shre.ink/aihib15"]);
+    await prisma.setting.update({ where: { key: "downloadLinks" }, data: { value: JSON.stringify({ totem: ["https://exemplo.com/editado"], painel: [] }) } });
+    expect((await (await request.get("/api/downloads")).json()).links).toEqual(["https://exemplo.com/editado"]);
+    await prisma.setting.delete({ where: { key: "downloadLinks" } });
+  } finally {
+    await prisma.$disconnect();
+  }
 });
 
-test("página única em sanfona: cliente conclui no celular; equipe confirma; indicadores refletem", async ({ page, browser }) => {
+test("cliente conclui o guia no celular; equipe confirma; indicadores refletem", async ({ page, browser }) => {
   await page.goto("/");
   await expect(page.getByAltText("Intelite Tecnologia").first()).toBeVisible();
-  await expect(page.getByText("na ordem")).toBeVisible();
-
-  // etapas posteriores ficam bloqueadas até concluir as anteriores
-  await expect(head(page, "Formato do tutorial")).toBeDisabled();
-  await expect(head(page, "Enviar as fotos")).toBeDisabled();
-  await expect(page.getByLabel("E-mail")).toHaveCount(0); // só nome e empresa
+  // abertura: a pergunta, a solução e só nome + empresa
+  await expect(phaseTitle(page, "Quer atualizar seu app Intelite?")).toBeVisible();
+  await expect(page.getByRole("radio", { name: /Atendimento Inteligente/ })).toBeChecked();
+  await expect(page.getByLabel("E-mail")).toHaveCount(0);
+  await page.getByRole("button", { name: /Ver o passo a passo/ }).click();
+  await expect(page.getByText("Informe o seu nome.")).toBeVisible(); // validação com mensagem
   await page.getByLabel("Seu nome").fill("Maria");
   await page.getByLabel("Nome da empresa").fill("Empresa Teste");
-  await page.getByRole("button", { name: "Começar" }).click();
+  await page.getByRole("button", { name: /Ver o passo a passo/ }).click();
 
-  // formato (sanfona abre sozinha na etapa atual; só uma aberta por vez)
-  await expect(head(page, "Formato do tutorial")).toHaveAttribute("aria-expanded", "true");
-  await expect(head(page, "Atualizar o totem")).toBeDisabled();
-  await expect(page.getByRole("button", { name: /Totem/ })).toBeDisabled(); // só depois de escolher o formato
-  await page.getByRole("radio", { name: /Tutorial em vídeo/ }).click();
-  // totem e painel ficam liberados: o cliente escolhe por qual começar
-  await expect(head(page, "Atualizar o painel")).toBeEnabled();
-  await expect(head(page, "Conferir a tela do painel")).toBeDisabled();
-  await expect(head(page, "Enviar as fotos")).toBeDisabled();
-  await page.getByRole("button", { name: /Totem.*Começar por aqui/ }).click();
-
-  // totem — conteúdo oficial, troca de formato sem perder a etapa
-  await expect(head(page, "Atualizar o totem")).toHaveAttribute("aria-expanded", "true");
-  await expect(page.getByRole("heading", { name: "Remover a versão anterior" })).toBeVisible();
+  // fase 1: vídeo e passo a passo ao mesmo tempo, sem desinstalar o app antigo
+  await expect(phaseTitle(page, "Atualizar o aplicativo")).toBeVisible();
+  const hasVideo = !!(await (await page.request.get("/api/content")).json()).guideVideo;
+  if (hasVideo) await expect(page.getByRole("button", { name: /Reproduzir vídeo: Como atualizar o aplicativo/ })).toBeVisible();
+  else await expect(page.getByText("O vídeo completo está sendo preparado")).toBeVisible();
+  for (const t of ["Prepare o Mini PC", "Baixe o aplicativo", "Instale por cima da versão atual", "Abra e aguarde carregar"]) {
+    await expect(page.getByRole("heading", { level: 2, name: t })).toBeVisible();
+  }
+  await expect(page.getByText("Remover a versão anterior")).toHaveCount(0);
+  await expect(page.getByText("Mostrar apps do sistema")).toHaveCount(0);
+  await expect(page.getByText(/Você não precisa desinstalar nada/)).toBeVisible();
   await expect(page.getByRole("link", { name: /bit\.ly\/aihib15/ })).toBeVisible(); // opção 1
   await expect(page.getByRole("link", { name: /shre\.ink\/aihib15/ })).toBeVisible(); // opção 2
-  await expect(page.getByText("É o mesmo aplicativo para o totem e para o painel")).toBeVisible();
+  await expect(page.getByText("É o mesmo aplicativo para o totem e para o painel").first()).toBeVisible();
   await expect(page.getByRole("link", { name: /Baixar direto desta página/ })).toBeVisible(); // opção 3
   await expect(page.getByText(/copie o APK para um pendrive/)).toBeVisible();
-  // formato vídeo: remover + instalar (sem o aviso de "etapa sem vídeo")
-  await expect(page.getByRole("button", { name: "Reproduzir vídeo: Como remover a versão anterior" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Reproduzir vídeo: Como baixar e instalar a nova versão" })).toBeVisible();
-  await expect(page.getByText("Esta etapa ainda não tem vídeo")).toHaveCount(0);
-  await page.getByRole("button", { name: "Reproduzir vídeo: Como remover a versão anterior" }).click();
-  await expect(page.locator("video").first()).toBeVisible(); // o player carrega sob demanda, só após o toque
-  // o texto escrito segue o mesmo caminho dos vídeos
-  await expect(page.getByText("Mostrar apps do sistema")).toBeVisible();
-  await expect(page.getByText("Fazer o download mesmo assim")).toBeVisible();
-  await page.getByRole("group", { name: "Alternar formato" }).getByRole("radio", { name: /Texto/ }).click();
-  await expect(page.getByRole("button", { name: /Reproduzir vídeo/ })).toHaveCount(0); // texto: sem vídeos
-  await expect(page.getByText("Mostrar apps do sistema")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Continuar" })).toBeDisabled();
-  await page.getByLabel(/Concluí a atualização do totem/).click();
-  await expect(page.getByLabel(/Concluí a atualização do totem/)).toBeChecked();
+  await expect(page.getByText("Escolha o formato")).toHaveCount(0); // texto e vídeo juntos: não há mais escolha de formato
+  // "Ver no vídeo" leva o player ao capítulo do passo
+  if (hasVideo) {
+    await page.getByRole("button", { name: "Ver no vídeo" }).nth(1).click();
+    await expect(page.locator("video")).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Baixar \d/ })).toHaveAttribute("aria-current", "true");
+  }
+  // fases seguintes bloqueadas até concluir esta
+  await expect(page.getByRole("button", { name: /Foto/ })).toHaveAttribute("aria-disabled", "true");
+  await expect(page.getByRole("button", { name: /^Continuar/ })).toBeDisabled();
+  await page.getByLabel(/Terminei a atualização/).click();
+  await expect(page.getByLabel(/Terminei a atualização/)).toBeChecked();
   await next(page);
 
-  // enquadramento do totem: problema → instruções → conferir de novo
-  await expect(head(page, "Conferir a tela do totem")).toHaveAttribute("aria-expanded", "true");
-  await expect(page.getByRole("button", { name: "Continuar" })).toBeDisabled();
-  // lista informativa: nada para marcar
-  await expect(page.getByText("O que precisa estar correto na tela do totem")).toBeVisible();
-  await expect(page.getByText("Os botões aparecem inteiros e podem ser usados normalmente.")).toBeVisible();
-  await expect(page.locator(".acc-body input[type=checkbox]")).toHaveCount(0);
-  await page.getByRole("button", { name: "Minha tela está cortada ou desalinhada" }).click(); // vai direto ao tutorial de ajuste
+  // fase 2: conferir a tela (lista informativa; problema → tutorial de ajuste → conferir de novo)
+  await expect(phaseTitle(page, "Conferir a tela")).toBeVisible();
+  await expect(page.getByText("O que precisa estar correto")).toBeVisible();
+  await expect(page.getByText("Textos, botões, logotipo e números das senhas não estão cortados.")).toBeVisible();
+  await expect(page.locator("main input[type=checkbox]")).toHaveCount(0); // nada para marcar
+  await expect(page.getByRole("button", { name: /^Continuar/ })).toBeDisabled();
+  await page.getByRole("button", { name: /Minha tela está cortada ou desalinhada/ }).click();
+  await expect(phaseTitle(page, "Minha tela está cortada ou desalinhada")).toBeVisible();
+  await expect(page.getByText("Ajustar a proporção da tela (TV Box SmartPRO)")).toBeVisible();
   await expect(page.getByText("Ajuste necessário")).toBeVisible();
-  await expect(page.getByText("Ainda não temos um ajuste padrão para a tela do totem")).toBeVisible(); // sem ajuste técnico inventado: orienta a pedir suporte
-  await expect(page.getByRole("button", { name: "Continuar" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /^Continuar/ })).toBeDisabled();
   await page.getByRole("button", { name: /Já fiz o ajuste/ }).click();
-  await page.getByRole("button", { name: /Está tudo certo na tela do totem/ }).click();
-  await expect(page.getByText(/Sua confirmação será conferida pela equipe/)).toBeVisible(); // declarado ≠ confirmado
+  await page.getByRole("button", { name: /Está tudo certo/ }).click();
+  await expect(page.getByText(/A equipe da Intelite vai conferir/)).toBeVisible(); // declarado ≠ confirmado
   await next(page);
 
-  // painel: atualização → conferência
-  await expect(head(page, "Atualizar o painel")).toHaveAttribute("aria-expanded", "true");
-  await expect(page.getByRole("heading", { name: "Remover a versão anterior" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /shre\.ink\/aihib15/ })).toBeVisible();
-  await expect(page.getByText("Síntese de Voz")).toHaveCount(0); // etapa retirada
-  await expect(head(page, "Conferir a tela do painel")).toBeDisabled();
-  await page.getByLabel(/Concluí a atualização do painel/).click();
-  await expect(page.getByLabel(/Concluí a atualização do painel/)).toBeChecked();
-  await next(page);
-  await expect(head(page, "Conferir a tela do painel")).toHaveAttribute("aria-expanded", "true");
-  await expect(page.getByText("Os números das senhas estão totalmente visíveis.")).toBeVisible();
-  await page.getByRole("button", { name: "Minha tela está cortada ou desalinhada" }).click();
-  await expect(page.getByText("Ajustar a proporção da tela (TV Box SmartPRO)")).toBeVisible(); // tutorial de ajuste do painel
-  await page.getByRole("button", { name: /Já fiz o ajuste/ }).click();
-  await page.getByRole("button", { name: /Está tudo certo na tela do painel/ }).click();
+  // fase 3: foto
+  await expect(phaseTitle(page, "Enviar uma foto")).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Continuar/ })).toBeDisabled();
+  await page.locator("input[type=file]").setInputFiles({ name: "t.png", mimeType: "image/png", buffer: PNG });
+  await expect(page.getByAltText("Foto 1 da tela enviada")).toBeVisible();
   await next(page);
 
-  // fotos
-  await expect(head(page, "Enviar as fotos")).toHaveAttribute("aria-expanded", "true");
-  await expect(page.getByRole("button", { name: "Continuar" })).toBeDisabled();
-  await page.locator("input[type=file]").nth(0).setInputFiles({ name: "t.png", mimeType: "image/png", buffer: PNG });
-  await expect(page.getByAltText("Foto do totem enviada")).toBeVisible();
-  await page.locator("input[type=file]").nth(1).setInputFiles({ name: "p.png", mimeType: "image/png", buffer: PNG });
-  await expect(page.getByAltText("Foto do painel de chamadas enviada")).toBeVisible();
-  await next(page);
-
-  // enviar
-  await expect(head(page, "Confirmar e avaliar")).toHaveAttribute("aria-expanded", "true");
+  // fase 4: finalizar
+  await expect(phaseTitle(page, "Finalizar")).toBeVisible();
   await page.getByRole("radio", { name: "5 de 5" }).click();
   await page.getByRole("button", { name: "Enviar", exact: true }).click();
   await expect(page.getByText("Recebemos o seu envio")).toBeVisible();
-  await expect(page.getByText("8 de 8 etapas concluídas")).toBeVisible();
+  await expect(page.getByText("(concluída)")).toHaveCount(4); // as quatro fases aparecem como concluídas
+  await expect(page.getByRole("button", { name: "Preciso de ajuda" })).toHaveCount(0);
+  await page.request.patch("/api/submissions/me", { data: { help: { message: "Não achei o botão", step: "Finalizar" } } });
 
-  // pedido de ajuda
-  await expect(page.getByRole("button", { name: "Preciso de ajuda" })).toHaveCount(0); // botão removido da página
-  await page.request.patch("/api/submissions/me", { data: { help: { message: "Não achei o botão", step: "Confirmar e avaliar" } } });
-
-  // retomar: recarregar mantém o progresso (cookie) e reabre a etapa atual
+  // retomar: recarregar mantém o progresso (cookie) e reabre a fase atual
   await page.reload();
-  await expect(head(page, "Confirmar e avaliar")).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByText("Recebemos o seu envio")).toBeVisible();
 
   // admin
   const admin = await (await browser.newContext({ baseURL: "http://localhost:3200" })).newPage();
   await admin.goto("/admin/login");
   await expect(admin.getByAltText("Intelite Tecnologia").first()).toBeVisible();
-  await admin.getByLabel("E-mail").fill("admin@intelite.local");
-  await admin.getByLabel("Senha").fill("senha-e2e-123456");
+  await admin.getByLabel("E-mail").fill(ADMIN.email);
+  await admin.getByLabel("Senha").fill(ADMIN.password);
   await admin.getByRole("button", { name: "Entrar" }).click();
   await expect(admin.getByRole("heading", { name: "Envios" })).toBeVisible();
   await expect(admin.locator(".kpi", { hasText: "Aguardando a equipe" }).locator(".n")).toHaveText("1");
-  await expect(admin.locator(".kpi", { hasText: "Totens confirmados" }).locator(".n")).toHaveText("0"); // declarado ≠ confirmado
+  await expect(admin.locator(".kpi", { hasText: "Telas confirmadas pela equipe" }).locator(".n")).toHaveText("0"); // declarado ≠ confirmado
   await expect(admin.locator(".kpi", { hasText: "Pedidos de ajuda em aberto" }).locator(".n")).toHaveText("1");
+  await expect(admin.getByText("Atualizaram o aplicativo")).toBeVisible();
 
   // exportação CSV
   const csv = await admin.request.get("/api/admin/export");
   expect(csv.status()).toBe(200);
   expect(csv.headers()["content-type"]).toContain("text/csv");
-  const body = await csv.text();
-  expect(body).toContain("Empresa Teste");
-  expect(body).not.toContain("Síntese de Voz");
+  expect(await csv.text()).toContain("Empresa Teste");
 
   await admin.getByRole("row", { name: /Empresa Teste/ }).getByRole("link", { name: /Abrir/ }).click();
   await expect(admin.getByRole("heading", { name: /Maria/ })).toBeVisible();
-  await admin.getByRole("button", { name: /Confirmar enquadramento do totem/ }).click();
-  await expect(admin.getByText(/Aprove a foto do totem antes de confirmar/)).toBeVisible();
+  await admin.getByRole("button", { name: /Confirmar enquadramento/ }).click();
+  await expect(admin.getByText(/Aprove uma foto antes de confirmar/)).toBeVisible();
 
   // pedido de ajuda: aparece e é marcado como atendido
   await expect(admin.locator(".alert strong", { hasText: "Pediu ajuda" })).toBeVisible();
   await admin.getByRole("button", { name: "Marcar como atendido" }).click();
   await expect(admin.getByText("Pedido de ajuda atendido")).toBeVisible();
 
-  // pede nova foto do painel; o cliente é avisado e reenvia
-  await admin.getByRole("button", { name: "Pedir nova foto" }).nth(1).click();
+  // pede nova foto; o cliente é avisado e reenvia
+  await admin.getByRole("button", { name: "Pedir nova foto" }).click();
   await admin.getByLabel(/Motivo/).fill("A borda direita não aparece.");
   await admin.getByRole("button", { name: "Enviar pedido" }).click();
   await expect(admin.getByText("Precisa de ajuste").first()).toBeVisible();
   await page.reload();
-  await expect(page.getByText(/A equipe pediu uma nova foto do painel/)).toBeVisible();
-  await page.getByRole("button", { name: "Enviar agora" }).click();
+  await expect(phaseTitle(page, "Enviar uma foto")).toBeVisible(); // o cliente volta direto à fase da foto
   await expect(page.getByText("A borda direita não aparece.")).toBeVisible();
-  await page.locator("input[type=file]").nth(1).setInputFiles({ name: "p2.png", mimeType: "image/png", buffer: PNG });
-  await expect(page.getByText(/A equipe pediu uma nova foto/)).toHaveCount(0);
+  await page.locator("input[type=file]").setInputFiles({ name: "p2.png", mimeType: "image/png", buffer: PNG });
+  await expect(page.getByAltText("Foto 2 da tela enviada")).toBeVisible();
+  await expect(page.getByText("A borda direita não aparece.")).toHaveCount(0);
 
-  // aprova a foto do totem e confirma (só então "confirmado")
+  // aprova a foto nova e confirma (só então "confirmado")
   await admin.reload();
-  await admin.getByRole("button", { name: "Aprovar foto" }).first().click();
+  await admin.getByRole("button", { name: "Aprovar foto" }).last().click();
   await expect(admin.getByText("Aprovada", { exact: true })).toBeVisible();
-  await admin.getByRole("button", { name: /Confirmar enquadramento do totem/ }).click();
+  await admin.getByRole("button", { name: /Confirmar enquadramento/ }).click();
   await expect(admin.getByText("Equipe: confirmado")).toBeVisible();
   await admin.getByRole("button", { name: "Ampliar foto" }).first().click();
   await expect(admin.getByRole("dialog")).toBeVisible();
@@ -243,7 +223,7 @@ test("página única em sanfona: cliente conclui no celular; equipe confirma; in
 
   // trocar a senha do admin
   await admin.goto("/admin/conta");
-  await admin.getByLabel("Senha atual").fill("senha-e2e-123456");
+  await admin.getByLabel("Senha atual").fill(ADMIN.password);
   await admin.getByLabel("Nova senha (mín. 10 caracteres)").fill("outra-senha-e2e-9876");
   await admin.getByLabel("Repita a nova senha").fill("outra-senha-e2e-9876");
   await admin.getByRole("button", { name: "Salvar" }).click();
@@ -252,8 +232,8 @@ test("página única em sanfona: cliente conclui no celular; equipe confirma; in
   // volta à senha original para não afetar os demais testes
   await admin.reload();
   await admin.getByLabel("Senha atual").fill("outra-senha-e2e-9876");
-  await admin.getByLabel("Nova senha (mín. 10 caracteres)").fill("senha-e2e-123456");
-  await admin.getByLabel("Repita a nova senha").fill("senha-e2e-123456");
+  await admin.getByLabel("Nova senha (mín. 10 caracteres)").fill(ADMIN.password);
+  await admin.getByLabel("Repita a nova senha").fill(ADMIN.password);
   await admin.getByRole("button", { name: "Salvar" }).click();
   await expect(admin.getByText("Senha alterada.")).toBeVisible();
 
@@ -266,29 +246,28 @@ test("página única em sanfona: cliente conclui no celular; equipe confirma; in
   await expect(admin.getByText("Ainda não há envios.")).toBeVisible();
 });
 
-test("o cliente escolhe começar pelo painel; fotos só depois dos dois equipamentos", async ({ page }) => {
+test("as fases seguem a ordem, também no servidor", async ({ page }) => {
   await page.goto("/");
-  await page.getByLabel("Seu nome").fill("Paulo Painel");
-  await page.getByLabel("Nome da empresa").fill("Empresa Painel Primeiro");
-  await page.getByRole("button", { name: "Começar" }).click();
-  await page.getByRole("radio", { name: /Tutorial por escrito/ }).click();
-  await page.getByRole("button", { name: /Painel de chamadas.*Começar por aqui/ }).click();
-  await expect(head(page, "Atualizar o painel")).toHaveAttribute("aria-expanded", "true");
-  await page.getByLabel(/Concluí a atualização do painel/).click();
-  await expect(page.getByLabel(/Concluí a atualização do painel/)).toBeChecked();
-  await next(page);
-  await page.getByRole("button", { name: /Está tudo certo na tela do painel/ }).click();
-  await expect(page.getByText(/Sua confirmação será conferida/)).toBeVisible();
-  await next(page); // depois do painel, leva ao totem (que falta)
-  await expect(head(page, "Atualizar o totem")).toHaveAttribute("aria-expanded", "true");
-  await expect(head(page, "Enviar as fotos")).toBeDisabled();
-  // a API também recusa pular o totem
-  const r = await page.request.patch("/api/submissions/me", { data: { step: 6 } });
-  expect(r.status()).toBe(409);
+  await page.getByLabel("Seu nome").fill("Paulo Ordem");
+  await page.getByLabel("Nome da empresa").fill("Empresa Ordem Certa");
+  await page.getByRole("button", { name: /Ver o passo a passo/ }).click();
+  await expect(phaseTitle(page, "Atualizar o aplicativo")).toBeVisible();
+  const patch = (data: object) => page.request.patch("/api/submissions/me", { data });
+  expect((await patch({ step: 1 })).status()).toBe(409); // sem concluir a atualização
+  expect((await patch({ installed: true, step: 1 })).status()).toBe(200);
+  expect((await patch({ step: 2 })).status()).toBe(409); // sem conferir a tela
+  expect((await patch({ framing: { outcome: "INCORRETO", issues: [] }, step: 2 })).status()).toBe(409); // problema aberto bloqueia a foto
+  expect((await patch({ framing: { outcome: "CORRETO", issues: [] }, step: 2 })).status()).toBe(200);
+  expect((await patch({ step: 3 })).status()).toBe(409); // sem foto
+  expect((await page.request.post("/api/submissions/me/submit", { data: { rating: 5 } })).status()).toBe(409); // enviar sem foto também falha
+  // a tela mostra o bloqueio
+  await page.reload();
+  await expect(phaseTitle(page, "Enviar uma foto")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Finalizar/ })).toHaveAttribute("aria-disabled", "true");
   // limpeza
   const admin = await request.newContext({ baseURL: "http://localhost:3200" });
-  await admin.post("/api/admin/login", { data: { email: "admin@intelite.local", password: "senha-e2e-123456" } });
-  const { items } = await (await admin.get("/api/admin/submissions?q=Empresa Painel Primeiro")).json();
+  await admin.post("/api/admin/login", { data: ADMIN });
+  const { items } = await (await admin.get("/api/admin/submissions?q=Empresa Ordem Certa")).json();
   for (const it of items) await admin.delete(`/api/admin/submissions/${it.id}`);
   await admin.dispose();
 });

@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-12T12:00:00.000Z",
+  "title": "Design System: Central de Atualização Intelite",
+  "extensions": {
+    "colorMeta": {
+      "brand": { "role": "primary", "displayName": "Azul Intelite", "canonical": "#4c9bff", "tonalRamp": ["#0a1a33", "#0c1d38", "#1c4f94", "#3a82e0", "#4c9bff", "#6aaeff", "#8ec0ff", "#e8f2ff"] },
+      "bg": { "role": "neutral", "displayName": "Preto de projeção", "canonical": "#050507", "tonalRamp": ["#050507", "#0c0d11", "#12141a", "#1a1d25", "#343947", "#656c80", "#9aa1b2", "#f2f4f8"] },
+      "surface": { "role": "neutral", "displayName": "Grafite 1", "canonical": "#0c0d11", "tonalRamp": ["#050507", "#0c0d11", "#12141a", "#1a1d25", "#20232c", "#343947", "#656c80", "#c9cedb"] },
+      "ok": { "role": "secondary", "displayName": "Verde conferido", "canonical": "#4ade80", "tonalRamp": ["#0b2417", "#14532d", "#16803c", "#22a85a", "#4ade80", "#86efac", "#bbf7d0", "#e8fcef"] },
+      "warn": { "role": "secondary", "displayName": "Âmbar de atenção", "canonical": "#fbbf24", "tonalRamp": ["#2a2008", "#5a4310", "#92690c", "#d09a12", "#fbbf24", "#fcd361", "#fde8a0", "#fef6dc"] },
+      "bad": { "role": "secondary", "displayName": "Coral de erro", "canonical": "#ff8a80", "tonalRamp": ["#2d1210", "#5c2420", "#9a3a32", "#d65e55", "#ff8a80", "#ffada5", "#ffd0cc", "#ffeceb"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "H1 da abertura, escala fluida, 650 e tracking -0.04em." },
+      "headline": { "displayName": "Título de fase", "purpose": "Título de cada fase do fluxo (.phase-head)." },
+      "title": { "displayName": "Título", "purpose": "H2/H3, título de passo, nome da solução, veredito." },
+      "body": { "displayName": "Corpo", "purpose": "Texto corrido, 1rem e 1.6 de entrelinha." },
+      "lead": { "displayName": "Apoio", "purpose": "Frase de apoio sob o display, até 34ch." },
+      "label": { "displayName": "Rótulo", "purpose": "Rótulos de campo, selos, botões pequenos, tabela." },
+      "kpi": { "displayName": "KPI", "purpose": "Números do painel administrativo, tabulares." }
+    },
+    "shadows": [
+      { "name": "shadow-1", "value": "0 1px 2px rgba(0, 0, 0, .5)", "purpose": "Contato mínimo." },
+      { "name": "shadow-2", "value": "0 18px 40px -12px rgba(0, 0, 0, .7), 0 2px 6px rgba(0, 0, 0, .4)", "purpose": "Diálogo e player." },
+      { "name": "player-glow", "value": "0 0 0 1px #000, 0 30px 80px -20px rgba(76, 155, 255, .22), 0 18px 40px -12px rgba(0, 0, 0, .7), 0 2px 6px rgba(0, 0, 0, .4)", "purpose": "Halo azul difuso sob o vídeo." },
+      { "name": "step-active", "value": "0 0 0 1px #4c9bff, 0 12px 40px -16px rgba(76, 155, 255, .22)", "purpose": "Passo ativo (.sub.active)." },
+      { "name": "opt-selected", "value": "0 0 0 1px #4c9bff, 0 0 0 6px rgba(76, 155, 255, .22)", "purpose": "Opção selecionada (.opt)." },
+      { "name": "primary-hover-halo", "value": "0 0 0 6px rgba(76, 155, 255, .22)", "purpose": "Hover do botão primário." },
+      { "name": "phase-current", "value": "0 0 14px rgba(76, 155, 255, .22)", "purpose": "Barra da fase atual no stepper." }
+    ],
+    "motion": [
+      { "name": "ease-out", "value": "cubic-bezier(.23, 1, .32, 1)", "purpose": "Easing único de todas as transições." },
+      { "name": "t-fast", "value": "140ms", "purpose": "Hover, foco, pressionar." },
+      { "name": "t-med", "value": "220ms", "purpose": "Passo ativo, progresso, fase." },
+      { "name": "phase-in", "value": "360ms", "purpose": "Entrada de fase, 10px de subida." },
+      { "name": "rise", "value": "640ms, atraso 90ms por item", "purpose": "Entrada orquestrada da abertura, uma vez." },
+      { "name": "reduced-motion", "value": "prefers-reduced-motion: no-preference", "purpose": "Toda animação fica dentro desta condição." }
+    ],
+    "breakpoints": [
+      { "name": "mobile-stepper", "value": "560px" },
+      { "name": "admin-cards", "value": "760px" },
+      { "name": "tablet", "value": "768px" },
+      { "name": "hero", "value": "960px" },
+      { "name": "guide", "value": "1000px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Botão primário",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ação principal por tela; a única superfície em azul cheio.",
+      "html": "<button class=\"ds-btn-primary\">Ver o passo a passo</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 24px; border-radius: var(--r-md, 14px); border: 1px solid var(--brand, #4c9bff); background: var(--brand, #4c9bff); color: var(--brand-contrast, #04111f); font: inherit; font-weight: 650; line-height: 1.2; cursor: pointer; transition: background-color 140ms cubic-bezier(.23,1,.32,1), box-shadow 220ms cubic-bezier(.23,1,.32,1), transform 140ms cubic-bezier(.23,1,.32,1); } .ds-btn-primary:hover { background: var(--brand-hover, #6aaeff); border-color: var(--brand-hover, #6aaeff); box-shadow: 0 0 0 6px var(--brand-glow, rgba(76,155,255,.22)); } .ds-btn-primary:focus-visible { outline: 3px solid var(--text, #f2f4f8); outline-offset: 3px; } .ds-btn-primary:active { transform: scale(.97); }"
+    },
+    {
+      "name": "Botão padrão",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Ação secundária em grafite com borda forte.",
+      "html": "<button class=\"ds-btn\">Voltar</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 24px; border-radius: var(--r-md, 14px); border: 1px solid var(--border-strong, #343947); background: var(--surface-2, #12141a); color: var(--text, #f2f4f8); font: inherit; font-weight: 600; line-height: 1.2; cursor: pointer; transition: background-color 140ms cubic-bezier(.23,1,.32,1), border-color 140ms cubic-bezier(.23,1,.32,1), transform 140ms cubic-bezier(.23,1,.32,1); } .ds-btn:hover { background: var(--surface-3, #1a1d25); border-color: var(--border-input, #656c80); } .ds-btn:focus-visible { outline: 3px solid var(--focus, #9cc9ff); outline-offset: 3px; } .ds-btn:active { transform: scale(.97); }"
+    },
+    {
+      "name": "Campo de texto",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo com limite de 3:1 e foco em contorno claro.",
+      "html": "<label class=\"ds-field\"><span>Nome</span><input class=\"ds-input\" type=\"text\" placeholder=\"Seu nome\"></label>",
+      "css": ".ds-field { display: block; font-weight: 600; font-size: .875rem; color: var(--text-2, #c9cedb); } .ds-field > span { display: block; margin-bottom: 4px; } .ds-input { width: 100%; min-height: 48px; padding: 11px 16px; border: 1px solid var(--border-input, #656c80); border-radius: var(--r-md, 14px); background: var(--surface-2, #12141a); color: var(--text, #f2f4f8); font: inherit; font-weight: 400; transition: border-color 140ms cubic-bezier(.23,1,.32,1); } .ds-input::placeholder { color: var(--faint, #7f8698); } .ds-input:focus-visible { outline: 3px solid var(--focus, #9cc9ff); outline-offset: 2px; border-color: var(--brand, #4c9bff); }"
+    },
+    {
+      "name": "Opção selecionável",
+      "kind": "custom",
+      "refersTo": "opt-selected",
+      "description": "Caixa inteira clicável; selecionada acende em azul suave com halo.",
+      "html": "<label class=\"ds-opt\"><input type=\"radio\" name=\"s\" checked><span>Atendimento Inteligente</span></label>",
+      "css": ".ds-opt { position: relative; display: flex; gap: 12px; align-items: flex-start; padding: 16px; min-height: 56px; border: 1px solid var(--brand, #4c9bff); border-radius: var(--r-md, 14px); background: var(--brand-soft, #0c1d38); color: var(--text, #f2f4f8); cursor: pointer; box-shadow: 0 0 0 1px var(--brand, #4c9bff), 0 0 0 6px var(--brand-glow, rgba(76,155,255,.22)); transition: border-color 140ms cubic-bezier(.23,1,.32,1), background-color 140ms cubic-bezier(.23,1,.32,1); } .ds-opt input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; } .ds-opt:has(input:focus-visible) { outline: 3px solid var(--focus, #9cc9ff); outline-offset: 3px; } .ds-opt:has(input:not(:checked)) { border-color: var(--border-input, #656c80); background: var(--surface-2, #12141a); box-shadow: none; }"
+    },
+    {
+      "name": "Passo do guia",
+      "kind": "card",
+      "refersTo": "sub-active",
+      "description": "Passo escrito que acende em sincronia com o capítulo do vídeo.",
+      "html": "<li class=\"ds-sub\"><div class=\"ds-sub-head\"><span class=\"ds-sub-num\">2</span><h2>Abra o aplicativo</h2></div><p>Toque no ícone para abrir.</p></li>",
+      "css": ".ds-sub { list-style: none; background: var(--surface-2, #12141a); border: 1px solid var(--brand, #4c9bff); border-radius: var(--r-lg, 20px); padding: 16px; box-shadow: 0 0 0 1px var(--brand, #4c9bff), 0 12px 40px -16px var(--brand-glow, rgba(76,155,255,.22)); color: var(--text-2, #c9cedb); transition: border-color 220ms cubic-bezier(.23,1,.32,1), background-color 220ms cubic-bezier(.23,1,.32,1); } .ds-sub-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; } .ds-sub-head h2 { margin: 0; font-size: 1.125rem; font-weight: 650; letter-spacing: -.01em; color: var(--text, #f2f4f8); } .ds-sub-num { flex: 0 0 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 650; font-size: .875rem; background: var(--brand, #4c9bff); color: var(--brand-contrast, #04111f); font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Capítulo do vídeo",
+      "kind": "chip",
+      "refersTo": "chapter-chip-current",
+      "description": "Pílula de capítulo com tempo tabular; a atual fica em azul suave.",
+      "html": "<button class=\"ds-chapter\" aria-current=\"true\">Abrir <span class=\"ds-time\">0:42</span></button>",
+      "css": ".ds-chapter { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border-strong, #343947); background: var(--surface, #0c0d11); color: var(--text-2, #c9cedb); font: inherit; font-size: .875rem; font-weight: 600; cursor: pointer; transition: background-color 140ms cubic-bezier(.23,1,.32,1), border-color 140ms cubic-bezier(.23,1,.32,1); } .ds-chapter[aria-current=\"true\"] { background: var(--brand-soft, #0c1d38); border-color: var(--brand, #4c9bff); color: var(--brand-text, #8ec0ff); } .ds-chapter:hover { border-color: var(--border-input, #656c80); color: var(--text, #f2f4f8); } .ds-chapter:focus-visible { outline: 3px solid var(--focus, #9cc9ff); outline-offset: 3px; } .ds-time { color: var(--brand-text, #8ec0ff); font-variant-numeric: tabular-nums; font-weight: 500; }"
+    },
+    {
+      "name": "Fases (stepper)",
+      "kind": "nav",
+      "refersTo": "button",
+      "description": "Quatro fases com barra de 4px: concluída em verde, atual em azul com brilho.",
+      "html": "<ol class=\"ds-stepper\"><li class=\"done\"><span class=\"n\">1</span><span class=\"t\">Atualizar</span></li><li class=\"current\"><span class=\"n\">2</span><span class=\"t\">Conferir</span></li><li><span class=\"n\">3</span><span class=\"t\">Foto</span></li><li><span class=\"n\">4</span><span class=\"t\">Finalizar</span></li></ol>",
+      "css": ".ds-stepper { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; } .ds-stepper li { position: relative; display: flex; flex-direction: column; gap: 8px; padding-top: 16px; color: var(--muted, #9aa1b2); } .ds-stepper li::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 4px; border-radius: 2px; background: var(--border-strong, #343947); } .ds-stepper .n { font-size: .875rem; color: var(--faint, #7f8698); font-variant-numeric: tabular-nums; } .ds-stepper .t { font-weight: 600; font-size: .875rem; } .ds-stepper .done { color: var(--text-2, #c9cedb); } .ds-stepper .done::before { background: var(--ok, #4ade80); } .ds-stepper .done .n { color: var(--ok, #4ade80); } .ds-stepper .current { color: var(--text, #f2f4f8); } .ds-stepper .current::before { background: var(--brand, #4c9bff); box-shadow: 0 0 14px var(--brand-glow, rgba(76,155,255,.22)); } .ds-stepper .current .n { color: var(--brand-text, #8ec0ff); }"
+    },
+    {
+      "name": "Veredito",
+      "kind": "card",
+      "refersTo": "verdict",
+      "description": "Cartão grande de escolha entre tela correta e tela com problema.",
+      "html": "<button class=\"ds-verdict\"><svg width=\"28\" height=\"28\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M22 11.08V12a10 10 0 1 1-5.93-9.14\"/><path d=\"m9 11 3 3L22 4\"/></svg><strong>A tela está correta</strong><span>Segue para a foto.</span></button>",
+      "css": ".ds-verdict { text-align: left; display: flex; flex-direction: column; gap: 8px; padding: 24px; min-height: 132px; border-radius: var(--r-lg, 20px); border: 1px solid color-mix(in srgb, var(--ok, #4ade80) 45%, var(--border, #20232c)); background: var(--surface, #0c0d11); color: var(--text, #f2f4f8); font: inherit; cursor: pointer; transition: border-color 140ms cubic-bezier(.23,1,.32,1), background-color 140ms cubic-bezier(.23,1,.32,1), transform 140ms cubic-bezier(.23,1,.32,1); } .ds-verdict svg { color: var(--ok, #4ade80); } .ds-verdict strong { font-size: 1.125rem; letter-spacing: -.01em; } .ds-verdict span { color: var(--muted, #9aa1b2); font-size: .875rem; } .ds-verdict:hover { background: var(--surface-2, #12141a); border-color: var(--brand, #4c9bff); } .ds-verdict:focus-visible { outline: 3px solid var(--focus, #9cc9ff); outline-offset: 3px; } .ds-verdict:active { transform: scale(.985); }"
+    },
+    {
+      "name": "Aviso com ícone",
+      "kind": "custom",
+      "refersTo": "alert-info",
+      "description": "Estado sempre com ícone e texto, fundo suave e borda mista.",
+      "html": "<div class=\"ds-alert\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M12 16v-4\"/><path d=\"M12 8h.01\"/></svg><div>O download direto exige um pendrive.</div></div>",
+      "css": ".ds-alert { display: flex; gap: 12px; align-items: flex-start; border-radius: var(--r-md, 14px); padding: 12px 16px; background: var(--brand-soft, #0c1d38); color: var(--text, #f2f4f8); border: 1px solid color-mix(in srgb, var(--brand, #4c9bff) 35%, var(--border, #20232c)); font-size: .875rem; line-height: 1.55; } .ds-alert svg { flex: 0 0 auto; margin-top: 2px; color: var(--brand, #4c9bff); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "A Sala de Projeção",
+    "overview": "Uma sala escura onde o vídeo é a luz e o passo a passo escrito corre ao lado dele. O fundo é preto quase absoluto (bg), as superfícies sobem em degraus de grafite frio (surface, surface-2, surface-3) e existe uma única luz, o azul Intelite (brand), reservada para ação, progresso e passo ativo. Geist é a voz única: display pesado e apertado, corpo regular. A mesma linguagem serve a página pública (cliente de pé ao lado do Mini PC, celular na mão) e o painel administrativo (equipe de suporte), com precisão e contenção em vez de ornamento.\n\nA página pública é uma tarefa, não uma vitrine: pergunta, escolha, vídeo e passos lado a lado, conferência da tela, foto, avaliação. A administração reaproveita os mesmos tokens em formato denso (KPIs, funil, tabela). O tema preto é compromisso de marca pedido pelo cliente do projeto.\n\nO contrato de direção citava o preto #060608; a build entrega #050507, e este documento registra a build.",
+    "keyCharacteristics": [
+      "Preto quase absoluto com camadas tonais de grafite frio; profundidade por degrau de superfície e linha de 1px, não por sombra.",
+      "Uma só cor de acento (azul brand); verde, âmbar e vermelho existem apenas como estado, sempre com ícone e texto.",
+      "Cantos generosos de 10 a 28px, mais pílulas (999px) para selos e capítulos.",
+      "Brilho azul difuso só no passo ativo, no player, no botão primário em hover e na opção selecionada.",
+      "Ícones SVG de traço 1.75, pontas arredondadas, sem emoji nem glifo Unicode.",
+      "Alvos de toque de 44px ou mais, foco de 3px visível, movimento desligado sob prefers-reduced-motion."
+    ],
+    "rules": [
+      { "name": "A Regra da Uma Luz", "body": "O azul brand é o único acento; aparece onde há ação, progresso ou passo ativo. Estado verde, âmbar e coral nunca decora.", "section": "colors" },
+      { "name": "A Regra do Estado Legível", "body": "Cor de estado sempre acompanha ícone e texto; nunca carrega o significado sozinha.", "section": "colors" },
+      { "name": "A Regra da Escala Fixa", "body": "Tamanhos vêm de --fs-0 a --fs-5; apenas display e título de fase são fluidos.", "section": "typography" },
+      { "name": "A Regra dos Números Tabulares", "body": "Contagens, tempos de capítulo, KPIs e tabelas usam font-variant-numeric: tabular-nums.", "section": "typography" },
+      { "name": "A Regra do Texto Humano", "body": "Texto digitado por pessoas (nome, empresa, e-mail) usa .user-text (overflow-wrap: anywhere) e nunca estoura a caixa.", "section": "typography" },
+      { "name": "A Regra do Mesmo Caminho", "body": "Quem lê e quem assiste seguem o mesmo percurso: player e passos lado a lado, e o passo ativo permanece à vista do vídeo também no celular.", "section": "layout" },
+      { "name": "A Regra do Brilho Ativo", "body": "Brilho azul só em passo ativo, fase atual, player, seleção e hover do primário. Nunca em repouso, nunca em elemento decorativo.", "section": "elevation" },
+      { "name": "A Regra da Superfície Plana", "body": "Em repouso, profundidade é degrau de grafite mais linha de 1px; sombra não separa cartões.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do usar brand (#4c9bff) apenas para ação, progresso e passo ativo; verde, âmbar e coral só como estado.",
+      "Do referenciar sempre tokens (var(--surface-2), var(--r-md), var(--s-4)), nunca valores soltos.",
+      "Do manter alvos de toque de 44px ou mais, anel de foco de 3px (focus) e limite de campo em border-input (3:1 mínimo).",
+      "Do acompanhar toda cor de estado com ícone e texto (Alert, .badge, .field-error).",
+      "Do usar o conjunto único de ícones SVG de ui.tsx (traço 1.75, currentColor).",
+      "Do envolver animações em prefers-reduced-motion: no-preference e manter hover só em (hover: hover) and (pointer: fine).",
+      "Do manter o passo ativo à vista do vídeo, também no celular (player fixo no alto).",
+      "Do aplicar .user-text em texto digitado por pessoas e tabular-nums em números."
+    ],
+    "donts": [
+      "Don't introduzir um segundo acento nem usar azul como decoração em repouso.",
+      "Don't usar emoji nem glifos Unicode como ícone.",
+      "Don't usar o brilho azul em elementos em repouso; ele indica estado ativo.",
+      "Don't separar cartões por sombra pesada; profundidade é degrau de grafite mais linha de 1px.",
+      "Don't transformar a página em acordeão de etapas travadas nem em pilha de cartões iguais.",
+      "Don't depender só de cor para estado, nem usar texto abaixo de 4.5:1 sobre as superfícies.",
+      "Don't usar vermelho ou verde para decorar; são resposta a erro ou conferência."
+    ]
+  }
+}

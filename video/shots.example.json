@@ -1,0 +1,9 @@
+{
+  "preparar": { "file": "raw/preparar.mp4", "start": 0, "end": null,
+                "zoom": [{ "t": 14, "z": 1.35, "cx": 0.17, "cy": 0.6, "in": 0.8, "hold": 3.5, "out": 0.9 }] },
+  "baixar":   { "file": "raw/baixar.mp4",
+                "zoom": [{ "t": 3, "z": 1.5, "cx": 0.5, "cy": 0.1, "in": 0.8, "hold": 4, "out": 0.9 }] },
+  "instalar": { "file": "raw/instalar.mp4", "start": 2,
+                "zoom": [{ "t": 12, "z": 1.5, "cx": 0.5, "cy": 0.55, "in": 0.8, "hold": 3, "out": 0.9 }] },
+  "abrir":    { "file": "raw/abrir.mp4" }
+}

@@ -6,6 +6,7 @@ import { createSubmission, loadView } from "@/lib/submissions";
 const schema = z.object({
   company: z.string().trim().min(2).max(160),
   contactName: z.string().trim().min(2).max(160),
+  solution: z.string().max(60).optional(),
 });
 
 /** Início do tutorial: cria o envio e guarda um cookie assinado para o cliente retomar de onde parou. */

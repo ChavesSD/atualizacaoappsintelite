@@ -14,11 +14,11 @@ const cell = (v: unknown) => {
 export const GET = route(async () => {
   await requireAdmin();
   const rows = await db.submission.findMany({ orderBy: { createdAt: "desc" }, include: { _count: { select: { photos: true } } } });
-  const head = ["Início", "Nome", "Empresa", "Status", "Formato inicial", "Formato atual", "Trocas de formato", "Totem atualizado", "Painel atualizado", "Totem (cliente)", "Problemas do totem", "Totem confirmado pela equipe", "Painel (cliente)", "Problemas do painel", "Painel confirmado pela equipe", "Fotos", "Pediu ajuda", "Ajuda atendida", "Nota", "Etapa mais difícil", "Comentário", "Enviado em"];
+  const head = ["Início", "Nome", "Empresa", "Solução", "Status", "Atualização feita", "Tela (cliente)", "Problemas informados", "Tela confirmada pela equipe", "Fotos", "Pediu ajuda", "Ajuda atendida", "Nota", "Etapa mais difícil", "Comentário", "Enviado em"];
   const lines = [head.map(cell).join(";")];
   for (const r of rows) {
     lines.push(
-      [r.createdAt, r.contactName, r.company, r.status, r.initialFormat, r.format, r.formatChanges, r.totemUpdated, r.painelUpdated, r.totemFraming, r.totemIssues.join(", "), r.totemConfirmed, r.painelFraming, r.painelIssues.join(", "), r.painelConfirmed, r._count.photos, r.helpRequested, r.helpResolved, r.rating, r.hardestStep, r.comment, r.submittedAt]
+      [r.createdAt, r.contactName, r.company, r.solution, r.status, r.installed, r.framing, r.framingIssues.join(", "), r.confirmed, r._count.photos, r.helpRequested, r.helpResolved, r.rating, r.hardestStep, r.comment, r.submittedAt]
         .map(cell)
         .join(";"),
     );

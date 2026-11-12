@@ -1,20 +1,22 @@
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
-import { SETTING_HOSTS, getDownloadLinks, setDownloadLinks, videoHosts } from "@/lib/content";
+import { SETTING_HOSTS, getAppLinks, setAppLinks, videoHosts } from "@/lib/content";
 import { db } from "@/lib/db";
 import { badRequest, readJson, route } from "@/lib/http";
 import { parseHosts } from "@/lib/video";
 
 export const dynamic = "force-dynamic";
 
+const current = async () => ({ videoHosts: (await videoHosts()).join("\n"), links: await getAppLinks() });
+
 export const GET = route(async () => {
   await requireAdmin();
-  return { videoHosts: (await videoHosts()).join("\n"), downloadLinks: await getDownloadLinks() };
+  return current();
 });
 
 const schema = z.object({
   videoHosts: z.string().max(2000).optional(),
-  downloadLinks: z.object({ totem: z.array(z.string().max(500)).max(10), painel: z.array(z.string().max(500)).max(10) }).optional(),
+  links: z.array(z.string().max(500)).max(10).optional(),
 });
 
 export const PUT = route(async (req) => {
@@ -25,12 +27,12 @@ export const PUT = route(async (req) => {
     if (b.videoHosts.trim() && hosts.length === 0) throw badRequest("Informe domínios válidos, um por linha (ex.: videos.intelite.com.br).");
     await db.setting.upsert({ where: { key: SETTING_HOSTS }, update: { value: hosts.join("\n") }, create: { key: SETTING_HOSTS, value: hosts.join("\n") } });
   }
-  if (b.downloadLinks) {
+  if (b.links) {
     try {
-      await setDownloadLinks(b.downloadLinks);
+      await setAppLinks(b.links);
     } catch (e) {
       throw badRequest((e as Error).message);
     }
   }
-  return { videoHosts: (await videoHosts()).join("\n"), downloadLinks: await getDownloadLinks() };
+  return current();
 });

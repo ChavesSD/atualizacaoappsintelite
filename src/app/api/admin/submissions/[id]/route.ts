@@ -16,8 +16,7 @@ export const GET = route<{ params: Promise<{ id: string }> }>(async (_req, { par
 const patch = z.object({
   status: z.enum(["ENVIADO", "APROVADO", "PRECISA_AJUSTE"]).optional(),
   adminNotes: z.string().max(4000).optional(),
-  totemConfirmed: z.boolean().optional(),
-  painelConfirmed: z.boolean().optional(),
+  confirmed: z.boolean().optional(),
   helpResolved: z.boolean().optional(),
 });
 

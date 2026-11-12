@@ -1,49 +1,50 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/client-api";
-import { CRITERIA, FIX_KEYS, STEPS } from "@/lib/flow";
+import { CRITERIA, DEFAULT_SOLUTION, FIX_KEY, SOLUTIONS, STEPS } from "@/lib/flow";
+import type { GuideVideo as Guide } from "@/lib/videos";
 import { BrandBar } from "./Brand";
-import { StepContent, type PublicStep } from "./StepContent";
+import { GuideVideo, type GuidePlayer } from "./GuideVideo";
+import { HeroArt } from "./HeroArt";
+import { Inline, Lines, StepContent, toBlocks, type PublicStep } from "./StepContent";
 import { Alert, Icon, Skeleton, type IconName } from "./ui";
 
-type Format = "TEXTO" | "VIDEO";
-type Eq = "TOTEM" | "PAINEL";
 type Framing = "NAO_VERIFICADO" | "CORRETO" | "INCORRETO" | "PRECISA_SUPORTE";
 
 interface View {
   submission: {
-    company: string; contactName: string; status: string; step: number; format: Format | null;
-    totemUpdated: boolean; painelUpdated: boolean; totemFraming: Framing; painelFraming: Framing;
-    totemConfirmed: boolean; painelConfirmed: boolean; rating: number | null;
+    company: string; contactName: string; status: string; step: number; installed: boolean;
+    framing: Framing; confirmed: boolean; rating: number | null;
   };
-  photos: { id: string; type: Eq; review: "PENDENTE" | "APROVADA" | "REFAZER"; reviewNote: string | null }[];
-  maxStep: number;
+  photos: { id: string; review: "PENDENTE" | "APROVADA" | "REFAZER"; reviewNote: string | null }[];
   done: boolean[];
   unlocked: boolean[];
-  redo: Eq[];
+  redo: boolean;
 }
+interface Content { steps: PublicStep[]; guideVideo: Guide | null }
 type Run = <T>(fn: () => Promise<T>) => Promise<T | undefined>;
 
-const EQ: Record<Eq, string> = { TOTEM: "totem", PAINEL: "painel de chamadas" };
 const LAST = STEPS.length - 1;
 const prefersReducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const firstOpen = (v: View) => (v.unlocked[v.submission.step] ? v.submission.step : Math.max(0, v.unlocked.findIndex((u, i) => u && !v.done[i])));
 
 export function TutorialApp() {
   const [view, setView] = useState<View | null>(null);
-  const [content, setContent] = useState<PublicStep[]>([]);
-  const [open, setOpen] = useState(0);
+  const [content, setContent] = useState<Content>({ steps: [], guideVideo: null });
   const [boot, setBoot] = useState<"loading" | "ready" | "error">("loading");
   const [bootError, setBootError] = useState("");
+  const [phase, setPhase] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const heads = useRef<(HTMLButtonElement | null)[]>([]);
+  const headRef = useRef<HTMLHeadingElement>(null);
+  const moved = useRef(false);
 
   const load = useCallback(async () => {
     setBoot("loading");
     try {
-      const [c, v] = await Promise.all([api<PublicStep[]>("/api/content"), api<View | null>("/api/submissions/me")]);
+      const [c, v] = await Promise.all([api<Content>("/api/content"), api<View | null>("/api/submissions/me")]);
       setContent(c);
-      if (v) { setView(v); setOpen(v.unlocked[v.submission.step] ? v.submission.step : Math.max(0, v.unlocked.findIndex((u, i) => u && !v.done[i]))); }
+      if (v) { setView(v); setPhase(firstOpen(v)); }
       setBoot("ready");
     } catch (e) {
       setBootError((e as Error).message);
@@ -52,36 +53,33 @@ export function TutorialApp() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  /** Abre uma etapa, rola até ela e, quando o avanço foi pelo botão "Continuar", leva o foco ao cabeçalho dela. */
-  const openStep = useCallback((i: number, focus = false) => {
-    setOpen(i);
-    if (i < 0) return;
-    requestAnimationFrame(() => {
-      const el = heads.current[i];
-      el?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "start" });
-      if (focus) el?.focus({ preventScroll: true });
-    });
-  }, []);
+  // Ao trocar de fase: rola ao topo e leva o foco ao título (leitor de tela anuncia onde está). Não roda na abertura.
+  useEffect(() => {
+    if (!moved.current) return;
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+    headRef.current?.focus({ preventScroll: true });
+  }, [phase]);
 
   const run: Run = useCallback(async (fn) => {
     setBusy(true); setError(null);
     try { return await fn(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   }, []);
 
-  const patch = (body: object, goTo?: number) => run(async () => {
+  const patch = useCallback((body: object, goTo?: number) => run(async () => {
     const v = await api<View>("/api/submissions/me", { method: "PATCH", body: goTo === undefined ? body : { ...body, step: goTo } });
     setView(v);
-    if (goTo !== undefined) openStep(goTo, true);
+    if (goTo !== undefined) { moved.current = true; setPhase(goTo); }
     return v;
-  });
+  }), [run]);
+
+  const byKey = useCallback((k: string) => content.steps.find((c) => c.key === k), [content.steps]);
 
   if (boot === "loading") {
     return (
       <>
         <BrandBar />
-        <main className="container" aria-busy="true" aria-label="Carregando">
-          <div className="intro stack"><Skeleton h={32} w="80%" /><Skeleton h={18} /><Skeleton h={18} w="60%" /></div>
-          <div className="stack" style={{ marginTop: 24 }}><Skeleton h={64} r={16} /><Skeleton h={64} r={16} /><Skeleton h={64} r={16} /></div>
+        <main className="shell" aria-busy="true" aria-label="Carregando">
+          <div className="stack" style={{ maxWidth: 560, paddingTop: 48 }}><Skeleton h={64} r={12} /><Skeleton h={64} w="70%" r={12} /><Skeleton h={20} w="50%" /><Skeleton h={220} r={28} /></div>
         </main>
       </>
     );
@@ -90,169 +88,73 @@ export function TutorialApp() {
     return (
       <>
         <BrandBar />
-        <main className="container" style={{ paddingTop: 24 }}>
-          <Alert tone="bad" role="alert"><strong>Não foi possível abrir o tutorial.</strong><br />{bootError}</Alert>
-          <p style={{ marginTop: 16 }}><button type="button" className="btn primary" onClick={load}>Tentar de novo</button></p>
+        <main className="shell">
+          <div className="narrow stack" style={{ paddingTop: 32 }}>
+            <Alert tone="bad" role="alert"><strong>Não foi possível abrir a página.</strong><br />{bootError}</Alert>
+            <button type="button" className="btn primary" onClick={load}>Tentar de novo</button>
+          </div>
         </main>
       </>
     );
   }
 
-  const done = view?.done ?? [];
-  const unlocked = view?.unlocked ?? [];
-  const s = view?.submission;
-  const format: Format = s?.format ?? "TEXTO";
-  const submitted = !!s && s.status !== "EM_ANDAMENTO";
-  const byKey = (k: string) => content.find((c) => c.key === k);
-  const doneCount = !view ? 0 : submitted ? STEPS.length : done.filter(Boolean).length;
-
-  /** Depois de concluir um equipamento, leva ao outro (se faltar); senão segue para as fotos. */
-  const after = (i: number) => {
-    const other = i === 3 ? 4 : i === 5 ? 2 : -1;
-    if (other >= 0 && !done[other] && unlocked[other]) return other;
-    return i === 3 || i === 5 ? 6 : i + 1;
-  };
-  const next = (i: number) => (
-    <button type="button" className="btn primary block" disabled={busy || !done[i] || !unlocked[after(i)]} onClick={() => patch({}, after(i))}>
-      Continuar <Icon name="arrowRight" size={18} />
-    </button>
-  );
-
-  function body(i: number) {
-    if (!view || !s) return <Welcome onCreated={(v) => { setView(v); openStep(1, true); }} />;
-    const key = STEPS[i].key;
-    switch (key) {
-      case "dados":
-        return <div className="stack"><p className="user-text"><strong>{s.contactName}</strong><br />{s.company}</p><p className="muted small">Seus dados já foram registrados. Você pode voltar a esta página a qualquer momento neste dispositivo e continuar de onde parou.</p>{next(i)}</div>;
-      case "formato":
-        return <div className="stack"><FormatChoice current={s.format} busy={busy} onChoose={(f) => patch({ format: f })} /><StartPicker enabled={!!s.format && !busy} done={[done[3], done[5]]} onPick={(n) => patch({}, n)} /></div>;
-      case "atualizar-totem":
-      case "atualizar-painel": {
-        const field = key === "atualizar-totem" ? "totemUpdated" : "painelUpdated";
-        const done = s[field];
-        return (
-          <div className="stack">
-            <StepContent step={byKey(key)} format={format} />
-            <label className="check">
-              <input type="checkbox" checked={done} disabled={busy} onChange={(e) => patch({ [field]: e.target.checked })} />
-              <span>Concluí a atualização do {key === "atualizar-totem" ? "totem" : "painel"}. <span className="hint">Não é preciso assistir ao vídeo inteiro.</span></span>
-            </label>
-            {next(i)}
-          </div>
-        );
-      }
-      case "enquadramento-totem":
-      case "enquadramento-painel": {
-        const t: Eq = key === "enquadramento-totem" ? "TOTEM" : "PAINEL";
-        return (
-          <div className="stack">
-            <FramingBlock key={t} type={t} format={format} intro={byKey(key)} fix={byKey(t === "TOTEM" ? FIX_KEYS.TOTEM : FIX_KEYS.PAINEL)}
-              state={t === "TOTEM" ? s.totemFraming : s.painelFraming} confirmed={t === "TOTEM" ? s.totemConfirmed : s.painelConfirmed}
-              busy={busy} onSubmit={(framing) => patch({ framing })} />
-            {next(i)}
-          </div>
-        );
-      }
-      case "fotos":
-        return <div className="stack"><Photos view={view} content={byKey("fotos")} format={format} run={run} onView={setView} />{next(i)}</div>;
-      default:
-        return <Finish view={view} run={run} onView={setView} submitted={submitted} onNew={async () => { await api("/api/submissions/reset", { method: "POST" }); setView(null); openStep(0); }} />;
-    }
+  if (!view) {
+    return <Hero video={content.guideVideo} onCreated={(v) => { setView(v); setPhase(0); moved.current = false; window.scrollTo({ top: 0 }); }} />;
   }
 
-  function status(i: number): { label: string; tone: "done" | "current" | "locked" } {
-    if (!view) return i === 0 ? { label: "Comece por aqui", tone: "current" } : { label: "Conclua a etapa anterior", tone: "locked" };
-    if (i === LAST && submitted) return { label: "Enviado", tone: "done" };
-    if (done[i]) return { label: "Concluída", tone: "done" };
-    if (unlocked[i]) return { label: i === 2 || i === 4 ? "Disponível" : "Em andamento", tone: "current" };
-    return { label: i === 2 || i === 4 ? "Escolha o formato antes" : "Conclua a etapa anterior", tone: "locked" };
-  }
+  const s = view.submission;
+  const submitted = s.status !== "EM_ANDAMENTO";
+  const first = s.contactName.trim().split(/\s+/)[0];
 
-  // Agrupa as etapas pelo nome do grupo, preservando a ordem do fluxo.
-  const groups = STEPS.reduce<{ name: string; items: number[] }[]>((acc, st, i) => {
-    const last = acc[acc.length - 1];
-    if (last && last.name === st.group) last.items.push(i);
-    else acc.push({ name: st.group, items: [i] });
-    return acc;
-  }, []);
+  const go = (i: number) => { if (view.unlocked[i] && i !== phase) void patch({}, i); };
 
   return (
     <>
       <a className="skip-link" href="#conteudo">Pular para o conteúdo</a>
-      <BrandBar />
-      <main id="conteudo" className="container" tabIndex={-1}>
-        <header className="intro stack">
-          <h1>Atualização do Atendimento Inteligente</h1>
-          <p className="muted">Siga as etapas <strong>na ordem</strong>: cada etapa concluída libera a próxima. Seu progresso é salvo automaticamente.</p>
-          {view && (
-            <>
-              <div className="progress" role="progressbar" aria-labelledby="prog-label" aria-valuemin={0} aria-valuemax={STEPS.length} aria-valuenow={doneCount}><i style={{ width: `${(doneCount / STEPS.length) * 100}%` }} /></div>
-              <div className="row between">
-                <span id="prog-label" className="small muted">{doneCount} de {STEPS.length} etapas concluídas</span>
-                {s?.format && (
-                  <fieldset className="seg">
-                    <legend className="visually-hidden">Alternar formato</legend>
-                    {(["TEXTO", "VIDEO"] as const).map((f) => (
-                      <label key={f} className="opt">
-                        <input type="radio" name="formato-topo" value={f} checked={format === f} disabled={busy} onChange={() => patch({ format: f })} />
-                        <Icon name={f === "TEXTO" ? "file" : "play"} /> {f === "TEXTO" ? "Texto" : "Vídeo"}
-                      </label>
-                    ))}
-                  </fieldset>
-                )}
-              </div>
-            </>
-          )}
-        </header>
+      <BrandBar>
+        <div className="where"><span className="who user-text">{s.contactName} · {s.company}</span></div>
+      </BrandBar>
+      <main id="conteudo" className="shell" tabIndex={-1}>
+        <nav aria-label="Etapas">
+          <ol className="stepper">
+            {STEPS.map((st, i) => {
+              const locked = !view.unlocked[i];
+              const isDone = submitted || (view.done[i] && i !== phase);
+              return (
+                <li key={st.key} className={`${i === phase ? "current" : ""} ${isDone ? "done" : ""}`}>
+                  <button type="button" aria-current={i === phase ? "step" : undefined} aria-disabled={locked} onClick={() => !locked && go(i)}>
+                    <span className="n">{isDone ? <Icon name="check" size={14} /> : locked ? <Icon name="lock" size={13} /> : null}{String(i + 1).padStart(2, "0")}</span>
+                    <span className="t">{st.short}</span>
+                    <span className="visually-hidden">{locked ? " (bloqueada: conclua a etapa anterior)" : isDone ? " (concluída)" : ""}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        </nav>
 
-        {view && view.redo.length > 0 && (
-          <div style={{ marginTop: 12 }}>
-            <Alert tone="warn" role="alert">
-              A equipe pediu uma nova foto do {view.redo.map((t) => EQ[t]).join(" e do ")}.{" "}
-              <button type="button" className="btn sm" onClick={() => openStep(STEPS.findIndex((x) => x.key === "fotos"), true)}>Enviar agora</button>
-            </Alert>
-          </div>
+        {view.redo && phase !== 2 && (
+          <div style={{ marginBottom: 20 }}><Alert tone="warn" role="alert">A equipe pediu uma nova foto da tela. <button type="button" className="btn sm" onClick={() => go(2)}>Enviar agora</button></Alert></div>
         )}
-        {error && <div style={{ marginTop: 12 }}><Alert tone="bad" role="alert">{error}</Alert></div>}
+        {error && <div style={{ marginBottom: 20 }}><Alert tone="bad" role="alert">{error}</Alert></div>}
 
-        {groups.map((g) => (
-          <section key={g.name} className="acc-group" aria-labelledby={`g-${g.items[0]}`}>
-            <h2 id={`g-${g.items[0]}`}>{g.name}</h2>
-            <ol className="acc" start={g.items[0] + 1}>
-              {g.items.map((i) => {
-                const st = STEPS[i];
-                const stt = status(i);
-                const locked = stt.tone === "locked";
-                const isOpen = open === i && !locked;
-                return (
-                  <li key={st.key} className={`acc-item ${stt.tone} ${isOpen ? "open" : ""}`}>
-                    <h3 className="acc-h">
-                      <button
-                        type="button" id={`h-${st.key}`} className="acc-head" ref={(el) => { heads.current[i] = el; }}
-                        aria-expanded={isOpen} aria-controls={isOpen ? `p-${st.key}` : undefined} aria-disabled={locked}
-                        onClick={() => { if (!locked) openStep(isOpen ? -1 : i); }}
-                      >
-                        <span className="acc-num" aria-hidden>{stt.tone === "done" ? <Icon name="check" size={18} /> : locked ? <Icon name="lock" size={16} /> : i + 1}</span>
-                        <span className="grow"><span className="acc-title">{st.title}</span><span className="acc-status">{stt.label}</span></span>
-                        <Icon name="chevron" className="chev" />
-                      </button>
-                    </h3>
-                    {isOpen && <div id={`p-${st.key}`} role="region" aria-labelledby={`h-${st.key}`} className="acc-body">{body(i)}</div>}
-                  </li>
-                );
-              })}
-            </ol>
-          </section>
-        ))}
-        <p className="muted small" style={{ textAlign: "center", margin: "32px 0" }}>Intelite Tecnologia</p>
+        {phase === 0 && <UpdatePhase key="p0" head={headRef} first={first} step={byKey("atualizar")} video={content.guideVideo} installed={s.installed} busy={busy} onInstalled={(v) => patch({ installed: v })} onNext={() => patch({}, 1)} />}
+        {phase === 1 && <CheckPhase key="p1" head={headRef} intro={byKey("conferir")} fix={byKey(FIX_KEY)} state={s.framing} confirmed={s.confirmed} busy={busy} onFraming={(outcome) => patch({ framing: { outcome, issues: [] } })} onBack={() => go(0)} onNext={() => patch({}, 2)} canNext={view.unlocked[2]} />}
+        {phase === 2 && <PhotoPhase key="p2" head={headRef} content={byKey("fotos")} view={view} run={run} onView={setView} onBack={() => go(1)} onNext={() => patch({}, 3)} />}
+        {phase === 3 && <FinishPhase key="p3" head={headRef} view={view} run={run} onView={setView} submitted={submitted} onBack={() => go(2)} onNew={async () => { await api("/api/submissions/reset", { method: "POST" }); setView(null); setError(null); }} />}
+
+        <footer className="foot">
+          <span>Intelite Tecnologia · seu progresso fica salvo neste aparelho.</span>
+        </footer>
       </main>
     </>
   );
 }
 
-// ───────── dados do cliente ─────────
+// ───────── abertura: pergunta, solução e dados ─────────
 
-function Welcome({ onCreated }: { onCreated: (v: View) => void }) {
+function Hero({ onCreated, video }: { onCreated: (v: View) => void; video: Guide | null }) {
+  const [solution, setSolution] = useState<string>(DEFAULT_SOLUTION);
   const [f, setF] = useState({ contactName: "", company: "" });
   const [errors, setErrors] = useState<{ contactName?: string; company?: string }>({});
   const [error, setError] = useState<string | null>(null);
@@ -271,203 +173,314 @@ function Welcome({ onCreated }: { onCreated: (v: View) => void }) {
       return;
     }
     setBusy(true); setError(null);
-    try { onCreated(await api<View>("/api/submissions", { body: f })); }
+    try { onCreated(await api<View>("/api/submissions", { body: { ...f, solution } })); }
     catch (err) { setError((err as Error).message); setBusy(false); }
   }
 
   return (
-    <form className="stack" onSubmit={submit} noValidate>
-      <p>Vamos atualizar e conferir o <strong>totem</strong> e o <strong>painel de chamadas</strong>. Leva poucos minutos. Primeiro, conte quem você é:</p>
-      <div>
-        <label className="field"><span>Seu nome</span>
-          <input id="f-nome" type="text" value={f.contactName} onChange={set("contactName")} autoComplete="name" maxLength={160} aria-invalid={!!errors.contactName} aria-describedby={errors.contactName ? "e-nome" : undefined} />
-        </label>
-        {errors.contactName && <p id="e-nome" className="field-error"><Icon name="alert" size={16} />{errors.contactName}</p>}
-      </div>
-      <div>
-        <label className="field"><span>Nome da empresa</span>
-          <input id="f-empresa" type="text" value={f.company} onChange={set("company")} autoComplete="organization" maxLength={160} aria-invalid={!!errors.company} aria-describedby={errors.company ? "e-empresa" : undefined} />
-        </label>
-        {errors.company && <p id="e-empresa" className="field-error"><Icon name="alert" size={16} />{errors.company}</p>}
-      </div>
-      {error && <Alert tone="bad" role="alert">{error}</Alert>}
-      <button type="submit" className="btn primary block" disabled={busy}>{busy ? <><span className="spinner" aria-hidden /> Aguarde…</> : "Começar"}</button>
-      <p className="muted small">Usamos esses dados e as fotos enviadas apenas para acompanhar e validar esta atualização.</p>
-    </form>
+    <>
+      <a className="skip-link" href="#conteudo">Pular para o conteúdo</a>
+      <BrandBar />
+      <main id="conteudo" className="shell" tabIndex={-1}>
+        <div className="hero">
+          <div>
+            <h1 className="display rise" style={{ "--i": 0 } as React.CSSProperties}>Quer atualizar seu app <em>Intelite</em>?</h1>
+            <p className="lead rise" style={{ "--i": 1 } as React.CSSProperties}>Escolha a solução e siga o passo a passo em texto e vídeo. Leva poucos minutos.</p>
+            <form className="start rise" style={{ "--i": 2 } as React.CSSProperties} onSubmit={submit} noValidate>
+              <fieldset className="solutions">
+                <legend className="visually-hidden">Qual solução você quer atualizar?</legend>
+                <h2 aria-hidden>Qual solução?</h2>
+                {SOLUTIONS.map((sol) => (
+                  <label key={sol.id} className="opt sol">
+                    <input type="radio" name="solucao" value={sol.id} checked={solution === sol.id} onChange={() => setSolution(sol.id)} />
+                    <span className="glyphs" aria-hidden><Icon name="totem" /><Icon name="tv" /></span>
+                    <span><strong>{sol.name}</strong><span className="sol-sub">{sol.description}</span></span>
+                    {solution === sol.id && <span className="tick" aria-hidden><Icon name="check" /></span>}
+                  </label>
+                ))}
+              </fieldset>
+              <div className="two">
+                <div>
+                  <label className="field"><span>Seu nome</span>
+                    <input id="f-nome" type="text" value={f.contactName} onChange={set("contactName")} autoComplete="name" maxLength={160} aria-invalid={!!errors.contactName} aria-describedby={errors.contactName ? "e-nome" : undefined} />
+                  </label>
+                  {errors.contactName && <p id="e-nome" className="field-error"><Icon name="alert" size={16} />{errors.contactName}</p>}
+                </div>
+                <div>
+                  <label className="field"><span>Nome da empresa</span>
+                    <input id="f-empresa" type="text" value={f.company} onChange={set("company")} autoComplete="organization" maxLength={160} aria-invalid={!!errors.company} aria-describedby={errors.company ? "e-empresa" : undefined} />
+                  </label>
+                  {errors.company && <p id="e-empresa" className="field-error"><Icon name="alert" size={16} />{errors.company}</p>}
+                </div>
+              </div>
+              {error && <Alert tone="bad" role="alert">{error}</Alert>}
+              <button type="submit" className="btn primary lg block" disabled={busy}>{busy ? <><span className="spinner" aria-hidden /> Aguarde…</> : <>Ver o passo a passo <Icon name="arrowRight" size={20} /></>}</button>
+              <p className="muted small" style={{ margin: 0 }}>Usamos seu nome, sua empresa e a foto da tela só para acompanhar esta atualização.</p>
+            </form>
+          </div>
+          <div className="hero-art rise" style={{ "--i": 3 } as React.CSSProperties}>{video?.poster ? <HeroPreview video={video} /> : <HeroArt />}</div>
+        </div>
+      </main>
+    </>
   );
 }
 
-function FormatChoice({ current, busy, onChoose }: { current: Format | null; busy: boolean; onChoose: (f: Format) => void }) {
-  const cards: { f: Format; icon: IconName; title: string; text: string }[] = [
-    { f: "TEXTO", icon: "file", title: "Tutorial por escrito", text: "Siga as instruções passo a passo, com imagens ilustrativas e orientações objetivas." },
-    { f: "VIDEO", icon: "play", title: "Tutorial em vídeo", text: "Assista à demonstração e acompanhe o procedimento visualmente, observando cada ação." },
-  ];
+/** Prévia do que o cliente vai ver: o vídeo (poster) e os capítulos que acompanham o passo a passo. Decorativa. */
+function HeroPreview({ video }: { video: Guide }) {
   return (
-    <div className="stack">
-      <p>Como você prefere acompanhar? Pode trocar a qualquer momento sem perder o progresso.</p>
-      <fieldset className="choice">
-        <legend className="visually-hidden">Formato do tutorial</legend>
-        {cards.map((c) => (
-          <label key={c.f} className="opt">
-            <input type="radio" name="formato" value={c.f} checked={current === c.f} disabled={busy} onChange={() => onChoose(c.f)} />
-            <Icon name={c.icon} />
-            <strong>{c.title}</strong>
-            <span className="muted">{c.text}</span>
+    <div className="preview" aria-hidden>
+      <div className="player">
+        <div className="poster" style={{ backgroundImage: `url(${video.poster})` }}><span className="play"><Icon name="playSolid" /></span></div>
+      </div>
+      <ol className="chapters">{video.chapters.map((c, i) => <li key={c.title}><span>{i + 1} · {c.title}</span></li>)}</ol>
+    </div>
+  );
+}
+
+// ───────── fase 1: atualizar (vídeo + passo a passo juntos) ─────────
+
+function UpdatePhase({ head, first, step, video, installed, busy, onInstalled, onNext }: {
+  head: React.RefObject<HTMLHeadingElement | null>; first: string; step?: PublicStep; video: Guide | null; installed: boolean; busy: boolean;
+  onInstalled: (v: boolean) => void; onNext: () => void;
+}) {
+  const player = useRef<GuidePlayer>(null);
+  const playerBox = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(0);
+  const blocks = useMemo(() => toBlocks(step?.instructions ?? []), [step]);
+  const chapters = video?.chapters ?? [];
+
+  const watch = (i: number) => {
+    const c = chapters[i];
+    if (!c) return;
+    // Em tela de uma coluna o vídeo fica acima dos passos: traz o player para a vista antes de tocar.
+    if (window.matchMedia("(max-width: 999px)").matches) playerBox.current?.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
+    player.current?.seek(c.start);
+    setActive(i);
+  };
+
+  return (
+    <section className="phase" aria-labelledby="h-phase">
+      <header className="phase-head">
+        <h1 id="h-phase" ref={head} tabIndex={-1}>Atualizar o aplicativo</h1>
+        <p>Oi, <span className="user-text">{first}</span>! Assista ao vídeo e acompanhe os passos ao lado: eles andam juntos. Se preferir, é só ler.</p>
+      </header>
+      <div className="guide-grid">
+        <div className="player-col" ref={playerBox}>
+          {video
+            ? <GuideVideo ref={player} video={video} onChapter={setActive} />
+            : step?.video
+              ? <div className="player"><iframe src={step.video.src} title={step.video.title} loading="lazy" allow="fullscreen; picture-in-picture" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation allow-popups" /></div>
+              : <div className="player-empty"><div><Icon name="play" size={32} /><p style={{ margin: "8px 0 0" }}><strong>O vídeo completo está sendo preparado.</strong><br />Enquanto isso, siga o passo a passo escrito.</p></div></div>}
+        </div>
+
+        <div className="stack">
+          {!step && <Alert tone="info">O conteúdo desta etapa ainda está sendo preparado pela equipe da Intelite.</Alert>}
+          <ol className="subs">
+            {blocks.map((b, i) => (
+              <li key={i} className={`sub ${active === i && video ? "active" : ""}`} aria-current={active === i && video ? "step" : undefined}>
+                <div className="sub-head">
+                  <span className="sub-num" aria-hidden>{i + 1}</span>
+                  <h2 style={{ fontSize: "var(--fs-2)", margin: 0, flex: "1 1 auto" }}>{b.heading ?? `Passo ${i + 1}`}</h2>
+                  {video && chapters[i] && (
+                    <button type="button" className="btn sm sub-go" onClick={() => watch(i)}>
+                      <Icon name="play" size={14} /> <span>Ver no vídeo</span>
+                    </button>
+                  )}
+                </div>
+                <div className="sub-body"><Lines items={b.items} /></div>
+              </li>
+            ))}
+          </ol>
+          {step?.warning && <Alert tone="info" role="note"><Inline text={step.warning} /></Alert>}
+          {step?.imagePath && <img className="refimg" loading="lazy" src={`/api/assets/${step.imagePath}`} alt={`Imagem de referência: ${step.title}`} />}
+          <label className="check">
+            <input type="checkbox" checked={installed} disabled={busy} onChange={(e) => onInstalled(e.target.checked)} />
+            <span>Terminei a atualização e o aplicativo abriu. <span className="hint">Marque quando estiver com o aplicativo aberto no equipamento.</span></span>
           </label>
-        ))}
-      </fieldset>
-    </div>
-  );
-}
-
-/** Escolha de por qual equipamento começar. Os dois ficam liberados: o cliente decide a ordem. */
-function StartPicker({ enabled, done, onPick }: { enabled: boolean; done: boolean[]; onPick: (step: number) => void }) {
-  const items: { step: number; icon: IconName; title: string; text: string; done: boolean }[] = [
-    { step: 2, icon: "totem", title: "Totem", text: "Atualizar o aplicativo do totem de autoatendimento.", done: done[0] },
-    { step: 4, icon: "tv", title: "Painel de chamadas", text: "Atualizar o aplicativo do painel (TV) de chamadas.", done: done[1] },
-  ];
-  return (
-    <div className="stack">
-      <p><strong>Por onde você quer começar?</strong> Você precisa atualizar os dois; escolha o primeiro agora, o outro fica para depois.</p>
-      <div className="choice">
-        {items.map((it) => (
-          <button key={it.step} type="button" className="opt pick" disabled={!enabled} onClick={() => onPick(it.step)}>
-            <Icon name={it.icon} size={32} />
-            <strong>{it.title}</strong>
-            <span className="muted">{it.text}</span>
-            <span className="pick-go">{it.done ? "Concluído. Revisar" : "Começar por aqui"} <Icon name="arrowRight" size={16} /></span>
-          </button>
-        ))}
+          <div>
+            <button type="button" className="btn primary lg block" disabled={busy || !installed} onClick={onNext}>Continuar <Icon name="arrowRight" size={20} /></button>
+            {!installed && <p className="why">Marque “Terminei a atualização” para continuar.</p>}
+          </div>
+        </div>
       </div>
-      {!enabled && <p className="muted small">Escolha o formato do tutorial acima para continuar.</p>}
-    </div>
+    </section>
   );
 }
 
-// ───────── enquadramento ─────────
+// ───────── fase 2: conferir a tela ─────────
 
 const FRAMING_BADGE: Record<Framing, { tone: string; icon: IconName; text: string }> = {
-  NAO_VERIFICADO: { tone: "", icon: "clock", text: "Não verificado" },
-  CORRETO: { tone: "ok", icon: "checkCircle", text: "Você confirmou: correto" },
-  INCORRETO: { tone: "bad", icon: "alert", text: "Ajuste necessário" },
+  NAO_VERIFICADO: { tone: "", icon: "clock", text: "Ainda não conferida" },
+  CORRETO: { tone: "ok", icon: "checkCircle", text: "Você confirmou: está correta" },
+  INCORRETO: { tone: "warn", icon: "alert", text: "Ajuste necessário" },
   PRECISA_SUPORTE: { tone: "bad", icon: "alert", text: "Suporte solicitado" },
 };
 
-function FramingBlock({ type, format, intro, fix, state, confirmed, busy, onSubmit }: {
-  type: Eq; format: Format; intro?: PublicStep; fix?: PublicStep; state: Framing; confirmed: boolean; busy: boolean;
-  onSubmit: (f: { type: Eq; outcome: "CORRETO" | "INCORRETO" | "PRECISA_SUPORTE"; issues: string[]; notes?: string }) => void;
+function CheckPhase({ head, intro, fix, state, confirmed, busy, onFraming, onBack, onNext, canNext }: {
+  head: React.RefObject<HTMLHeadingElement | null>; intro?: PublicStep; fix?: PublicStep; state: Framing; confirmed: boolean; busy: boolean;
+  onFraming: (o: "CORRETO" | "INCORRETO" | "PRECISA_SUPORTE") => void; onBack: () => void; onNext: () => void; canNext: boolean;
 }) {
   // Com problema aberto, o cliente já vê o tutorial de ajuste; senão, vê a lista do que precisa estar correto.
   const [mode, setMode] = useState<"check" | "fix">(state === "INCORRETO" || state === "PRECISA_SUPORTE" ? "fix" : "check");
-  const send = (outcome: "CORRETO" | "INCORRETO" | "PRECISA_SUPORTE") => {
-    onSubmit({ type, outcome, issues: [] });
-    setMode(outcome === "CORRETO" ? "check" : "fix");
-  };
+  const send = (outcome: "CORRETO" | "INCORRETO" | "PRECISA_SUPORTE") => { onFraming(outcome); setMode(outcome === "CORRETO" ? "check" : "fix"); };
   const badge = FRAMING_BADGE[state];
   return (
-    <div className="stack">
-      <StepContent step={intro} format={format} />
-      <div className="row between">
-        <h4 style={{ margin: 0 }}>Situação da tela do {EQ[type]}</h4>
-        <span className={`badge ${badge.tone}`}><Icon name={badge.icon} />{badge.text}</span>
+    <section className="phase" aria-labelledby="h-phase">
+      <header className="phase-head">
+        <h1 id="h-phase" ref={head} tabIndex={-1}>{mode === "fix" ? "Minha tela está cortada ou desalinhada" : "Conferir a tela"}</h1>
+        {mode === "check" && <p>{(intro?.instructions ?? []).map((l) => <span key={l} style={{ display: "block", marginBottom: 6 }}><Inline text={l} /></span>)}</p>}
+      </header>
+
+      <div className="split">
+        {mode === "check" && (
+          <>
+            <div className="stack">
+              <div className="row between">
+                <span className="muted small">Situação da tela</span>
+                <span className={`badge ${badge.tone}`}><Icon name={badge.icon} />{badge.text}</span>
+              </div>
+              {state === "CORRETO" && <Alert tone="info">Obrigado! A equipe da Intelite vai conferir pela foto. {confirmed && <strong>A equipe já confirmou.</strong>}</Alert>}
+              <div className="subcard">
+                <h2 style={{ fontSize: "var(--fs-2)", margin: "0 0 var(--s-4)" }}>O que precisa estar correto</h2>
+                <ul className="info-list">{CRITERIA.map((c) => <li key={c}>{c}</li>)}</ul>
+              </div>
+            </div>
+            <div className="verdicts">
+              <button type="button" className="verdict good" disabled={busy} onClick={() => send("CORRETO")}>
+                <Icon name="checkCircle" /><strong>Está tudo certo</strong><span className="d">Todos os itens da lista estão corretos na tela.</span>
+              </button>
+              <button type="button" className="verdict bad" disabled={busy} onClick={() => send("INCORRETO")}>
+                <Icon name="alert" /><strong>Minha tela está cortada ou desalinhada</strong><span className="d">Mostramos como ajustar, passo a passo.</span>
+              </button>
+            </div>
+          </>
+        )}
+        {mode === "fix" && (
+          <>
+            <div className="stack">
+              <div className="row between">
+                <span className="muted small">Situação da tela</span>
+                <span className={`badge ${badge.tone}`}><Icon name={badge.icon} />{badge.text}</span>
+              </div>
+              <StepContent step={fix} />
+            </div>
+            <div className="stack">
+              <button type="button" className="btn primary lg block" disabled={busy} onClick={() => setMode("check")}>Já fiz o ajuste. Conferir a tela de novo</button>
+              <button type="button" className="btn block" disabled={busy || state === "PRECISA_SUPORTE"} onClick={() => send("PRECISA_SUPORTE")}>{state === "PRECISA_SUPORTE" ? "Suporte solicitado: a equipe vai ajudar" : "Não consegui. Preciso de suporte"}</button>
+            </div>
+          </>
+        )}
       </div>
-      {state === "CORRETO" && <Alert tone="info">Obrigado! Sua confirmação será conferida pela equipe da Intelite a partir das fotos. {confirmed && <strong>A equipe já confirmou este equipamento.</strong>}</Alert>}
 
-      {mode === "check" && (
-        <div className="stack">
-          <div className="subcard stack">
-            <h4 style={{ margin: 0 }}>O que precisa estar correto na tela do {EQ[type]}</h4>
-            <ul className="info-list">{CRITERIA[type].map((c) => <li key={c}>{c}</li>)}</ul>
-          </div>
-          <button type="button" className="btn primary block" disabled={busy} onClick={() => send("CORRETO")}>Está tudo certo na tela do {EQ[type]}</button>
-          <button type="button" className="btn block" disabled={busy} onClick={() => send("INCORRETO")}>Minha tela está cortada ou desalinhada</button>
-        </div>
-      )}
-
-      {mode === "fix" && (
-        <div className="stack">
-          <h4 style={{ margin: 0 }}>Minha tela está cortada ou desalinhada</h4>
-          <StepContent step={fix} format={format} />
-          <button type="button" className="btn primary block" disabled={busy} onClick={() => setMode("check")}>Já fiz o ajuste. Conferir a tela de novo</button>
-          <button type="button" className="btn block" disabled={busy || state === "PRECISA_SUPORTE"} onClick={() => send("PRECISA_SUPORTE")}>{state === "PRECISA_SUPORTE" ? "Suporte solicitado" : "Não consegui. Preciso de suporte"}</button>
-        </div>
-      )}
-    </div>
+      <div className="nav-row">
+        <button type="button" className="btn ghost" onClick={onBack}><Icon name="arrowLeft" size={18} /> Voltar</button>
+        <span className="grow" />
+        {!canNext && <span className="why" style={{ margin: 0 }}>Escolha uma opção para continuar.</span>}
+        <button type="button" className="btn primary" disabled={busy || !canNext} onClick={onNext}>Continuar <Icon name="arrowRight" size={18} /></button>
+      </div>
+    </section>
   );
 }
 
-// ───────── fotos ─────────
+// ───────── fase 3: foto ─────────
 
-function Photos({ view, content, format, run, onView }: { view: View; content?: PublicStep; format: Format; run: Run; onView: (v: View) => void }) {
-  const [uploading, setUploading] = useState<Eq | null>(null);
-  const upload = async (type: Eq, file: File) => {
-    setUploading(type);
+function PhotoPhase({ head, content, view, run, onView, onBack, onNext }: {
+  head: React.RefObject<HTMLHeadingElement | null>; content?: PublicStep; view: View; run: Run; onView: (v: View) => void; onBack: () => void; onNext: () => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const upload = async (file: File) => {
+    setUploading(true);
     await run(async () => {
-      const form = new FormData(); form.set("type", type); form.set("file", file);
+      const form = new FormData(); form.set("file", file);
       onView(await api<View>("/api/submissions/me/photos", { form }));
     });
-    setUploading(null);
+    setUploading(false);
   };
+  const redo = view.photos.filter((p) => p.review === "REFAZER").at(-1);
   return (
-    <div className="stack">
-      <StepContent step={content} format={format} />
-      {(["TOTEM", "PAINEL"] as const).map((t) => {
-        const list = view.photos.filter((p) => p.type === t);
-        const last = list[list.length - 1];
-        return (
-          <div className="subcard stack" key={t}>
-            <h4 style={{ margin: 0 }}>Foto do {EQ[t]}</h4>
-            {last?.review === "REFAZER" && <Alert tone="warn" role="alert"><strong>A equipe pediu outra foto: </strong><span className="user-text">{last.reviewNote}</span></Alert>}
-            {list.length > 0 && (
-              <ul className="row" style={{ listStyle: "none", margin: 0, padding: 0, alignItems: "flex-start" }}>
-                {list.map((p) => (
-                  <li key={p.id} style={{ width: 110 }}>
-                    <figure><img className="refimg" src={`/api/photos/${p.id}`} alt={`Foto do ${EQ[t]} enviada`} /><figcaption>{p.review === "APROVADA" ? "Aprovada" : p.review === "REFAZER" ? "Refazer" : "Em análise"}</figcaption></figure>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <label className="btn primary" aria-disabled={uploading !== null}>
-              {uploading === t ? <><span className="spinner" aria-hidden /> Enviando…</> : <><Icon name="camera" size={18} /> {last && last.review !== "REFAZER" ? "Enviar outra foto" : "Tirar ou escolher foto"}</>}
-              <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="visually-hidden" disabled={uploading !== null}
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(t, f); e.target.value = ""; }} />
-            </label>
-            <p role="status" className="muted small" style={{ margin: 0 }}>{uploading === t ? "Enviando a foto…" : ""}</p>
-          </div>
-        );
-      })}
-    </div>
+    <section className="phase" aria-labelledby="h-phase">
+      <header className="phase-head">
+        <h1 id="h-phase" ref={head} tabIndex={-1}>Enviar uma foto</h1>
+        <p>A equipe confere o enquadramento pela foto da tela.</p>
+      </header>
+      <div className="split">
+        <div className="stack">
+          <StepContent step={content} />
+          {view.redo && redo && <Alert tone="warn" role="alert"><strong>A equipe pediu outra foto: </strong><span className="user-text">{redo.reviewNote}</span></Alert>}
+        </div>
+        <div className="stack">
+          <label className="drop" aria-disabled={uploading}>
+            {uploading ? <span className="spinner" aria-hidden /> : <Icon name="camera" />}
+            <strong>{uploading ? "Enviando…" : view.photos.length > 0 ? "Enviar outra foto" : "Tirar ou escolher uma foto"}</strong>
+            <span className="muted small">JPG, PNG ou WebP, até 12 MB</span>
+            <input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="visually-hidden" disabled={uploading}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ""; }} />
+          </label>
+          <p role="status" className="muted small" style={{ margin: 0 }}>{uploading ? "Enviando a foto…" : ""}</p>
+          {view.photos.length > 0 && (
+            <ul className="shots" aria-label="Fotos enviadas">
+              {view.photos.map((p, i) => (
+                <li key={p.id} className="shot">
+                  <img src={`/api/photos/${p.id}`} alt={`Foto ${i + 1} da tela enviada`} />
+                  <span className={`badge ${p.review === "APROVADA" ? "ok" : p.review === "REFAZER" ? "warn" : ""}`}>{p.review === "APROVADA" ? "Aprovada" : p.review === "REFAZER" ? "Refazer" : "Em análise"}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+      <div className="nav-row">
+        <button type="button" className="btn ghost" onClick={onBack}><Icon name="arrowLeft" size={18} /> Voltar</button>
+        <span className="grow" />
+        {!view.unlocked[3] && <span className="why" style={{ margin: 0 }}>Envie uma foto para continuar.</span>}
+        <button type="button" className="btn primary" disabled={!view.unlocked[3]} onClick={onNext}>Continuar <Icon name="arrowRight" size={18} /></button>
+      </div>
+    </section>
   );
 }
 
-// ───────── envio ─────────
+// ───────── fase 4: finalizar ─────────
 
-function Finish({ view, run, onView, submitted, onNew }: { view: View; run: Run; onView: (v: View) => void; submitted: boolean; onNew: () => Promise<void> }) {
+function FinishPhase({ head, view, run, onView, submitted, onBack, onNew }: {
+  head: React.RefObject<HTMLHeadingElement | null>; view: View; run: Run; onView: (v: View) => void; submitted: boolean; onBack: () => void; onNew: () => Promise<void>;
+}) {
   const [rating, setRating] = useState(view.submission.rating ?? 0);
   const [hardest, setHardest] = useState("");
   const [comment, setComment] = useState("");
   const s = view.submission;
-  const summary = (f: Framing, conf: boolean): { tone: string; icon: IconName; text: string } =>
-    conf ? { tone: "ok", icon: "checkCircle", text: "Confirmado pela equipe" }
-    : f === "CORRETO" ? { tone: "info", icon: "clock", text: "Declarado correto (aguardando equipe)" }
-    : f === "INCORRETO" ? { tone: "bad", icon: "alert", text: "Ajuste necessário" }
-    : f === "PRECISA_SUPORTE" ? { tone: "bad", icon: "alert", text: "Suporte solicitado" }
-    : { tone: "", icon: "clock", text: "Não verificado" };
+  const framing = s.confirmed ? { tone: "ok", icon: "checkCircle" as IconName, text: "Confirmada pela equipe" }
+    : s.framing === "CORRETO" ? { tone: "info", icon: "clock" as IconName, text: "Declarada correta (a equipe vai conferir)" }
+    : s.framing === "PRECISA_SUPORTE" ? { tone: "bad", icon: "alert" as IconName, text: "Suporte solicitado" }
+    : { tone: "", icon: "clock" as IconName, text: "Ainda não conferida" };
+
+  if (submitted) {
+    return (
+      <section className="phase narrow" aria-labelledby="h-phase">
+        <div className="done-panel" role="status">
+          <span className="big" aria-hidden><Icon name="check" /></span>
+          <h1 id="h-phase" ref={head} tabIndex={-1} style={{ fontSize: "clamp(1.75rem, 1.1rem + 2.4vw, 2.75rem)" }}>Recebemos o seu envio. Obrigado!</h1>
+          <p style={{ margin: 0 }}>{s.status === "APROVADO" ? "A equipe confirmou a atualização." : s.status === "PRECISA_AJUSTE" ? "A equipe pediu um ajuste. Veja o aviso no topo da página." : "A equipe da Intelite vai analisar a foto e confirmar. Se precisar de algo, avisaremos aqui: guarde este link."}</p>
+          <ul className="recap" style={{ width: "100%" }}>
+            <li><span>Aplicativo atualizado</span><span className="badge ok"><Icon name="checkCircle" />Feito</span></li>
+            <li><span>Tela</span><span className={`badge ${framing.tone}`}><Icon name={framing.icon} />{framing.text}</span></li>
+          </ul>
+          <button type="button" className="btn" onClick={() => confirm("Iniciar um novo envio neste aparelho (por exemplo, outra loja)? O envio atual continua registrado.") && run(onNew)}>Atualizar outra loja ou equipamento</button>
+        </div>
+      </section>
+    );
+  }
   return (
-    <div className="stack">
-      <div className="stack">
-        <h4 style={{ margin: 0 }}>Resumo</h4>
-        {([["Totem", summary(s.totemFraming, s.totemConfirmed)], ["Painel", summary(s.painelFraming, s.painelConfirmed)]] as const).map(([name, b]) => (
-          <div key={name} className="row between"><span>{name}</span><span className={`badge ${b.tone}`}><Icon name={b.icon} />{b.text}</span></div>
-        ))}
-      </div>
-      {submitted ? (
-        <Alert tone="ok" role="status">
-          <strong>Recebemos o seu envio. Obrigado!</strong><br />
-          {s.status === "APROVADO" ? "A equipe confirmou a atualização." : s.status === "PRECISA_AJUSTE" ? "A equipe pediu um ajuste. Veja o aviso no topo da página." : "A equipe da Intelite vai analisar as fotos e confirmar. Se precisar de algo, avisaremos aqui: guarde este link."}
-          <div style={{ marginTop: 12 }}><button type="button" className="btn sm" onClick={() => confirm("Iniciar um novo envio neste aparelho (por exemplo, outra loja)? O envio atual continua registrado.") && run(onNew)}>Iniciar outro envio (outra loja ou equipamento)</button></div>
-        </Alert>
-      ) : (
+    <section className="phase" aria-labelledby="h-phase">
+      <header className="phase-head">
+        <h1 id="h-phase" ref={head} tabIndex={-1}>Finalizar</h1>
+        <p>Falta só avaliar. Conte como foi, em um toque.</p>
+      </header>
+      <div className="split">
+        <ul className="recap">
+          <li><span>Aplicativo atualizado</span><span className="badge ok"><Icon name="checkCircle" />Feito</span></li>
+          <li><span>Tela</span><span className={`badge ${framing.tone}`}><Icon name={framing.icon} />{framing.text}</span></li>
+          <li><span>Foto enviada</span><span className="badge ok"><Icon name="checkCircle" />{view.photos.length} foto{view.photos.length === 1 ? "" : "s"}</span></li>
+        </ul>
         <div className="stack">
           <fieldset className="stars">
             <legend>Como foi a experiência? Nota de 1 a 5</legend>
@@ -480,12 +493,15 @@ function Finish({ view, run, onView, submitted, onNew }: { view: View; run: Run;
             ))}
           </fieldset>
           <label className="field"><span>Qual etapa foi mais difícil? (opcional)</span>
-            <select value={hardest} onChange={(e) => setHardest(e.target.value)}><option value="">Nenhuma</option>{STEPS.slice(1, LAST).map((st) => <option key={st.key} value={st.title}>{st.title}</option>)}</select></label>
+            <select value={hardest} onChange={(e) => setHardest(e.target.value)}><option value="">Nenhuma</option>{STEPS.slice(0, LAST).map((st) => <option key={st.key} value={st.title}>{st.title}</option>)}</select></label>
           <label className="field"><span>Comentário (opcional)</span><textarea value={comment} maxLength={2000} onChange={(e) => setComment(e.target.value)} /></label>
-          <button type="button" className="btn primary block" disabled={rating === 0} onClick={() => run(async () => onView(await api<View>("/api/submissions/me/submit", { body: { rating, comment: comment || undefined, hardestStep: hardest || undefined } })))}>Enviar</button>
-          {rating === 0 && <p className="hint">Escolha uma nota para habilitar o envio.</p>}
+          <div>
+            <button type="button" className="btn primary lg block" disabled={rating === 0} onClick={() => run(async () => onView(await api<View>("/api/submissions/me/submit", { body: { rating, comment: comment || undefined, hardestStep: hardest || undefined } })))}>Enviar</button>
+            {rating === 0 && <p className="why">Escolha uma nota para habilitar o envio.</p>}
+          </div>
         </div>
-      )}
-    </div>
+      </div>
+      <div className="nav-row"><button type="button" className="btn ghost" onClick={onBack}><Icon name="arrowLeft" size={18} /> Voltar</button></div>
+    </section>
   );
 }
