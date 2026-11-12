@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { LIP_LINE, LIP_X0 } from "./milly-lips";
 
 /**
  * Milly, a guia do tutorial. É o avatar (imagem única) "vestido" por um pequeno esqueleto de animação:
@@ -29,30 +30,35 @@ function parseVtt(text: string): Cue[] {
 }
 
 // ───────── geometria (coordenadas da imagem recortada: 940 × 1000) ─────────
-const MX = 453, MY = 464;                       // centro da boca
 const EYES = [{ x: 367, y: 336, hw: 52, top: 300, h: 74, plate: [290, 285, 150, 110] as const, id: "e" }, { x: 540, y: 334, hw: 58, top: 298, h: 74, plate: [455, 280, 170, 110] as const, id: "d" }];
 const PIVOT = { x: 453, y: 580 };               // "pescoço": a cabeça gira em torno dele
 
 const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const f = (n: number) => n.toFixed(1);
 
-/** Contornos da boca para abertura `o` (0..1) e formato `w` (0 = arredondada, 1 = aberta de lado). */
-function mouth(o: number, w: number) {
-  const a = 56 + 15 * w - 7 * o * (1 - w);                 // meia-largura
-  const h = o * 32;                                         // abertura no centro
-  const yl = MY - 10, yr = MY - 14;                          // cantos (o direito é um pouco mais alto, como no desenho)
-  const xl = MX - a, xr = MX + a, ym = (yl + yr) / 2;
-  const top = MY - 6 - h * 0.22, bot = MY - 6 + h * 0.8;      // bordas do vão no centro
-  const ct = 2 * top - ym, cb = 2 * bot - ym;                 // pontos de controle das curvas
-  const edgeTop = `M${f(xl)},${f(yl)} Q${f(MX)},${f(ct)} ${f(xr)},${f(yr)}`;
-  const edgeBotBack = `Q${f(MX)},${f(cb)} ${f(xl)},${f(yl)}`;
-  const cavity = `${edgeTop} ${edgeBotBack} Z`;
-  const th = Math.min(h * 0.3, 8);
-  const teeth = `M${f(xl)},${f(yl)} Q${f(MX)},${f(ct)} ${f(xr)},${f(yr)} L${f(xr)},${f(yr + th)} Q${f(MX)},${f(ct + th * 1.2)} ${f(xl)},${f(yl + th)} Z`;
-  const up = top - 11;
-  const upper = `M${f(xl)},${f(yl)} C${f(MX - a * 0.5)},${f(up - 2)} ${f(MX - 9)},${f(up - 4)} ${f(MX)},${f(up + 4)} C${f(MX + 9)},${f(up - 4)} ${f(MX + a * 0.5)},${f(up - 2)} ${f(xr)},${f(yr)} Q${f(MX)},${f(ct)} ${f(xl)},${f(yl)} Z`;
-  const lower = `M${f(xl)},${f(yl)} Q${f(MX)},${f(cb)} ${f(xr)},${f(yr)} C${f(MX + a * 0.62)},${f(bot + 22)} ${f(MX - a * 0.62)},${f(bot + 22)} ${f(xl)},${f(yl)} Z`;
-  return { cavity, teeth, upper, lower, tongueY: bot - h * 0.3, tongueRx: a * 0.4, tongueRy: Math.max(0.1, h * 0.2), bot };
+// Boca: os lábios do próprio desenho (public/milly/labio-*.png) — o inferior desce em faixas verticais, acompanhando a curva do sorriso, e o vão
+// é preenchido por dentro da boca (dentes e língua). Assim o acabamento 3D dos lábios (brilho, sombra) é o do original.
+const STRIP = 2, STRIPS = Math.ceil(LIP_LINE.length / STRIP), HALF = LIP_LINE.length / 2, CX = LIP_X0 + HALF;
+const lineAt = (x: number) => { const i = clamp((x - LIP_X0), 0, LIP_LINE.length - 1), a = Math.floor(i), b = Math.min(LIP_LINE.length - 1, a + 1); return LIP_LINE[a] + (LIP_LINE[b] - LIP_LINE[a]) * (i - a); };
+const prof = (x: number) => Math.pow(Math.max(0, 1 - ((x - CX) / (HALF + 4)) ** 2), 0.7);
+const STRIP_X = Array.from({ length: STRIPS }, (_, i) => LIP_X0 + i * STRIP);
+
+/** Estado da boca para abertura `o` (0..1): descida de cada faixa do lábio inferior e contornos do vão, dos dentes e da língua. */
+function mouth(o: number) {
+  const dy = o * 30;
+  const xs: number[] = [], top: number[] = [], bot: number[] = [], teeth: number[] = [];
+  const tth = Math.min(dy * 0.5, 11);
+  for (let i = 0; i <= LIP_LINE.length; i += 3) {
+    const x = LIP_X0 + Math.min(i, LIP_LINE.length - 1);
+    xs.push(x); top.push(lineAt(x) - 2); bot.push(lineAt(x) + dy * prof(x) + 2); teeth.push(lineAt(x) + tth * prof(x));
+  }
+  const poly = (a: number[], b: number[]) => `M${xs.map((x, i) => `${f(x)},${f(a[i])}`).join(" L")} L${xs.map((x, i) => `${f(x)},${f(b[i])}`).reverse().join(" L")} Z`;
+  return {
+    dys: STRIP_X.map((x) => dy * prof(x + STRIP / 2)),
+    cavity: poly(top, bot), teeth: poly(top, teeth),
+    tongueY: lineAt(CX) + dy * 0.9, tongueRy: Math.max(0.1, dy * 0.36),
+    shade: poly(top, top.map((t, i) => t + Math.min(7, (bot[i] - t) * 0.5))),
+  };
 }
 
 export function Milly({ video, mouth: mouthSrc, captions, onStart }: { video: HTMLVideoElement | null; mouth: string | null; captions: string | null; onStart: () => void }) {
@@ -78,8 +84,9 @@ export function Milly({ video, mouth: mouthSrc, captions, onStart }: { video: HT
     const q = <T extends Element>(sel: string) => s.querySelector(sel) as T;
     const els = {
       body: q<SVGGElement>("#m-body"), head: q<SVGGElement>("#m-head"), mouth: q<SVGGElement>("#m-mouth"),
-      cavity: q<SVGPathElement>("#m-cavity"), cavclip: q<SVGPathElement>("#m-cavclip-p"), teeth: q<SVGPathElement>("#m-teeth"), upper: q<SVGPathElement>("#m-upper"), lower: q<SVGPathElement>("#m-lower"),
-      tongue: q<SVGEllipseElement>("#m-tongue"), lids: EYES.map((e) => ({ g: q<SVGGElement>(`#m-lid-${e.id}`), clip: q<SVGRectElement>(`#m-clip-${e.id} rect`), lash: q<SVGPathElement>(`#m-lash-${e.id}`) })),
+      cavity: q<SVGPathElement>("#m-cavity"), cavclip: q<SVGPathElement>("#m-cavclip-p"), teeth: q<SVGPathElement>("#m-teeth"), shade: q<SVGPathElement>("#m-shade"),
+      tongue: q<SVGEllipseElement>("#m-tongue"), strips: Array.from(s.querySelectorAll<SVGImageElement>(".m-strip")), mouthScale: q<SVGGElement>("#m-mscale"),
+      lids: EYES.map((e) => ({ g: q<SVGGElement>(`#m-lid-${e.id}`), clip: q<SVGRectElement>(`#m-clip-${e.id} rect`), lash: q<SVGPathElement>(`#m-lash-${e.id}`) })),
     };
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let raf = 0, visible = true, last = performance.now() / 1000;
@@ -144,11 +151,12 @@ export function Milly({ video, mouth: mouthSrc, captions, onStart }: { video: HT
       const open = clamp((o - 0.03) / 0.07);
       els.mouth.setAttribute("opacity", open.toFixed(2));
       if (open > 0) {
-        const g = mouth(o, w);
-        els.cavity.setAttribute("d", g.cavity); els.cavclip.setAttribute("d", g.cavity); els.teeth.setAttribute("d", g.teeth);
-        els.upper.setAttribute("d", g.upper); els.lower.setAttribute("d", g.lower);
-        els.tongue.setAttribute("cy", f(g.tongueY)); els.tongue.setAttribute("rx", f(g.tongueRx)); els.tongue.setAttribute("ry", f(g.tongueRy));
-        els.teeth.setAttribute("opacity", o > 0.18 ? "1" : "0");
+        const g = mouth(o);
+        els.cavity.setAttribute("d", g.cavity); els.cavclip.setAttribute("d", g.cavity); els.teeth.setAttribute("d", g.teeth); els.shade.setAttribute("d", g.shade);
+        els.tongue.setAttribute("cy", f(g.tongueY)); els.tongue.setAttribute("ry", f(g.tongueRy));
+        els.strips.forEach((im, i) => im.setAttribute("transform", `translate(0 ${g.dys[i].toFixed(2)})`));
+        els.teeth.setAttribute("opacity", o > 0.12 ? "1" : "0");
+        els.mouthScale.setAttribute("transform", `translate(${CX} 0) scale(${(0.9 + 0.14 * w - 0.05 * o).toFixed(3)} 1) translate(${-CX} 0)`);
       }
       // pálpebras
       EYES.forEach((e, i) => {
@@ -156,7 +164,7 @@ export function Milly({ video, mouth: mouthSrc, captions, onStart }: { video: HT
         L.g.setAttribute("opacity", blink > 0.02 ? "1" : "0");
         L.clip.setAttribute("height", f(e.h * blink));
         const y = e.top + e.h * blink;
-        L.lash.setAttribute("d", `M${e.x - e.hw},${f(y - 4 * blink)} Q${e.x},${f(y + 7 * blink)} ${e.x + e.hw},${f(y - 4 * blink)}`);
+        L.lash.setAttribute("d", `M${e.x - e.hw + 8},${f(y - 3 * blink)} Q${e.x},${f(y + 6 * blink)} ${e.x + e.hw - 8},${f(y - 3 * blink)}`);
         L.lash.setAttribute("opacity", blink > 0.35 ? "1" : "0");
       });
 
@@ -193,7 +201,10 @@ export function Milly({ video, mouth: mouthSrc, captions, onStart }: { video: HT
               ))}
               {EYES.map((e) => <clipPath key={e.id} id={`m-clip-${e.id}`}><rect x={e.x - e.hw - 20} y={e.top - 14} width={e.hw * 2 + 40} height="0" /></clipPath>)}
               <clipPath id="m-cavclip"><path id="m-cavclip-p" d="" /></clipPath>
-              <linearGradient id="m-lip" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ea8573" /><stop offset="1" stopColor="#d96a59" /></linearGradient>
+              <linearGradient id="m-cav" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#2a0a0d" /><stop offset="0.55" stopColor="#4a1418" /><stop offset="1" stopColor="#6e2226" /></linearGradient>
+              <linearGradient id="m-tth" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#cfc2bb" /><stop offset="0.45" stopColor="#fbf4ef" /><stop offset="1" stopColor="#ecdfd7" /></linearGradient>
+              <radialGradient id="m-tng" cx="0.5" cy="0.35" r="0.75"><stop offset="0" stopColor="#f09a93" /><stop offset="0.6" stopColor="#d4666a" /><stop offset="1" stopColor="#a8444a" /></radialGradient>
+              {STRIP_X.map((x, i) => <clipPath key={i} id={`m-strip-${i}`}><rect x={x} y="400" width={STRIP + 0.4} height="190" /></clipPath>)}
             </defs>
             <g id="m-body"><image href="/milly/milly.webp" width="940" height="1000" /></g>
             <g id="m-head">
@@ -201,16 +212,23 @@ export function Milly({ video, mouth: mouthSrc, captions, onStart }: { video: HT
               {EYES.map((e) => (
                 <g key={e.id} id={`m-lid-${e.id}`} opacity="0">
                   <g mask={`url(#m-eyemask-${e.id})`}><g clipPath={`url(#m-clip-${e.id})`}><image href={`/milly/olho-${e.id}.png`} x={e.plate[0]} y={e.plate[1]} width={e.plate[2]} height={e.plate[3]} /></g></g>
-                  <path id={`m-lash-${e.id}`} d="" fill="none" stroke="#1d1210" strokeWidth="5" strokeLinecap="round" opacity="0" />
+                  <path id={`m-lash-${e.id}`} d="" fill="none" stroke="#1d1210" strokeWidth="3.4" strokeLinecap="round" opacity="0" />
                 </g>
               ))}
               <g id="m-mouth" opacity="0">
                 <image href="/milly/boca.png" x="350" y="415" width="210" height="115" />
-                <path id="m-cavity" d="" fill="#4a1620" />
-                <path id="m-teeth" d="" fill="#fbf6f1" opacity="0" clipPath="url(#m-cavclip)" />
-                <ellipse id="m-tongue" cx={MX} cy={MY} rx="20" ry="4" fill="#d9666a" clipPath="url(#m-cavclip)" />
-                <path id="m-lower" d="" fill="url(#m-lip)" />
-                <path id="m-upper" d="" fill="#e0715f" />
+                <g id="m-mscale">
+                  <path id="m-cavity" d="" fill="url(#m-cav)" />
+                  <g clipPath="url(#m-cavclip)">
+                    <ellipse id="m-tongue" cx={CX} cy="470" rx="30" ry="1" fill="url(#m-tng)" />
+                    <path id="m-teeth" d="" fill="url(#m-tth)" opacity="0" />
+                    <path id="m-shade" d="" fill="#1a0507" opacity="0.55" />
+                  </g>
+                  {Array.from({ length: STRIPS }, (_, i) => (
+                    <g key={i} clipPath={`url(#m-strip-${i})`}><image className="m-strip" href="/milly/labio-inf.png" x="350" y="415" width="210" height="115" /></g>
+                  ))}
+                  <image href="/milly/labio-sup.png" x="350" y="415" width="210" height="115" />
+                </g>
               </g>
             </g>
           </svg>
