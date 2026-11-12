@@ -8,7 +8,7 @@ type Three = typeof import("three");
  * Totem de autoatendimento da Intelite em 3D (three.js), na abertura. É um modelo procedural baseado nas fotos do equipamento
  * real: aço preto fosco (pintura em pó), coluna reta com janela de saída da senha e a logo da Intelite em branco, cabeça
  * inclinada para trás com a tela, caixa de aço atrás da coluna (com aletas de ventilação) e base larga e baixa, para trás.
- * A tela mostra /totem-tela.png (imagem ilustrativa do aplicativo): para mostrar o app real, troque esse arquivo por uma
+ * A tela mostra /totem-tela.png (captura do layout real do aplicativo no totem): para mostrar o app real, troque esse arquivo por uma
  * captura do totem na proporção 1080×1740. O cliente pode arrastar para girar; sem movimento quando o sistema pede menos
  * animação. Sem WebGL, cai no desenho em SVG.
  */
@@ -170,11 +170,11 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
   // cabeça: placa inclinada para trás, apoiada no alto da coluna
   const head = new THREE.Group(); head.position.set(0, COL_TOP, FRONT_Z); head.rotation.x = -ALPHA; totem.add(head);
   // abertura da tela: moldura rebaixada, vidro e a imagem
-  const SW = 0.27, SH = 0.45, SC = 0.345;
+  const SW = 0.27, SH = 0.481, SC = 0.345; // proporção da imagem da tela (996×1775)
   head.add(rbox(SW + 0.018, SH + 0.018, 0.004, 0.004, lip, 0, SC, 0.0012));
   const screenMat = track(new THREE.MeshStandardMaterial({
-    map: screenTex ?? null, emissiveMap: screenTex ?? null, emissive: new THREE.Color(0xffffff), emissiveIntensity: 0.78,
-    color: screenTex ? 0xffffff : 0x14295c, roughness: 0.2, metalness: 0, envMapIntensity: 0.8,
+    map: screenTex ?? null, emissiveMap: screenTex ?? null, emissive: new THREE.Color(0xffffff), emissiveIntensity: 0.5,
+    color: screenTex ? 0xb4b4b4 : 0x14295c, roughness: 0.2, metalness: 0, envMapIntensity: 0.8,
   }));
   head.add(plane(SW, SH, screenMat, 0, SC, 0.0042));
   head.add(plane(SW, SH, track(new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.045, roughness: 0.03, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02 })), 0, SC, 0.0052));
