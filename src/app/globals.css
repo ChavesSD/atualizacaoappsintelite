@@ -201,7 +201,15 @@ fieldset legend { padding: 0; font-weight: 600; font-size: var(--fs-0); color: v
 
 .topbar { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 94%, transparent); border-bottom: 1px solid var(--border); padding-top: env(safe-area-inset-top); }
 .topbar-in { max-width: 1200px; margin: 0 auto; padding: var(--s-3) var(--s-4); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-2) var(--s-4); min-height: 64px; }
-.logo { height: 30px; width: auto; display: block; }
+.logo { height: 30px; width: auto; display: block; flex: 0 0 auto; }
+/* progresso no lugar do cabeçalho: logo à esquerda e as quatro etapas ao lado */
+.topbar nav { flex: 1 1 100%; order: 3; min-width: 0; }
+.topbar .stepper { margin: 0; gap: var(--s-3); }
+.topbar .stepper button { padding-top: var(--s-2); min-height: 40px; flex-direction: row; align-items: baseline; gap: var(--s-2); }
+.topbar .stepper .n, .topbar .stepper .t { font-size: .8125rem; }
+@media (min-width: 760px) { .topbar nav { flex: 1 1 0; order: 0; max-width: 780px; } .topbar-in { flex-wrap: nowrap; gap: var(--s-6); justify-content: flex-start; } }
+:root { --topbar-h: 104px; }
+@media (min-width: 760px) { :root { --topbar-h: 68px; } }
 .topbar .where { color: var(--muted); font-size: var(--fs-0); display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); min-width: 0; }
 .topbar .where .who { max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .shell { max-width: 1200px; margin: 0 auto; padding: var(--s-5) var(--s-4) var(--s-8); }
@@ -250,7 +258,7 @@ fieldset legend { padding: 0; font-weight: 600; font-size: var(--fs-0); color: v
 .stepper li.current .n { color: var(--brand-text); }
 @media (hover: hover) and (pointer: fine) { .stepper button:hover:not([aria-disabled="true"]) { color: var(--text); } }
 .stepper button:focus-visible { outline-offset: 2px; }
-@media (max-width: 560px) { .stepper .t { font-size: .8125rem; } }
+@media (max-width: 560px) { .stepper .t { font-size: .8125rem; } .topbar .stepper li:not(.current) .t { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } .topbar .stepper { gap: var(--s-2); } }
 
 .phase { display: block; }
 @media (prefers-reduced-motion: no-preference) { .phase { animation: phase-in 360ms var(--ease-out) both; } }
@@ -420,19 +428,25 @@ details > summary { cursor: pointer; min-height: 32px; }
 
 /* ═════════ fase "Atualizar": tudo numa tela, sem rolagem vertical ═════════
    O texto mostra só o passo em andamento (o do capítulo que está tocando ou o escolhido); vídeo e passo ocupam a altura que sobra. */
-.shell.fit-page { display: flex; flex-direction: column; height: calc(100dvh - 64px); min-height: 0; padding-block: var(--s-3) var(--s-3); overflow: hidden; }
-.shell.fit-page .stepper { margin-bottom: var(--s-3); flex: 0 0 auto; }
-.shell.fit-page .stepper button { padding-top: var(--s-3); min-height: 40px; }
+.shell.fit-page { display: flex; flex-direction: column; height: calc(100dvh - var(--topbar-h)); min-height: 0; padding-block: var(--s-3) var(--s-3); overflow: hidden; }
 .fit { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
 .fit .phase-head { flex: 0 0 auto; margin-bottom: var(--s-3); }
 .fit .phase-head h1 { font-size: clamp(1.5rem, 1rem + 1.6vw, 2.25rem); margin: 0 0 2px; }
 .fit .phase-head p { font-size: var(--fs-0); color: var(--muted); }
 .fit-grid { flex: 1 1 0; min-height: 0; display: grid; gap: var(--s-4); grid-template-rows: auto minmax(0, 1fr); }
-@media (min-width: 1000px) { .fit-grid { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: var(--s-6); } }
+@media (min-width: 1000px) {
+  .fit-grid { grid-template-columns: minmax(0, 1fr) clamp(170px, 19vw, 270px); grid-template-rows: minmax(0, 1fr) auto; grid-template-areas: "video video" "text milly"; gap: var(--s-3) var(--s-6); }
+  .fit-video { grid-area: video; align-items: center; container-type: size; }
+  .fit-video .vfig { width: 100%; align-items: center; }
+  .fit-video .player { width: min(100%, calc((100cqh - 54px) * 16 / 9)); margin-inline: auto; }
+  .fit-video .chapters { justify-content: center; flex-wrap: wrap; overflow: visible; }
+  .stepbox { grid-area: text; max-height: 42dvh; }
+  .milly-wrap { grid-area: milly; }
+  .fit .phase-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 var(--s-4); }
+}
 .fit-video { min-height: 0; min-width: 0; display: flex; flex-direction: column; justify-content: flex-start; }
 .vfig { margin: 0; display: flex; flex-direction: column; gap: var(--s-3); min-height: 0; }
 /* o vídeo cresce até caber: a largura acompanha a altura disponível (16:9) */
-.fit-video .player { width: min(100%, calc((100dvh - 330px) * 16 / 9)); max-height: calc(100dvh - 330px); }
 @media (max-width: 999px) { .fit-video .player { width: min(100%, calc(32dvh * 16 / 9)); max-height: 32dvh; margin-inline: auto; border-radius: var(--r-lg); box-shadow: none; } }
 .fit-video .chapters { margin: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
 .fit-video .chapters li { flex: 0 0 auto; }
@@ -441,20 +455,21 @@ details > summary { cursor: pointer; min-height: 32px; }
 .chapters button[aria-current="step"] .n { background: var(--brand); color: var(--brand-contrast); }
 .chapters button[aria-current="step"] .time { color: var(--brand-text); }
 
-/* Milly: guia animada sob o vídeo (ocupa o espaço que sobra e some se não couber) */
+/* Milly: guia animada, no canto inferior direito (só em telas largas) */
 .milly-wrap { display: none; }
 @media (min-width: 1000px) {
-  .milly-wrap { display: block; flex: 1 1 0; min-height: 0; container-type: size; margin-top: var(--s-3); }
-  .milly { height: 100%; display: flex; align-items: flex-end; justify-content: flex-end; }
-  @container (max-height: 120px) { .milly { display: none; } }
+  .milly-wrap { display: block; position: relative; container-type: size; min-height: 190px; }
+  .milly { position: absolute; inset: 0; }
+  .milly-avatar { position: absolute; right: 0; bottom: 0; height: min(100cqh, calc(100cqw * 1000 / 940)); aspect-ratio: 940 / 1000; }
 }
-.milly-avatar { flex: 0 0 auto; height: 100%; aspect-ratio: 940 / 1000; max-height: 100%; padding: 0; border: 0; background: none; cursor: pointer; border-radius: var(--r-lg); }
-.milly-avatar svg { display: block; height: 100%; width: auto; overflow: visible; filter: drop-shadow(0 12px 24px rgba(0, 0, 0, .55)); }
+.milly-avatar { padding: 0; border: 0; background: none; cursor: pointer; border-radius: var(--r-lg); }
+.milly-avatar svg { display: block; height: 100%; width: 100%; overflow: visible; filter: drop-shadow(0 12px 24px rgba(0, 0, 0, .55)); }
 .milly-avatar:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
+
 /* o passo a passo é o "balão de fala" da Milly: uma ponta sai da caixa em direção a ela */
 .stepbox { position: relative; }
 @media (min-width: 1000px) {
-  .stepbox.has-guide::before { content: ""; position: absolute; left: -11px; bottom: 150px; width: 20px; height: 20px; background: var(--surface); border-left: 1px solid var(--brand); border-bottom: 1px solid var(--brand); transform: rotate(45deg); border-bottom-left-radius: 4px; }
+  .stepbox.has-guide::before { content: ""; position: absolute; right: -11px; top: 34%; width: 20px; height: 20px; background: var(--surface); border-right: 1px solid var(--brand); border-top: 1px solid var(--brand); transform: rotate(45deg); border-top-right-radius: 4px; }
 }
 
 .stepbox { min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--brand); border-radius: var(--r-xl); padding: var(--s-4) var(--s-5); box-shadow: 0 0 0 1px var(--brand), 0 18px 50px -20px var(--brand-glow); }
@@ -483,8 +498,6 @@ details > summary { cursor: pointer; min-height: 32px; }
 @media (max-width: 999px) {
   .fit .phase-head p { display: none; }
   .fit .phase-head h1 { font-size: 1.35rem; }
-  .shell.fit-page .stepper .t { font-size: .75rem; }
-  .shell.fit-page .stepper .n { font-size: .75rem; }
 }
 @media (max-width: 999px) and (max-height: 780px) {
   .fit-video .player { width: min(100%, calc(24dvh * 16 / 9)); max-height: 24dvh; }
@@ -492,7 +505,7 @@ details > summary { cursor: pointer; min-height: 32px; }
 }
 /* telas muito baixas: não dá para caber tudo; volta a rolagem normal em vez de espremer o texto */
 @media (max-height: 640px) {
-  .shell.fit-page { height: auto; min-height: calc(100dvh - 64px); overflow: visible; }
+  .shell.fit-page { height: auto; min-height: calc(100dvh - var(--topbar-h)); overflow: visible; }
   .fit-video .player { max-height: none; }
   .stepbox-body { overflow: visible; }
 }

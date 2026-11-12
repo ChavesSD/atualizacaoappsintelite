@@ -113,9 +113,6 @@ export function TutorialApp() {
     <>
       <a className="skip-link" href="#conteudo">Pular para o conteúdo</a>
       <BrandBar>
-        <div className="where"><span className="who user-text">{s.contactName} · {s.company}</span></div>
-      </BrandBar>
-      <main id="conteudo" className={`shell ${phase === 0 ? "fit-page" : ""}`} tabIndex={-1}>
         <nav aria-label="Etapas">
           <ol className="stepper">
             {STEPS.map((st, i) => {
@@ -133,6 +130,8 @@ export function TutorialApp() {
             })}
           </ol>
         </nav>
+      </BrandBar>
+      <main id="conteudo" className={`shell ${phase === 0 ? "fit-page" : ""}`} tabIndex={-1}>
 
         {view.redo && phase !== 2 && (
           <div style={{ marginBottom: 20 }}><Alert tone="warn" role="alert">A equipe pediu uma nova foto da tela. <button type="button" className="btn sm" onClick={() => go(2)}>Enviar agora</button></Alert></div>
@@ -264,8 +263,9 @@ function UpdatePhase({ head, first, step, video, installed, busy, onInstalled, o
             : step?.video
               ? <div className="player"><iframe src={step.video.src} title={step.video.title} loading="lazy" allow="fullscreen; picture-in-picture" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation allow-popups" /></div>
               : <div className="player-empty"><div><Icon name="play" size={32} /><p style={{ margin: "8px 0 0" }}><strong>O vídeo completo está sendo preparado.</strong><br />Enquanto isso, siga o passo a passo escrito.</p></div></div>}
-          {video && <Milly video={vid} mouth={video.mouth} onStart={() => { if (!vid || vid.paused) player.current?.seek(vid ? vid.currentTime : 0, true); else vid.pause(); }} />}
         </div>
+
+        {video && <Milly video={vid} mouth={video.mouth} onStart={() => { if (!vid || vid.paused) player.current?.seek(vid ? vid.currentTime : 0, true); else vid.pause(); }} />}
 
         <section className={`stepbox${video ? " has-guide" : ""}`} aria-label={block ? `Passo ${cur + 1} de ${total}: ${block.heading ?? ""}` : "Passo a passo"}>
           {!step && <Alert tone="info">O conteúdo desta etapa ainda está sendo preparado pela equipe da Intelite.</Alert>}
