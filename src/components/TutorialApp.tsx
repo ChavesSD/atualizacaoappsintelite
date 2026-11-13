@@ -249,7 +249,23 @@ function Hero({ onCreated }: { onCreated: (v: View) => void }) {
               <p className="muted small" style={{ margin: 0 }}>Usamos seu nome, sua empresa e a foto da tela só para acompanhar esta atualização.</p>
             </form>
           </div>
-          <div className="hero-art rise" style={{ "--i": 3 } as React.CSSProperties}><Totem3D /></div>
+          <div className="hero-art rise" style={{ "--i": 3 } as React.CSSProperties}>
+            <div className="orbits" aria-hidden>
+              <svg className="orbit orbit-ext" viewBox="0 0 200 200">
+                <path d="M100.00,12.00 A88,88 0 0 1 186.66,115.28" />
+                <path d="M176.21,144.00 A88,88 0 0 1 43.43,167.41" />
+                <path d="M23.79,144.00 A88,88 0 0 1 69.90,17.31" />
+                <circle cx="100.00" cy="12.00" r="4" />
+                <circle cx="176.21" cy="144.00" r="4" />
+                <circle cx="23.79" cy="144.00" r="4" />
+              </svg>
+              <svg className="orbit orbit-int" viewBox="0 0 200 200">
+                <path d="M100.00,32.00 A68,68 0 0 1 134.00,158.89" />
+                <path d="M100.00,168.00 A68,68 0 0 1 66.00,41.11" />
+              </svg>
+            </div>
+            <Totem3D />
+          </div>
         </div>
       </main>
       <BrandFooter />

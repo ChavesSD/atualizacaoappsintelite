@@ -14,6 +14,7 @@ type Three = typeof import("three");
  */
 export function Totem3D() {
   const box = useRef<HTMLDivElement>(null);
+  const handle = useRef<{ print: () => void } | null>(null);
   const [mode, setMode] = useState<"loading" | "ready" | "fallback">("loading");
 
   useEffect(() => {
@@ -25,7 +26,8 @@ export function Totem3D() {
         const { RoomEnvironment } = await import("three/examples/jsm/environments/RoomEnvironment.js");
         const { RoundedBoxGeometry } = await import("three/examples/jsm/geometries/RoundedBoxGeometry.js");
         if (disposed || !box.current) return;
-        stop = await build(THREE, RoomEnvironment, RoundedBoxGeometry, box.current);
+        const built = await build(THREE, RoomEnvironment, RoundedBoxGeometry, box.current);
+        stop = built.stop; handle.current = built;
         if (disposed) { stop(); return; }
         setMode("ready");
       } catch {
@@ -37,17 +39,20 @@ export function Totem3D() {
 
   if (mode === "fallback") return <div className="totem-fallback"><HeroArt /></div>;
   return (
-    <div className={`totem3d ${mode}`} role="img" aria-label="Totem de autoatendimento da Intelite, modelo 3D. Arraste para girar.">
-      <div ref={box} className="totem3d-canvas" aria-hidden />
-      <span className="totem3d-hint" aria-hidden>Arraste para girar</span>
-    </div>
+    <>
+      <div className={`totem3d ${mode}`} role="img" aria-label="Totem de autoatendimento da Intelite, modelo 3D. Arraste para girar.">
+        <div ref={box} className="totem3d-canvas" aria-hidden />
+        <span className="totem3d-hint" aria-hidden>Arraste para girar · toque na tela para tirar uma senha</span>
+      </div>
+      <button type="button" className="visually-hidden" onClick={() => handle.current?.print()}>Tirar uma senha no totem (brincadeira)</button>
+    </>
   );
 }
 
 type RoundedBox = new (w: number, h: number, d: number, segments: number, radius: number) => import("three").BufferGeometry;
 type RoomEnv = new () => import("three").Scene;
 
-async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry: RoundedBox, host: HTMLDivElement): Promise<() => void> {
+async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry: RoundedBox, host: HTMLDivElement): Promise<{ stop: () => void; print: () => void }> {
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -174,7 +179,8 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
   head.add(rbox(SW + 0.018, SH + 0.018, 0.004, 0.004, lip, 0, SC, 0.0012));
   // a tela emite luz própria: cores fiéis à imagem, sem passar pela iluminação nem pelo tone mapping (sem brilho nem contraste exagerados)
   const screenMat = track(new THREE.MeshBasicMaterial({ map: screenTex ?? null, color: screenTex ? 0xf2f2f2 : 0x14295c, toneMapped: false }));
-  head.add(plane(SW, SH, screenMat, 0, SC, 0.0042));
+  const screenPlane = plane(SW, SH, screenMat, 0, SC, 0.0042);
+  head.add(screenPlane);
   head.add(plane(SW, SH, track(new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.012, roughness: 0.2, metalness: 0, clearcoat: 0.2, clearcoatRoughness: 0.3, envMapIntensity: 0.15 })), 0, SC, 0.0052));
   // ventilação no verso da cabeça
   for (const gx of [-1, 1]) for (let i = 0; i < 12; i++) {
@@ -195,22 +201,107 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
   const shadow = plane(1.15, 1.35, track(new THREE.MeshBasicMaterial({ map: track(new THREE.CanvasTexture(sc)), transparent: true, depthWrite: false })), 0, 0.0025, -0.12);
   shadow.rotation.x = -Math.PI / 2; scene.add(shadow);
 
+  // ── senhas: tocar na tela imprime uma senha pela janela; o papel cai no chão, acumula e, depois de um tempo, some tudo ──
+  type Ticket = { g: import("three").Group; mesh: import("three").Mesh; mat: import("three").MeshStandardMaterial; tex: import("three").Texture; state: "print" | "hang" | "fall" | "rest" | "fade"; t: number;
+    from: import("three").Vector3; to: import("three").Vector3; rot0: number; yaw: number; restAt: number };
+  const tickets: Ticket[] = [];
+  const PW = 0.058, PH = 0.16, SLOT_Y = 0.695, FLOOR_Y = -0.022; // a base do totem fica em y = -0.022 (no sistema local do totem)
+  let counter = 45, lastLanding = 0;
+  const paperGeo = track(new THREE.PlaneGeometry(PW, PH)); paperGeo.translate(0, -PH / 2, 0); // a origem é a borda de cima (a que sai da janela)
+  const makePaperTexture = (n: number) => {
+    const c = document.createElement("canvas"); c.width = 232; c.height = 640;
+    const g = c.getContext("2d")!;
+    g.fillStyle = "#f6f5f1"; g.fillRect(0, 0, 232, 640);
+    g.fillStyle = "#1b2433"; g.textAlign = "center";
+    g.font = "700 30px system-ui, sans-serif"; g.fillText("INTELITE", 116, 62);
+    g.fillStyle = "#6b7488"; g.font = "500 18px system-ui, sans-serif"; g.fillText("Atendimento Inteligente", 116, 92);
+    g.strokeStyle = "#c9ccd4"; g.setLineDash([6, 6]); g.lineWidth = 2; g.beginPath(); g.moveTo(18, 120); g.lineTo(214, 120); g.stroke(); g.setLineDash([]);
+    g.fillStyle = "#6b7488"; g.font = "600 20px system-ui, sans-serif"; g.fillText("SUA SENHA", 116, 176);
+    g.fillStyle = "#1b2433"; g.font = "800 92px system-ui, sans-serif"; g.fillText("A", 116, 288);
+    g.font = "800 84px system-ui, sans-serif"; g.fillText(String(n).padStart(3, "0"), 116, 380);
+    g.fillStyle = "#6b7488"; g.font = "500 20px system-ui, sans-serif"; g.fillText("Atendimento médico", 116, 440);
+    g.fillText(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }), 116, 474);
+    g.strokeStyle = "#c9ccd4"; g.setLineDash([6, 6]); g.beginPath(); g.moveTo(18, 520); g.lineTo(214, 520); g.stroke(); g.setLineDash([]);
+    g.fillStyle = "#6b7488"; g.font = "500 17px system-ui, sans-serif"; g.fillText("Aguarde ser chamado", 116, 560);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; return tex;
+  };
+  const print = () => {
+    if (reduce) return;
+    counter += 1;
+    const tex = makePaperTexture(counter);
+    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, metalness: 0, side: THREE.DoubleSide, emissive: 0x2a2a28, transparent: true });
+    const mesh = new THREE.Mesh(paperGeo, mat);
+    const g = new THREE.Group(); g.rotation.order = "YXZ"; g.add(mesh);
+    g.position.set(0, SLOT_Y - 0.018, FRONT_Z + 0.004); g.rotation.x = -1.3; mesh.scale.y = 0.06;
+    totem.add(g);
+    tickets.push({ g, mesh, mat, tex, state: "print", t: 0, from: new THREE.Vector3(), to: new THREE.Vector3(), rot0: 0, yaw: 0, restAt: 0 });
+  };
+  const stepTickets = (dt: number, now: number) => {
+    const ease = (x: number) => 1 - Math.pow(1 - x, 3);
+    for (let i = tickets.length - 1; i >= 0; i--) {
+      const k = tickets[i]; k.t += dt;
+      if (k.state === "print") {                       // sai pela janela, esticando para fora e caindo para baixo
+        const p = Math.min(1, k.t / 1.1);
+        k.mesh.scale.y = 0.06 + 0.94 * ease(p);
+        k.g.rotation.x = -1.3 + 1.18 * ease(p);
+        if (p >= 1) { k.state = "hang"; k.t = 0; }
+      } else if (k.state === "hang") {                 // fica pendurado, balançando um pouco
+        k.g.rotation.x = -0.12 + Math.sin(k.t * 5) * 0.025 * Math.exp(-k.t * 0.8);
+        if (k.t > 2.2) {
+          k.state = "fall"; k.t = 0;
+          const stack = tickets.filter((o) => o.state === "rest").length;
+          k.from.copy(k.g.position);
+          k.yaw = (Math.random() - 0.5) * 2.4;
+          k.to.set((Math.random() - 0.5) * 0.34, FLOOR_Y + 0.001 + stack * 0.0009, FRONT_Z + 0.07 + Math.random() * 0.26);
+          k.rot0 = k.g.rotation.x;
+        }
+      } else if (k.state === "fall") {                 // cai girando e pousa de barriga para cima
+        const T = 0.75, p = Math.min(1, k.t / T);
+        k.g.position.x = k.from.x + (k.to.x - k.from.x) * p;
+        k.g.position.z = k.from.z + (k.to.z - k.from.z) * ease(p);
+        k.g.position.y = k.from.y + (k.to.y - k.from.y) * p * p + Math.sin(p * Math.PI) * 0.02; // gravidade (parábola) com um leve "balão"
+        k.g.rotation.x = k.rot0 + (-Math.PI / 2 - k.rot0) * ease(p);
+        k.g.rotation.y = k.yaw * ease(p);
+        if (p >= 1) { k.state = "rest"; k.t = 0; lastLanding = now; }
+      } else if (k.state === "fade") {
+        k.mat.opacity = Math.max(0, 1 - k.t / 0.8);
+        if (k.mat.opacity <= 0) { totem.remove(k.g); k.mat.dispose(); k.tex.dispose(); tickets.splice(i, 1); }
+      }
+    }
+    // depois de um tempinho sem papel novo no chão, some tudo
+    if (lastLanding && now - lastLanding > 7000 && tickets.length && tickets.every((o) => o.state === "rest")) {
+      tickets.forEach((o) => { o.state = "fade"; o.t = 0; }); lastLanding = 0;
+    }
+  };
+
   // ── movimento e interação ──
   const YAW0 = 0.62;
   let yaw = YAW0, vel = 0, dragging = false, lastX = 0, idleSince = performance.now(), pitch = 0, pitchTarget = 0;
   const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
   const LIM = 3.2;
   const dom = renderer.domElement;
-  const down = (e: PointerEvent) => { dragging = true; lastX = e.clientX; vel = 0; dom.setPointerCapture(e.pointerId); dom.style.cursor = "grabbing"; };
+  const raycaster = new THREE.Raycaster(); const ndc = new THREE.Vector2();
+  const overScreen = (e: PointerEvent) => {
+    const r = dom.getBoundingClientRect();
+    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    raycaster.setFromCamera(ndc, camera);
+    return raycaster.intersectObject(screenPlane, false).length > 0;
+  };
+  let tapStart = { x: 0, y: 0, t: 0 };
+  const down = (e: PointerEvent) => { dragging = true; lastX = e.clientX; vel = 0; tapStart = { x: e.clientX, y: e.clientY, t: performance.now() }; dom.setPointerCapture(e.pointerId); dom.style.cursor = "grabbing"; };
   const move = (e: PointerEvent) => {
     const r = dom.getBoundingClientRect();
     pitchTarget = clamp(((e.clientY - r.top) / r.height - 0.5) * -0.08, -0.05, 0.05);
-    if (!dragging) return;
+    if (!dragging) { if (!reduce) dom.style.cursor = overScreen(e) ? "pointer" : "grab"; return; }
     const dx = e.clientX - lastX; lastX = e.clientX;
     yaw = clamp(yaw + dx * 0.009, -LIM, LIM); vel = dx * 0.009;
     if (reduce) renderOnce();
   };
-  const up = (e: PointerEvent) => { if (!dragging) return; dragging = false; idleSince = performance.now(); try { dom.releasePointerCapture(e.pointerId); } catch { /* já liberado */ } dom.style.cursor = "grab"; };
+  const up = (e: PointerEvent) => {
+    if (!dragging) return;
+    if (!reduce && Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y) < 6 && performance.now() - tapStart.t < 450 && overScreen(e)) print(); // toque na tela
+    dragging = false; idleSince = performance.now(); try { dom.releasePointerCapture(e.pointerId); } catch { /* já liberado */ } dom.style.cursor = "grab";
+  };
   dom.addEventListener("pointerdown", down); dom.addEventListener("pointermove", move); dom.addEventListener("pointerup", up); dom.addEventListener("pointercancel", up);
 
   const resize = () => {
@@ -231,9 +322,12 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
   const renderOnce = () => apply();
   let raf = 0, visible = true;
   const t0 = performance.now();
+  let prevNow = performance.now();
   const tick = (now: number) => {
     raf = requestAnimationFrame(tick);
+    const dt = Math.min(0.05, (now - prevNow) / 1000); prevNow = now;
     if (!visible || document.hidden) return;
+    stepTickets(dt, now);
     if (!dragging) {
       if (Math.abs(vel) > 0.0004) { yaw = clamp(yaw + vel, -LIM, LIM); vel *= 0.93; }
       else if (!reduce && now - idleSince > 1800) { // volta a balançar devagar, retomando de onde parou
@@ -248,11 +342,13 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
   io.observe(host);
   if (reduce) renderOnce(); else raf = requestAnimationFrame(tick);
 
-  return () => {
+  const stop = () => {
     cancelAnimationFrame(raf); io.disconnect(); ro.disconnect();
+    tickets.forEach((k) => { k.mat.dispose(); k.tex.dispose(); });
     dom.removeEventListener("pointerdown", down); dom.removeEventListener("pointermove", move); dom.removeEventListener("pointerup", up); dom.removeEventListener("pointercancel", up);
     disposables.forEach((d) => d.dispose());
     env.dispose(); pmrem.dispose(); renderer.dispose();
     host.removeChild(renderer.domElement);
   };
+  return { stop, print };
 }
