@@ -9,8 +9,8 @@
   "chapters": [
     {
       "id": "configuracoes",
-      "title": "Abrir",
-      "text": "Oi! Agora eu vou te mostrar como ajustar a tela, quando as bordas do painel ou do totem aparecem cortadas. Use o controle remoto do Mini PC. Se preferir, conecte um mouse USB. Primeiro, aperte o botão Home do controle, para ir à tela inicial. Depois, abra Configurações."
+      "title": "Início",
+      "text": "Oi! Agora eu vou te mostrar como ajustar a tela, quando as bordas do painel ou do totem aparecem cortadas. Use o controle remoto do Mini PC. Se preferir, conecte um mouse USB. Com o painel aberto na tela, aperte o botão Home do controle. Vai aparecer Voltando ao painel. Toque no logo da Intelite, para sair para o sistema. Depois, abra Configurações."
     },
     {
       "id": "exibicao",
@@ -25,7 +25,7 @@
     {
       "id": "conferir",
       "title": "Conferir",
-      "text": "Pronto! Para sair, aperte o botão Voltar do controle, até voltar à tela inicial. Depois, abra o aplicativo e confira se a tela aparece inteira, com as quatro bordas visíveis. Se ainda estiver cortada, repita o ajuste."
+      "text": "Pronto! Para sair, aperte o botão Voltar do controle, até voltar à tela inicial. Depois, abra a Galeria de apps e toque em AI Híbrido, e o painel volta para a tela. Confira se a tela aparece inteira, com as quatro bordas visíveis. Se ainda estiver cortada, repita o ajuste."
     }
   ]
 }

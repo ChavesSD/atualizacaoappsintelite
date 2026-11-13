@@ -70,7 +70,7 @@ export const DEFAULT_CONTENT: Record<string, { title: string; instructions: stri
       "Quando o Android perguntar se quer instalar uma atualização, toque em **Instalar** e aguarde. Quando aparecer “App instalado”, toque em **Abrir**.",
       "## Abra e aguarde carregar",
       "Na primeira abertura, o aplicativo mostra o MAC do equipamento e a versão instalada.",
-      "Se perguntar se deve abrir sozinho ao ligar, toque em **Agora não** ou espere alguns segundos.",
+      "Quando perguntar se deve abrir sozinho ao ligar, toque em **Tornar app inicial**, marque **AI Híbrido** e toque em **Definir como padrão**.",
       "Quando pedir acesso a fotos e mídia, toque em **Permitir**. O aplicativo baixa o conteúdo e mostra o andamento: aguarde até o conteúdo começar a rodar.",
       "Se o aplicativo avisar que o equipamento ainda não está cadastrado, anote o MAC que aparece na tela e avise a equipe da Intelite.",
       "Confirme que o aplicativo abre normalmente e que as informações aparecem corretamente.",
@@ -118,6 +118,28 @@ export const DEFAULT_CONTENT: Record<string, { title: string; instructions: stri
  */
 export const PREVIOUS_DEFAULTS: Record<string, string[]> = {
   atualizar: [
+    [
+      "## Prepare o Mini PC",
+      "Ligue o Mini PC e confirme que ele está conectado à internet.",
+      "Conecte um mouse USB para facilitar. Se preferir, use o controle remoto.",
+      "Abra o **Google Chrome**.",
+      "## Baixe o aplicativo",
+      "No Chrome do Mini PC, baixe o aplicativo por uma destas opções. Se uma não funcionar, use outra.",
+      "[[downloads]]",
+      "Se o Chrome pedir acesso ao armazenamento, toque em **Continuar** e depois em **Permitir**.",
+      "Quando o download terminar, toque em **Abrir** no aviso que aparece na parte de baixo da tela.",
+      "## Instale por cima da versão atual",
+      "Você não precisa desinstalar nada: o novo aplicativo atualiza o que já está no Mini PC, sem perder os dados.",
+      "Na primeira vez, o Android avisa que o Chrome não tem permissão para instalar aplicativos de fontes desconhecidas. Toque em **Configurações**, ative a chave do **Chrome** e volte.",
+      "Abra o arquivo baixado de novo: menu do Chrome (três pontinhos), **Downloads** e toque no arquivo. Se aparecer o aviso de fontes desconhecidas, toque em **Aceitar**.",
+      "Quando o Android perguntar se quer instalar uma atualização, toque em **Instalar** e aguarde. Quando aparecer “App instalado”, toque em **Abrir**.",
+      "## Abra e aguarde carregar",
+      "Na primeira abertura, o aplicativo mostra o MAC do equipamento e a versão instalada.",
+      "Se perguntar se deve abrir sozinho ao ligar, toque em **Agora não** ou espere alguns segundos.",
+      "Quando pedir acesso a fotos e mídia, toque em **Permitir**. O aplicativo baixa o conteúdo e mostra o andamento: aguarde até o conteúdo começar a rodar.",
+      "Se o aplicativo avisar que o equipamento ainda não está cadastrado, anote o MAC que aparece na tela e avise a equipe da Intelite.",
+      "Confirme que o aplicativo abre normalmente e que as informações aparecem corretamente.",
+    ].join("\n"),
     [
 
       "## Prepare o Mini PC",

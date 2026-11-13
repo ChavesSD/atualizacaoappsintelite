@@ -1,4 +1,4 @@
-"""Grava no Mini PC o fluxo "ajustar a proporção da tela" (Home → Configurações → Preferências → Exibição → Ajuste de proporção → ajustar → voltar).
+"""Grava no Mini PC o fluxo "ajustar a proporção da tela" (painel aberto → Home → logo → Configurações → Preferências → Exibição → Ajuste de proporção → ajustar → voltar).
 
   python ajustar/take.py reset      # Chrome aberto na tela de partida e proporção de tela no padrão (100,100,100,100)
   python ajustar/take.py run        # grava ~100 s com o scrcpy e salva ajustar/raw/take.mp4 + take.events.json
@@ -21,28 +21,34 @@ PROP = "persist.disp.margin.hdmi"
 
 K = {"HOME": 3, "BACK": 4, "UP": 19, "DOWN": 20, "LEFT": 21, "RIGHT": 22, "OK": 23}
 
-# Instantes (s) em que o EFEITO deve aparecer no vídeo final: (tempo, [teclas]). Capítulos: 0 / 22,6 / 37,5 / 73,8 / 90,6 s.
+# Instantes (s) em que o EFEITO deve aparecer no vídeo final: (tempo, [teclas]) ou (tempo, ("tap", x, y)).
+# Capítulos: 0 / 27,6 / 42,5 / 78,8 / 97,0 s. O painel do app já está aberto quando a gravação começa; Home mostra "Voltando ao painel"
+# (5 s) e o toque no logo da Intelite leva à tela inicial do sistema.
 SCHEDULE = [
-    (16.0, ["HOME"]),                 # "aperte o botão Home"
-    (18.6, ["LEFT"] * 5),             # foco até CONFIGURAÇÕES (barra de baixo)
-    (20.6, ["OK"]),                   # abre Configurações
-    (23.7, ["DOWN"] * 2),             # Rede → Contas → Apps
-    (25.0, ["DOWN"]),                 # Preferências do dispositivo
-    (26.3, ["OK"]),
-    (27.8, ["DOWN"] * 5),             # Sobre … Exibição
-    (29.3, ["OK"]),
-    (31.0, ["DOWN"]),                 # Ajuste de proporção de tela (HDMI)
-    (36.9, ["OK"]),                   # abre a tela verde
-    (50.6, ["LEFT"] * 12),            # reduz a largura
-    (55.4, ["DOWN"] * 12),            # reduz a altura
-    (64.6, ["RIGHT"]),
-    (66.0, ["UP"]),
-    (76.0, ["BACK"]),                 # voltar até a tela inicial
-    (77.5, ["BACK"]),
-    (79.0, ["BACK"]),
-    (80.5, ["BACK"]),
+    (18.8, ["HOME"]),                 # "aperte o botão Home" → "Voltando ao painel…"
+    (22.0, ("tap", 640, 290)),        # "toque no logo da Intelite"
+    (24.2, ["DOWN"] * 3),             # o 1º toque na seta só ativa o foco (Globoplay); mais dois levam a CONFIGURAÇÕES
+    (26.0, ["OK"]),                   # abre Configurações
+    (28.7, ["DOWN"] * 2),             # Rede → Contas → Apps
+    (30.0, ["DOWN"]),                 # Preferências do dispositivo
+    (31.3, ["OK"]),
+    (32.8, ["DOWN"] * 5),             # Sobre … Exibição
+    (34.3, ["OK"]),
+    (36.0, ["DOWN"]),                 # Ajuste de proporção de tela (HDMI)
+    (41.9, ["OK"]),                   # abre a tela verde
+    (55.6, ["LEFT"] * 12),            # reduz a largura
+    (60.4, ["DOWN"] * 12),            # reduz a altura
+    (69.6, ["RIGHT"]),
+    (71.0, ["UP"]),
+    (81.0, ["BACK"]),                 # voltar até a tela inicial
+    (82.5, ["BACK"]),
+    (84.0, ["BACK"]),
+    (85.5, ["BACK"]),
+    (86.4, ("tap", 840, 600)),        # Galeria de apps
+    (89.0, ("tap", 724, 220)),        # AI Híbrido: o painel volta
 ]
-TOTAL = 91.0
+TOTAL = 104.0
+LAT_HOME, LAT_TAP = 3.35, 1.8          # atrasos medidos de Home e de `input tap` (o das setas/OK é LAT)
 
 
 def prop():
@@ -52,11 +58,14 @@ def prop():
 def reset(_=None):
     RAW.mkdir(exist_ok=True)
     base.sh("settings put system show_touches 0", check=False)
-    base.sh("am force-stop com.android.chrome", check=False)
     # a tela de partida é a própria página do tutorial no Chrome do Mini PC
-    base.sh("am start -a android.intent.action.VIEW -d https://atualizacaoappsintelite.onrender.com/ -p com.android.chrome", check=False)
-    time.sleep(12)
-    print("margem:", prop())
+    # a tela de partida é o painel do aplicativo aberto (o app precisa estar instalado: python take_abrir.py reset instala o 1.19)
+    base.sh("am force-stop com.android.chrome", check=False)
+    base.sh("input keyevent KEYCODE_HOME", check=False)
+    time.sleep(2)
+    base.sh("am start -n com.intelite.aihibrido/.RoteadorActivity", check=False)
+    time.sleep(35)
+    print("margem:", prop(), base.sh("dumpsys window | grep mCurrentFocus", check=False))
 
 
 def restore(_=None):
@@ -83,12 +92,14 @@ def run(a):
     now = lambda: time.time() - t0
     log, procs = [], []
     for eff, keys in SCHEDULE:
-        issue = eff - LAT
+        is_tap = isinstance(keys, tuple)
+        issue = eff - (LAT_TAP if is_tap else LAT_HOME if keys == ["HOME"] else LAT)
         d = issue - now()
         if d > 0:
             time.sleep(d)
-        codes = " ".join(str(K[k]) for k in keys)
-        procs.append(subprocess.Popen([ADB, "shell", f"input keyevent {codes}"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+        cmd = f"input tap {keys[1]} {keys[2]}" if is_tap else "input keyevent " + " ".join(str(K[k]) for k in keys)
+        keys = ["TAP"] if is_tap else keys
+        procs.append(subprocess.Popen([ADB, "shell", cmd], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
         log.append({"issue": round(now(), 3), "effect": eff, "keys": keys})
     d = TOTAL - now()
     if d > 0:

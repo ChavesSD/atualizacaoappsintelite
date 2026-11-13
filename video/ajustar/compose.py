@@ -26,28 +26,34 @@ BAR_X, BAR_Y, BAR_W, BAR_H = 48, 962, 1824, 84
 OK_C, WARN_C, BAD_C = (74, 222, 128), (251, 191, 36), (255, 138, 128)
 PANEL_IMG = ROOT / "public" / "painel-tela.webp"
 
-# ── linha do tempo (s do vídeo final), medida na gravação ──
-PRESSES = [(16.55, "HOME"), (20.4, "OK"), (23.25, "DOWN"), (23.42, "DOWN"), (24.5, "DOWN"), (25.75, "OK"),
-           *[(27.75 + 0.09 * i, "DOWN") for i in range(5)], (28.95, "OK"), (30.7, "DOWN"), (36.4, "OK"),
-           *[(50.6 + 0.33 * i, "LEFT") for i in range(12)], *[(55.4 + 0.5 * i, "DOWN") for i in range(12)],
-           (64.6, "RIGHT"), (66.0, "UP"), (75.35, "BACK"), (77.0, "BACK"), (78.6, "BACK"), (80.0, "BACK")]
-# onde o cursor aparece quando se aperta OK (coordenadas da tela do Mini PC, 1280x720)
-OK_POS = {20.4: (240, 612), 25.75: (1040, 447), 28.95: (1040, 372), 36.4: (1040, 232)}
+# ── linha do tempo (s do vídeo final), medida nos quadros da gravação ──
+PRESSES = [(19.6, "HOME"), (23.9, "DOWN"), (24.05, "DOWN"), (24.2, "DOWN"), (25.85, "OK"),
+           (28.4, "DOWN"), (28.55, "DOWN"), (29.8, "DOWN"), (31.2, "OK"),
+           *[(32.5 + 0.09 * i, "DOWN") for i in range(5)], (34.0, "OK"), (35.7, "DOWN"), (41.3, "OK"),
+           *[(55.1 + 0.33 * i, "LEFT") for i in range(12)], *[(59.9 + 0.5 * i, "DOWN") for i in range(12)],
+           (69.1, "RIGHT"), (70.5, "UP"), (80.05, "BACK"), (81.8, "BACK"), (83.45, "BACK"), (84.8, "BACK")]
+# toques/cliques mostrados com cursor e anel (coordenadas da tela do Mini PC, 1280x720): instante do efeito → posição
+OK_POS = {21.35: (640, 290), 85.8: (840, 600), 87.65: (724, 220)}
+CURSOR_WINDOWS = {21.35: (-1.6, 0.5), 85.8: (-1.6, 0.5), 87.65: (-1.6, 0.5)}
+# trechos em que o letreiro de notícias do painel (barra de baixo da gravação) é coberto
+TICKER_COVER = [(0.0, 19.5), (89.5, 120.0)]
 # texto da ação (a partir de t): (título, subtítulo, tecla do ícone)
 ACTIONS = [
-    (0.0, "No Mini PC", "Comece com o Chrome aberto, como na página do tutorial.", None),
-    (16.4, "Aperte HOME", "Volta para a tela inicial do Mini PC.", "HOME"),
-    (19.9, "Abra CONFIGURAÇÕES", "Com Configurações selecionado, aperte OK.", "OK"),
-    (22.9, "Vá até PREFERÊNCIAS DO DISPOSITIVO", "Use a seta para baixo e aperte OK.", "DOWN"),
-    (27.4, "Vá até EXIBIÇÃO", "Seta para baixo até Exibição e aperte OK.", "DOWN"),
-    (30.4, "Escolha AJUSTE DE PROPORÇÃO DE TELA", "A primeira opção, em Configurações HDMI. Aperte OK.", "OK"),
-    (37.4, "Ajuste as bordas da imagem", "Acompanhe o resultado na TV, aqui ao lado.", None),
-    (50.3, "Seta para a esquerda", "Reduz a largura da imagem, aos poucos.", "LEFT"),
-    (55.1, "Seta para baixo", "Reduz a altura. Pare quando as bordas pretas aparecerem.", "DOWN"),
-    (64.3, "Pequenos ajustes", "Seta para a direita e seta para cima aumentam a imagem.", "RIGHT"),
-    (67.6, "Pare quando tudo estiver visível", "Sem cortes em nenhuma das quatro bordas.", None),
-    (75.0, "Aperte VOLTAR", "Repita até voltar à tela inicial.", "BACK"),
-    (81.0, "Abra o aplicativo e confira", "A tela deve aparecer inteira, com as quatro bordas visíveis.", None),
+    (0.0, "Painel aberto na TV", "Comece com o painel do Atendimento Inteligente em execução.", None),
+    (19.0, "Aperte HOME", "Mostra \"Voltando ao painel…\" por alguns segundos.", "HOME"),
+    (21.0, "Toque no logo da Intelite", "Sai do painel e vai para a tela inicial do sistema.", None),
+    (23.6, "Abra CONFIGURAÇÕES", "Seta para baixo até Configurações e aperte OK.", "OK"),
+    (28.0, "Vá até PREFERÊNCIAS DO DISPOSITIVO", "Use a seta para baixo e aperte OK.", "DOWN"),
+    (32.2, "Vá até EXIBIÇÃO", "Seta para baixo até Exibição e aperte OK.", "DOWN"),
+    (35.4, "Escolha AJUSTE DE PROPORÇÃO DE TELA", "A primeira opção, em Configurações HDMI. Aperte OK.", "OK"),
+    (42.0, "Ajuste as bordas da imagem", "Acompanhe o resultado na TV, aqui ao lado.", None),
+    (54.8, "Seta para a esquerda", "Reduz a largura da imagem, aos poucos.", "LEFT"),
+    (59.6, "Seta para baixo", "Reduz a altura. Pare quando as bordas pretas aparecerem.", "DOWN"),
+    (68.8, "Pequenos ajustes", "Seta para a direita e seta para cima aumentam a imagem.", "RIGHT"),
+    (72.0, "Pare quando tudo estiver visível", "Sem cortes em nenhuma das quatro bordas.", None),
+    (79.7, "Aperte VOLTAR", "Repita até voltar à tela inicial.", "BACK"),
+    (85.4, "Abra a Galeria de apps e o AI Híbrido", "O painel volta para a tela.", None),
+    (91.5, "Confira a tela", "Deve aparecer inteira, com as quatro bordas visíveis.", None),
 ]
 KEY_LABEL = {"HOME": "Home", "BACK": "Voltar", "OK": "OK", "UP": "Seta para cima", "DOWN": "Seta para baixo", "LEFT": "Seta para a esquerda", "RIGHT": "Seta para a direita"}
 CUT_K, CUT_STEP = 1.25, 0.02273          # imagem 25% maior que a tela; cada aperto de 1% = 2,27% do tamanho (11 apertos = encaixe exato)
@@ -134,12 +140,13 @@ def make_assets(d, chapters, title):
 # ───────── segmentos (tela do Mini PC + moldura + barra + narração) ─────────
 
 def build_segment(ch, start, dur, assets, work, total, offset, lead, intro, clip, hold):
+    covers = "".join(f",drawbox=x=16:y=514:w=990:h=48:color=0x05060f:t=fill:enable='between(t,{max(a - offset, 0):.2f},{b - offset:.2f})'" for a, b in TICKER_COVER if b > offset and a < offset + dur)
     seg = work / f"seg_{ch['id']}.mp4"
     inputs = ["-ss", f"{start:.3f}", "-t", f"{dur:.3f}", "-i", str(clip)]
     for f in ("bg.png", "mask.png", f"bar_{ch['id']}.png", "intro.png"):
         inputs += ["-loop", "1", "-framerate", str(FPS), "-t", f"{dur:.3f}", "-i", str(assets / f)]
     inputs += ["-f", "lavfi", "-t", f"{dur:.3f}", "-i", f"color=c=0x4c9bff:s={W}x6:r={FPS}", "-i", str(work / "narration" / f"{ch['id']}.mp3")]
-    g = [f"[0:v]fps={FPS},tpad=stop_mode=clone:stop_duration={hold:.2f},trim=duration={dur:.3f},setpts=PTS-STARTPTS,scale={SW}:{SH}:flags=lanczos,format=yuv420p[scr]",
+    g = [f"[0:v]fps={FPS},tpad=stop_mode=clone:stop_duration={hold:.2f},trim=duration={dur:.3f},setpts=PTS-STARTPTS{covers},scale={SW}:{SH}:flags=lanczos,format=yuv420p[scr]",
          "[scr][2:v]alphamerge[scra]",
          f"[1:v][scra]overlay=x={SX}:y={SY}:format=auto[c1]",
          f"[3:v]format=rgba,fade=t=in:st={max(lead - 0.1, 0.1):.2f}:d=0.45:alpha=1[bar]",
@@ -169,7 +176,7 @@ class Scene:
         self.tv_static = self._tv_static()
         self.remote_static = self._remote_static()
         self.presses = sorted(PRESSES)
-        self.cut_events = [(t, k) for t, k in self.presses if 50 <= t < 70 and k in ("LEFT", "RIGHT", "UP", "DOWN")]
+        self.cut_events = [(t, k) for t, k in self.presses if 55 <= t < 72 and k in ("LEFT", "RIGHT", "UP", "DOWN")]
 
     # --- TV ---
     TVW, TVHH, BEZ = 520, 304, 12
@@ -219,8 +226,8 @@ class Scene:
         if fit: label, color = "Ajustada: tudo visível", OK_C
         elif bars: label, color = "Passou um pouco: bordas pretas", WARN_C
         elif sx < 1.006 and sy < 1.006: label, color = "Ajustando…", BRAND_TEXT
-        elif t > 38: label, color = "Ajustando…", BRAND_TEXT
-        if t < 37.5: label, color = "Cortada: bordas escondidas", WARN_C
+        elif t > 41.5: label, color = "Ajustando…", BRAND_TEXT
+        if t < 41.3: label, color = "Cortada: bordas escondidas", WARN_C
         f = font("SemiBold", 24)
         w = int(d.textlength(label, font=f)) + 56
         bx, by = (RW - w) // 2, 58 + self.TVHH + 54
@@ -233,60 +240,111 @@ class Scene:
         d.text((bx + 38, by + 22), label, font=f, fill=color + (255,), anchor="lm")
         return im
 
-    # --- controle remoto ---
-    def _remote_static(self):
-        im = Image.new("RGBA", (RW, RMH), (0, 0, 0, 0))
-        d = ImageDraw.Draw(im)
-        bx, by, bw, bh = 56, 52, 168, 304
-        rr(d, (bx, by, bx + bw, by + bh), 46, fill=(24, 27, 35, 255), outline=(58, 63, 78, 255), width=3)
-        d.ellipse((bx + bw // 2 - 20, by + 18, bx + bw // 2 + 20, by + 22 + 14), fill=(12, 13, 17, 255))
-        return im
+    # --- controle remoto (Proeletronic / Mini PC SmartPRO: desenhado a partir da foto do controle) ---
+    # coordenadas da foto (508x889), recortadas até o botão do mouse e levadas ao cartão
+    RS, RX0, RY0 = 0.56, 40, 52
 
-    PAD = (140, 190)   # centro do direcional, dentro do cartão
-    HOMEC, BACKC = (140, 104), (96, 312)
+    def T(self, x, y):
+        return (self.RX0 + (x - 125) * self.RS, self.RY0 + (y - 30) * self.RS)
+
+    def _remote_static(self):
+        S = 4                                              # supersampling para bordas suaves
+        im = Image.new("RGBA", (RW * S, RMH * S), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
+        T = lambda x, y: tuple(v * S for v in self.T(x, y))
+        r = lambda v: v * self.RS * S
+        x0, y0 = T(125, 30)
+        x1, y1 = T(345, 640)
+        d.rounded_rectangle((x0, y0, x1, y1), r(40), fill=(16, 16, 19, 255), outline=(44, 45, 52, 255), width=int(2.5 * S))
+        hl = Image.new("RGBA", im.size, (0, 0, 0, 0))
+        ImageDraw.Draw(hl).rounded_rectangle((x0 + 3 * S, y0 + 3 * S, x1 - 3 * S, y0 + 60 * S), r(36), outline=(255, 255, 255, 18), width=2 * S)
+        im.alpha_composite(hl)
+
+        def circ(c, rad, fill, outline=None):
+            cx, cy = T(*c)
+            d.ellipse((cx - r(rad), cy - r(rad), cx + r(rad), cy + r(rad)), fill=fill, outline=outline, width=2 * S if outline else 0)
+
+        BTN = (27, 27, 31, 255)
+        circ((235, 283), 90, (24, 24, 28, 255), (40, 41, 48, 255))              # anel do direcional
+        circ((235, 283), 40, (14, 14, 17, 255), (46, 47, 54, 255))              # OK
+        circ((180, 155), 29, BTN, (44, 45, 52, 255))                            # home
+        circ((290, 155), 29, BTN, (44, 45, 52, 255))                            # mudo
+        circ((178, 82), 26, (222, 36, 36, 255), (150, 20, 20, 255))             # liga/desliga (vermelho)
+        circ((180, 494), 29, BTN, (44, 45, 52, 255))                            # menos
+        circ((288, 494), 29, BTN, (44, 45, 52, 255))                            # mais
+        circ((234, 566), 34, BTN, (44, 45, 52, 255))                            # mouse
+        bx0, by0 = T(152, 400)
+        bx1, by1 = T(316, 448)
+        d.rounded_rectangle((bx0, by0, bx1, by1), r(24), fill=BTN, outline=(44, 45, 52, 255), width=2 * S)   # voltar | apps | set
+        W2, G, WH = int(2.6 * S), (200, 202, 210, 255), (240, 241, 245, 255)
+        px, py = T(178, 82)
+        d.arc((px - r(11), py - r(11), px + r(11), py + r(11)), -60, 240, fill=WH, width=W2)
+        d.line([(px, py - r(14)), (px, py - r(2))], fill=WH, width=W2)
+        hx, hy = T(180, 156)
+        d.line([(hx - r(13), hy), (hx, hy - r(11)), (hx + r(13), hy), (hx + r(11), hy), (hx + r(11), hy + r(10)), (hx - r(11), hy + r(10)), (hx - r(11), hy)], fill=G, width=W2, joint="curve")
+        mx, my = T(288, 155)
+        d.polygon([(mx - r(14), my - r(5)), (mx - r(7), my - r(5)), (mx, my - r(11)), (mx, my + r(11)), (mx - r(7), my + r(5)), (mx - r(14), my + r(5))], outline=G, width=W2)
+        d.line([(mx + r(6), my - r(6)), (mx + r(15), my + r(6))], fill=G, width=W2)
+        d.line([(mx + r(15), my - r(6)), (mx + r(6), my + r(6))], fill=G, width=W2)
+        ax, ay = T(180, 494)
+        d.line([(ax - r(15), ay), (ax + r(15), ay)], fill=G, width=W2)
+        ax, ay = T(288, 494)
+        d.line([(ax - r(15), ay), (ax + r(15), ay)], fill=G, width=W2)
+        d.line([(ax, ay - r(15)), (ax, ay + r(15))], fill=G, width=W2)
+        ux, uy = T(234, 566)
+        d.rounded_rectangle((ux - r(8), uy - r(13), ux + r(8), uy + r(13)), r(8), outline=G, width=W2)
+        d.line([(ux, uy - r(13)), (ux, uy - r(3))], fill=G, width=W2)
+        f1 = font("SemiBold", int(r(15)))
+        d.text(T(234, 424), "APPS", font=f1, fill=WH, anchor="mm")
+        d.text(T(286, 424), "SET", font=f1, fill=WH, anchor="mm")
+        kx, ky = T(181, 424)
+        d.arc((kx - r(11), ky - r(8), kx + r(11), ky + r(10)), 180, 70, fill=G, width=W2)
+        d.polygon([(kx - r(14), ky - r(3)), (kx - r(5), ky - r(9)), (kx - r(5), ky + r(3))], fill=G)
+        d.text(T(235, 283), "OK", font=font("Bold", int(r(24))), fill=WH, anchor="mm")
+        for k, (dx, dy) in {"UP": (0, -1), "DOWN": (0, 1), "LEFT": (-1, 0), "RIGHT": (1, 0)}.items():
+            cx, cy = T(235 + dx * 68, 283 + dy * 66)
+            L = r(9)
+            if dy:
+                pts = [(cx - L, cy - dy * L * 0.5), (cx, cy + dy * L * 0.5), (cx + L, cy - dy * L * 0.5)]
+            else:
+                pts = [(cx - dx * L * 0.5, cy - L), (cx + dx * L * 0.5, cy), (cx - dx * L * 0.5, cy + L)]
+            d.line(pts, fill=G, width=W2, joint="curve")
+        return im.resize((RW, RMH), Image.LANCZOS)
+
+    def _pos(self, k):
+        return {"OK": self.T(235, 283), "HOME": self.T(180, 155), "BACK": self.T(181, 424),
+                "UP": self.T(235, 217), "DOWN": self.T(235, 349), "LEFT": self.T(167, 283), "RIGHT": self.T(303, 283)}[k]
 
     def remote_frame(self, t):
         im = self.rm_card.copy()
         im.alpha_composite(self.remote_static)
-        d = ImageDraw.Draw(im, "RGBA")
         act = {}
         for te, k in self.presses:
-            a = 1.0 - (t - te) / 0.42
             if 0 <= (t - te) <= 0.42:
-                act[k] = max(act.get(k, 0.0), 1.0 if (t - te) < 0.08 else a)
-        px, py = self.PAD
-
-        def lit(k, base=(46, 50, 64)):
-            v = act.get(k, 0.0)
-            return tuple(int(base[i] + (BRAND[i] - base[i]) * v) for i in range(3)) + (255,), v
-
-        # direcional
-        d.ellipse((px - 68, py - 68, px + 68, py + 68), fill=(34, 38, 50, 255), outline=(66, 72, 90, 255), width=3)
-        for k, (dx, dy) in {"UP": (0, -1), "DOWN": (0, 1), "LEFT": (-1, 0), "RIGHT": (1, 0)}.items():
-            col, v = lit(k, (210, 214, 224))
-            cx, cy = px + dx * 44, py + dy * 44
-            if v > 0.02:
-                d.ellipse((cx - 30, cy - 30, cx + 30, cy + 30), fill=BRAND + (int(150 * v),))
-            tri = [(cx + dx * 11, cy + dy * 11), (cx - dy * 12 - dx * 8, cy + dx * 12 - dy * 8), (cx + dy * 12 - dx * 8, cy - dx * 12 - dy * 8)]
-            d.polygon(tri, fill=col if v < 0.02 else (255, 255, 255, 255))
-        col, v = lit("OK", (46, 50, 64))
-        if v > 0.02:
-            d.ellipse((px - 40, py - 40, px + 40, py + 40), fill=BRAND + (int(150 * v),))
-        d.ellipse((px - 26, py - 26, px + 26, py + 26), fill=col, outline=(90, 96, 116, 255), width=2)
-        d.text((px, py), "OK", font=font("Bold", 22), fill=(255, 255, 255, 255), anchor="mm")
-        # Home e Voltar
-        for k, (cx, cy), name in (("HOME", self.HOMEC, "HOME"), ("BACK", self.BACKC, "VOLTAR")):
-            col, v = lit(k)
-            if v > 0.02:
-                d.ellipse((cx - 32, cy - 32, cx + 32, cy + 32), fill=BRAND + (int(150 * v),))
-            d.ellipse((cx - 20, cy - 20, cx + 20, cy + 20), fill=col, outline=(90, 96, 116, 255), width=2)
-            if k == "HOME":
-                d.polygon([(cx, cy - 10), (cx - 11, cy), (cx - 7, cy), (cx - 7, cy + 9), (cx + 7, cy + 9), (cx + 7, cy), (cx + 11, cy)], fill=(255, 255, 255, 255))
-            else:
-                d.arc((cx - 9, cy - 8, cx + 9, cy + 8), 200, 90, fill=(255, 255, 255, 255), width=3)
-                d.polygon([(cx - 11, cy - 6), (cx - 3, cy - 10), (cx - 3, cy - 1)], fill=(255, 255, 255, 255))
-            if k == "BACK":
-                d.text((cx, cy + 36), name, font=font("Medium", 14), fill=(154, 161, 178, 255), anchor="mm")
+                act[k] = max(act.get(k, 0.0), 1.0 if (t - te) < 0.08 else 1.0 - (t - te) / 0.42)
+        glow = Image.new("RGBA", im.size, (0, 0, 0, 0))
+        gd = ImageDraw.Draw(glow)
+        for k, v in act.items():
+            cx, cy = self._pos(k)
+            rad = 24 if k == "OK" else 17
+            gd.ellipse((cx - rad - 7, cy - rad - 7, cx + rad + 7, cy + rad + 7), fill=BRAND + (int(70 * v),))
+            gd.ellipse((cx - rad, cy - rad, cx + rad, cy + rad), fill=BRAND + (int(235 * v),), outline=(255, 255, 255, int(200 * v)), width=2)
+        im.alpha_composite(glow.filter(ImageFilter.GaussianBlur(1.2)))
+        d = ImageDraw.Draw(im, "RGBA")
+        for k, v in act.items():
+            cx, cy = self._pos(k)
+            if k == "OK":
+                d.text((cx, cy), "OK", font=font("Bold", 21), fill=(255, 255, 255, 255), anchor="mm")
+            elif k in ("UP", "DOWN", "LEFT", "RIGHT"):
+                dx, dy = {"UP": (0, -1), "DOWN": (0, 1), "LEFT": (-1, 0), "RIGHT": (1, 0)}[k]
+                L = 5.4
+                pts = [(cx - L, cy - dy * L * 0.5), (cx, cy + dy * L * 0.5), (cx + L, cy - dy * L * 0.5)] if dy else [(cx - dx * L * 0.5, cy - L), (cx + dx * L * 0.5, cy), (cx - dx * L * 0.5, cy + L)]
+                d.line(pts, fill=(255, 255, 255, 255), width=3, joint="curve")
+            elif k == "HOME":
+                d.line([(cx - 7.5, cy), (cx, cy - 6.5), (cx + 7.5, cy), (cx + 6.5, cy), (cx + 6.5, cy + 6), (cx - 6.5, cy + 6), (cx - 6.5, cy)], fill=(255, 255, 255, 255), width=3, joint="curve")
+            elif k == "BACK":
+                d.arc((cx - 7, cy - 5, cx + 7, cy + 6), 180, 70, fill=(255, 255, 255, 255), width=3)
+                d.polygon([(cx - 9, cy - 2), (cx - 3, cy - 6), (cx - 3, cy + 2)], fill=(255, 255, 255, 255))
         # rótulo da última tecla (à direita)
         last = None
         for te, k in self.presses:
@@ -296,20 +354,20 @@ class Scene:
         if last:
             te, k = last
             u = smooth((t - te) / 0.12)
-            n = sum(1 for tt, kk in self.presses if kk == k and te - 6 <= tt <= te and (50 <= te < 70) == (50 <= tt < 70)) if 50 <= te < 70 else 1
-            d.text((252, 150), KEY_LABEL[k], font=f1, fill=TEXT + (int(255 * u),), anchor="lm")
+            n = sum(1 for tt, kk in self.presses if kk == k and te - 6 <= tt <= te and (55 <= te < 72) == (55 <= tt < 72)) if 55 <= te < 72 else 1
+            d.text((232, 150), KEY_LABEL[k], font=f1, fill=TEXT + (int(255 * u),), anchor="lm")
             sub = {"HOME": "Volta à tela inicial", "BACK": "Volta uma tela", "OK": "Confirma a opção", "UP": "Desce/sobe na lista", "DOWN": "Desce na lista", "LEFT": "Move para a esquerda", "RIGHT": "Move para a direita"}[k]
-            if 50 <= te < 70:
+            if 55 <= te < 72:
                 sub = {"LEFT": "Reduz a largura da imagem", "RIGHT": "Aumenta a largura da imagem", "DOWN": "Reduz a altura da imagem", "UP": "Aumenta a altura da imagem"}[k]
             elif k == "UP":
                 sub = "Sobe na lista"
-            d.text((252, 192), sub, font=f2, fill=MUTED + (int(255 * u),), anchor="lm")
-            if 50 <= te < 70:
-                cnt = sum(1 for tt, kk in self.presses if 50 <= tt <= te and kk == k and tt > te - 8)
-                d.text((252, 236), f"{cnt}×", font=font("Bold", 28), fill=BRAND_TEXT + (int(255 * u),), anchor="lm")
+            d.text((232, 192), sub, font=f2, fill=MUTED + (int(255 * u),), anchor="lm")
+            if 55 <= te < 72:
+                cnt = sum(1 for tt, kk in self.presses if 55 <= tt <= te and kk == k and tt > te - 8)
+                d.text((232, 236), f"{cnt}×", font=font("Bold", 28), fill=BRAND_TEXT + (int(255 * u),), anchor="lm")
         else:
-            d.text((252, 168), "Use as teclas", font=f1, fill=MUTED + (255,), anchor="lm")
-            d.text((252, 208), "do controle remoto", font=f2, fill=MUTED + (255,), anchor="lm")
+            d.text((232, 168), "Use as teclas", font=f1, fill=MUTED + (255,), anchor="lm")
+            d.text((232, 208), "do controle remoto", font=f2, fill=MUTED + (255,), anchor="lm")
         return im
 
     # --- ação (embaixo da tela) ---
@@ -340,7 +398,8 @@ class Scene:
     def cursor_layer(self, t):
         best = None
         for te, (x, y) in OK_POS.items():
-            if -0.9 <= t - te <= 0.55:
+            lo, hi = CURSOR_WINDOWS.get(te, (-0.9, 0.55))
+            if lo <= t - te <= hi:
                 best = (te, x, y)
         if not best:
             return None
@@ -351,7 +410,7 @@ class Scene:
         lay = Image.new("RGBA", (S, S), (0, 0, 0, 0))
         d = ImageDraw.Draw(lay)
         c = S // 2
-        appear = smooth((dt + 0.9) / 0.45)
+        appear = smooth((dt + 1.6) / 0.6)
         fade = 1 - smooth((dt - 0.1) / 0.35)
         a = max(0.0, min(appear, fade))
         if dt > 0:                                         # anel de clique

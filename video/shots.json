@@ -1,10 +1,73 @@
 {
-  "preparar": { "file": "raw/take.cur.mp4", "start": 0, "end": 26.9 },
-  "baixar":   { "file": "raw/take.cur.mp4", "start": 26.9, "end": 47.9,
-                "zoom": [{ "t": 0.8, "z": 1.55, "cx": 0.45, "cy": 0.07, "in": 0.8, "hold": 6, "out": 0.9 }] },
-  "instalar": { "file": "raw/take.cur.mp4", "start": 47.9, "end": 101.3,
-                "zoom": [{ "t": 0.4, "z": 1.25, "cx": 0.5, "cy": 0.5, "in": 0.8, "hold": 3, "out": 0.9 },
-                         { "t": 25.0, "z": 1.4, "cx": 0.5, "cy": 0.5, "in": 0.8, "hold": 5, "out": 0.9 }] },
-  "abrir":    { "file": "raw/take.cur.mp4", "start": 101.3, "end": 146.6,
-                "zoom": [{ "t": 0.5, "z": 1.7, "cx": 0.5, "cy": 0.2, "in": 0.8, "hold": 5, "out": 0.9 }] }
+  "preparar": {
+    "file": "raw/take.cur.mp4",
+    "start": 0,
+    "end": 26.9
+  },
+  "baixar": {
+    "file": "raw/take.cur.mp4",
+    "start": 26.9,
+    "end": 47.9,
+    "zoom": [
+      {
+        "t": 0.8,
+        "z": 1.55,
+        "cx": 0.45,
+        "cy": 0.07,
+        "in": 0.8,
+        "hold": 6,
+        "out": 0.9
+      }
+    ]
+  },
+  "instalar": {
+    "file": "raw/take.cur.mp4",
+    "start": 47.9,
+    "end": 101.3,
+    "zoom": [
+      {
+        "t": 0.4,
+        "z": 1.25,
+        "cx": 0.5,
+        "cy": 0.5,
+        "in": 0.8,
+        "hold": 3,
+        "out": 0.9
+      },
+      {
+        "t": 25.0,
+        "z": 1.4,
+        "cx": 0.5,
+        "cy": 0.5,
+        "in": 0.8,
+        "hold": 5,
+        "out": 0.9
+      }
+    ]
+  },
+  "abrir": {
+    "file": "raw/abrir.cur.mp4",
+    "start": 3.25,
+    "end": 48.5,
+    "zoom": [
+      {
+        "t": 0.5,
+        "z": 1.7,
+        "cx": 0.5,
+        "cy": 0.2,
+        "in": 0.8,
+        "hold": 5,
+        "out": 0.9
+      },
+      {
+        "t": 7.3,
+        "z": 1.3,
+        "cx": 0.5,
+        "cy": 0.6,
+        "in": 0.8,
+        "hold": 6.5,
+        "out": 0.9
+      }
+    ]
+  }
 }

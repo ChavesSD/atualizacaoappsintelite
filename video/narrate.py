@@ -39,11 +39,14 @@ async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--script", default=str(pathlib.Path(__file__).with_name("script.json")))
     ap.add_argument("--work", default=str(pathlib.Path(__file__).with_name("work")))
+    ap.add_argument("--only", default=None, help="gera só este capítulo (id)")
     a = ap.parse_args()
     cfg = json.loads(pathlib.Path(a.script).read_text(encoding="utf-8"))
     outdir = pathlib.Path(a.work) / "narration"
     outdir.mkdir(parents=True, exist_ok=True)
     for ch in cfg["chapters"]:
+        if a.only and ch["id"] != a.only:
+            continue
         await synth(cfg, ch, outdir)
 
 

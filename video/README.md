@@ -31,3 +31,10 @@ de seta (com a tela real do painel, `public/painel-tela.webp`), ao lado de um co
 3. Meça nos quadros gravados quando cada efeito apareceu e ajuste `PRESSES`, `OK_POS` e `ACTIONS` em `ajustar/compose.py`
    (a gravação é VFR; o instante 0 é o início da gravação).
 4. `python ajustar/compose.py` → `ajustar/out/ajustar.{mp4,vtt,json,jpg}`; copie para `downloads/videos/`.
+
+### Atualização (13/11): capítulo "Abrir" e vídeo de ajuste
+- `video/take_abrir.py` regrava só o capítulo "Abrir" (primeira abertura: **Tornar app inicial** → AI Híbrido → **Definir como padrão** → Permitir);
+  depois `calib`, `cursor.py --take raw/abrir.mp4 ...` e `assemble.py`. Ao terminar, `python take_abrir.py restore` desinstala o app (o aparelho volta ao Nova Launcher).
+- O vídeo de ajuste (`ajustar/`) agora começa com o **painel aberto**: Home mostra "Voltando ao painel…" (5 s); toque no logo da Intelite leva à tela inicial
+  do sistema; ao final, Galeria de apps → AI Híbrido reabre o painel. O controle remoto desenhado é o do SmartPRO (foto do equipamento).
+  Requer o app 1.19 instalado (`python take_abrir.py reset`) e, depois, `python ajustar/take.py restore` + `python take_abrir.py restore`.
