@@ -17,3 +17,17 @@ Requisitos: Python 3, `pip install edge-tts pillow`, `ffmpeg`/`ffprobe` no PATH,
 4. **Montagem**: ajuste os cortes/zooms em `shots.json` e rode `python assemble.py --shots shots.json --out out`; copie `out/tutorial.*`
    para `downloads/videos/`. A duração de cada capítulo é a da narração + respiros; a gravação é acelerada até 1,4x ou tem o último quadro congelado.
 
+
+## Vídeo de ajuste da proporção da tela (`ajustar/`)
+
+Mesmo padrão do tutorial (voz neural, legenda, capítulos, cursor e animações), mas a captura do scrcpy **não mostra o efeito do ajuste**
+(o overscan não aparece no que o scrcpy grava). Por isso o resultado é mostrado "por fora", numa TV desenhada que reage a cada aperto
+de seta (com a tela real do painel, `public/painel-tela.webp`), ao lado de um controle remoto que acende a tecla apertada.
+
+1. `python narrate.py --script ajustar/script.json --work ajustar/work` → narração (mesma voz de `script.json`).
+2. `python ajustar/take.py reset` e `python ajustar/take.py run` → grava `ajustar/raw/take.mp4` (Home → Configurações → Preferências do
+   dispositivo → Exibição → Ajuste de proporção de tela → setas → Voltar). O `input keyevent` do aparelho leva ~1,4 s por chamada, então
+   cada tecla é disparada `KEY_LAT` s antes do instante desejado. `python ajustar/take.py restore` devolve a proporção a 100,100,100,100.
+3. Meça nos quadros gravados quando cada efeito apareceu e ajuste `PRESSES`, `OK_POS` e `ACTIONS` em `ajustar/compose.py`
+   (a gravação é VFR; o instante 0 é o início da gravação).
+4. `python ajustar/compose.py` → `ajustar/out/ajustar.{mp4,vtt,json,jpg}`; copie para `downloads/videos/`.

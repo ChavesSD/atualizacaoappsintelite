@@ -86,5 +86,6 @@ export async function publicContent() {
       };
     }),
     guideVideo: guideVideo(),
+    fixVideo: guideVideo("ajustar"),
   };
 }

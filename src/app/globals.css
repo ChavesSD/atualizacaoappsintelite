@@ -312,6 +312,9 @@ ol.steps { list-style: none; margin: 0; padding: 0; counter-reset: s; display: g
 ol.steps > li { counter-increment: s; display: flex; gap: var(--s-3); color: var(--text-2); }
 ol.steps > li::before { content: counter(s); flex: 0 0 28px; height: 28px; border-radius: 50%; background: var(--surface-3); color: var(--text-2); display: grid; place-items: center; font-size: var(--fs-0); font-weight: 650; margin-top: 0; }
 ol.steps > li.free { counter-increment: none; display: block; }
+ol.steps > li { border-radius: var(--r-md); transition: background-color var(--t-med) var(--ease-out), color var(--t-med) var(--ease-out); }
+ol.steps > li.on { background: var(--brand-soft); color: var(--text); margin-inline: calc(var(--s-2) * -1); padding: var(--s-2); }
+ol.steps > li.on::before { background: var(--brand); color: var(--brand-contrast); }
 ol.steps > li.free::before { display: none; }
 .info-list { padding-left: 0; display: grid; gap: var(--s-3); list-style: none; margin: 0; }
 .info-list li { display: grid; grid-template-columns: 22px 1fr; gap: var(--s-3); color: var(--text-2); }

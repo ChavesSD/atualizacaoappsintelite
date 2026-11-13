@@ -1,0 +1,31 @@
+{
+  "title": "Como ajustar a proporção da tela",
+  "voice": "pt-BR-FranciscaNeural",
+  "rate": "-3%",
+  "pitch": "+0Hz",
+  "lead": 0.5,
+  "tail": 0.8,
+  "introLead": 2.4,
+  "chapters": [
+    {
+      "id": "configuracoes",
+      "title": "Abrir",
+      "text": "Oi! Agora eu vou te mostrar como ajustar a tela, quando as bordas do painel ou do totem aparecem cortadas. Use o controle remoto do Mini PC. Se preferir, conecte um mouse USB. Primeiro, aperte o botão Home do controle, para ir à tela inicial. Depois, abra Configurações."
+    },
+    {
+      "id": "exibicao",
+      "title": "Exibição",
+      "text": "Em Configurações, entre em Preferências do dispositivo. Depois, selecione Exibição. Agora acesse Ajuste de proporção de tela. Escolha a primeira opção, a que fica em Configurações HDMI."
+    },
+    {
+      "id": "ajustar",
+      "title": "Ajustar",
+      "text": "A tela fica verde, com quatro setas. É aqui que você faz o ajuste. Ao lado, você vê como a imagem aparece na TV. Com as setas do controle remoto, ajuste as bordas da imagem. A seta para a esquerda reduz a largura, e a seta para baixo reduz a altura. Reduza aos poucos, até as bordas pretas começarem a aparecer nas laterais e na parte de baixo da tela. Agora, faça pequenos ajustes. A seta para a direita e a seta para cima aumentam a imagem. Pare quando toda a imagem ficar visível, sem cortes nas extremidades."
+    },
+    {
+      "id": "conferir",
+      "title": "Conferir",
+      "text": "Pronto! Para sair, aperte o botão Voltar do controle, até voltar à tela inicial. Depois, abra o aplicativo e confira se a tela aparece inteira, com as quatro bordas visíveis. Se ainda estiver cortada, repita o ajuste."
+    }
+  ]
+}

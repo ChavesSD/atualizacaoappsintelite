@@ -76,7 +76,7 @@ const VIDEO_TOKEN = /^\[\[video:([a-z]+)\]\]$/;
 const DOWNLOAD_TOKEN = /^\[\[downloads(?::[a-z]+)?\]\]$/; // aceita o formato antigo ([[downloads:totem]]): o app é o mesmo
 
 /** Linhas numeradas de um bloco, com os itens especiais (vídeo de apoio e opções de download). */
-export function Lines({ items, className = "lines" }: { items: string[]; className?: "lines" | "steps" }) {
+export function Lines({ items, className = "lines", active }: { items: string[]; className?: "lines" | "steps"; active?: number[] }) {
   return (
     <ol className={className}>
       {items.map((t, i) => {
@@ -88,7 +88,7 @@ export function Lines({ items, className = "lines" }: { items: string[]; classNa
         }
         return DOWNLOAD_TOKEN.test(t)
           ? <li key={i} className="free"><DownloadOptions /></li>
-          : <li key={i}><div className="grow"><Inline text={t} /></div></li>;
+          : <li key={i} className={active?.includes(i) ? "on" : undefined}><div className="grow"><Inline text={t} /></div></li>;
       })}
     </ol>
   );

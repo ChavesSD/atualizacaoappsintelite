@@ -23,7 +23,7 @@ interface View {
   unlocked: boolean[];
   redo: boolean;
 }
-interface Content { steps: PublicStep[]; guideVideo: Guide | null }
+interface Content { steps: PublicStep[]; guideVideo: Guide | null; fixVideo: Guide | null }
 type Run = <T>(fn: () => Promise<T>) => Promise<T | undefined>;
 
 const LAST = STEPS.length - 1;
@@ -32,7 +32,7 @@ const firstOpen = (v: View) => (v.unlocked[v.submission.step] ? v.submission.ste
 
 export function TutorialApp() {
   const [view, setView] = useState<View | null>(null);
-  const [content, setContent] = useState<Content>({ steps: [], guideVideo: null });
+  const [content, setContent] = useState<Content>({ steps: [], guideVideo: null, fixVideo: null });
   const [boot, setBoot] = useState<"loading" | "ready" | "error">("loading");
   const [bootError, setBootError] = useState("");
   const [phase, setPhase] = useState(0);
@@ -146,7 +146,7 @@ export function TutorialApp() {
         {error && <div style={{ marginBottom: 20 }}><Alert tone="bad" role="alert">{error}</Alert></div>}
 
         {phase === 0 && <UpdatePhase key="p0" head={headRef} first={first} step={byKey("atualizar")} video={content.guideVideo} installed={s.installed} busy={busy} onInstalled={(v) => patch({ installed: v })} onNext={() => patch({}, 1)} />}
-        {phase === 1 && <CheckPhase key="p1" head={headRef} intro={byKey("conferir")} fix={byKey(FIX_KEY)} state={s.framing} confirmed={s.confirmed} busy={busy} onFraming={(outcome) => patch({ framing: { outcome, issues: [] } })} onBack={() => go(0)} onNext={() => patch({}, 2)} canNext={view.unlocked[2]} />}
+        {phase === 1 && <CheckPhase key="p1" head={headRef} intro={byKey("conferir")} fix={byKey(FIX_KEY)} fixVideo={content.fixVideo} state={s.framing} confirmed={s.confirmed} busy={busy} onFraming={(outcome) => patch({ framing: { outcome, issues: [] } })} onBack={() => go(0)} onNext={() => patch({}, 2)} canNext={view.unlocked[2]} />}
         {phase === 2 && <PhotoPhase key="p2" head={headRef} content={byKey("fotos")} view={view} run={run} onView={setView} onBack={() => go(1)} onNext={() => patch({}, 3)} />}
         {phase === 3 && <FinishPhase key="p3" head={headRef} view={view} run={run} onView={setView} submitted={submitted} onBack={() => go(2)} onNew={async () => { await api("/api/submissions/reset", { method: "POST" }); setView(null); setError(null); }} />}
 
@@ -157,6 +157,9 @@ export function TutorialApp() {
 }
 
 // ───────── padrão de todas as etapas ─────────
+
+/** No vídeo de ajuste, cada capítulo corresponde a estes passos escritos (posição na lista, a partir de 0). */
+const FIX_CHAPTER_STEPS: number[][] = [[0], [1, 2, 3], [4, 5, 6], []];
 
 /** Ícone de cada etapa na barra de progresso. */
 const STEP_ICONS: IconName[] = ["download", "tv", "camera", "flag"];
@@ -368,14 +371,16 @@ const FRAMING_BADGE: Record<Framing, { tone: string; icon: IconName; text: strin
   PRECISA_SUPORTE: { tone: "bad", icon: "alert", text: "Suporte solicitado" },
 };
 
-function CheckPhase({ head, intro, fix, state, confirmed, busy, onFraming, onBack, onNext, canNext }: {
-  head: React.RefObject<HTMLHeadingElement | null>; intro?: PublicStep; fix?: PublicStep; state: Framing; confirmed: boolean; busy: boolean;
+function CheckPhase({ head, intro, fix, fixVideo: guide, state, confirmed, busy, onFraming, onBack, onNext, canNext }: {
+  head: React.RefObject<HTMLHeadingElement | null>; intro?: PublicStep; fix?: PublicStep; fixVideo: Guide | null; state: Framing; confirmed: boolean; busy: boolean;
   onFraming: (o: "CORRETO" | "INCORRETO" | "PRECISA_SUPORTE") => void; onBack: () => void; onNext: () => void; canNext: boolean;
 }) {
   // Com problema aberto, o cliente já vê o tutorial de ajuste; senão, vê a lista do que precisa estar correto.
   const [mode, setMode] = useState<"check" | "fix">(state === "INCORRETO" || state === "PRECISA_SUPORTE" ? "fix" : "check");
   const send = (outcome: "CORRETO" | "INCORRETO" | "PRECISA_SUPORTE") => { onFraming(outcome); setMode(outcome === "CORRETO" ? "check" : "fix"); };
   const badge = FRAMING_BADGE[state];
+  const fixPlayer = useRef<GuidePlayer>(null);
+  const [fixChapter, setFixChapter] = useState(0);
   // etapa de ajuste: o vídeo vai sozinho no cartão da esquerda e o passo a passo escrito no da direita
   const fixLines = fix?.instructions ?? [];
   const fixVideoSlug = fixLines.map((l) => /^\[\[video:([a-z]+)\]\]$/.exec(l)?.[1]).find((v): v is TutorialVideo => !!v && isTutorialVideo(v));
@@ -402,9 +407,9 @@ function CheckPhase({ head, intro, fix, state, confirmed, busy, onFraming, onBac
         </>
       )}
       <div className="duo">
-        {mode === "fix" && fixVideo && (
+        {mode === "fix" && (guide || fixVideo) && (
           <div className="fit-video">
-            <Video video={fixVideo} />
+            {guide ? <GuideVideo ref={fixPlayer} video={guide} active={fixChapter} onChapter={setFixChapter} /> : fixVideo && <Video video={fixVideo} />}
           </div>
         )}
         {mode === "fix" && (
@@ -418,7 +423,7 @@ function CheckPhase({ head, intro, fix, state, confirmed, busy, onFraming, onBac
             </div>
             <div className="stepbox-body" tabIndex={0} role="region" aria-label="Instruções do ajuste da tela">
               {!fix && <Alert tone="info">O conteúdo desta etapa ainda está sendo preparado pela equipe da Intelite.</Alert>}
-              {fixBlock && <Lines items={fixBlock.items} className="steps" />}
+              {fixBlock && <Lines items={fixBlock.items} className="steps" active={guide ? FIX_CHAPTER_STEPS[fixChapter] : undefined} />}
               {fix?.warning && <Alert tone="warn" role="note"><strong>Atenção: </strong><Inline text={fix.warning} /></Alert>}
             </div>
           </section>

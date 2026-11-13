@@ -14,16 +14,19 @@ export function videoFilePath(file: string): { path: string; contentType: string
 
 const exists = (f: string) => fs.existsSync(path.join(dir(), f));
 
-/** Vídeo principal do guia, se já foi gravado (tutorial.mp4 + tutorial.json com título e capítulos). */
-export function guideVideo(): GuideVideo | null {
-  if (!exists("tutorial.mp4") || !exists("tutorial.json")) return null;
+/**
+ * Vídeo com capítulos e legenda, se já foi gravado (<nome>.mp4 + <nome>.json com título e capítulos).
+ * "tutorial" é o vídeo de atualização; "ajustar" é o de ajuste da proporção da tela.
+ */
+export function guideVideo(name: "tutorial" | "ajustar" = "tutorial"): GuideVideo | null {
+  if (!exists(`${name}.mp4`) || !exists(`${name}.json`)) return null;
   try {
-    const meta = JSON.parse(fs.readFileSync(path.join(dir(), "tutorial.json"), "utf8")) as { title?: string; durationSec?: number; chapters?: { title: string; start: number }[] };
+    const meta = JSON.parse(fs.readFileSync(path.join(dir(), `${name}.json`), "utf8")) as { title?: string; durationSec?: number; chapters?: { title: string; start: number }[] };
     return {
-      title: meta.title ?? "Como atualizar o aplicativo",
-      src: "/api/videos/tutorial.mp4",
-      poster: exists("tutorial.jpg") ? "/api/videos/tutorial.jpg" : null,
-      captions: exists("tutorial.vtt") ? "/api/videos/tutorial.vtt" : null,
+      title: meta.title ?? (name === "ajustar" ? "Como ajustar a proporção da tela" : "Como atualizar o aplicativo"),
+      src: `/api/videos/${name}.mp4`,
+      poster: exists(`${name}.jpg`) ? `/api/videos/${name}.jpg` : null,
+      captions: exists(`${name}.vtt`) ? `/api/videos/${name}.vtt` : null,
       durationSec: meta.durationSec ?? 0,
       chapters: (meta.chapters ?? []).filter((c) => typeof c.title === "string" && Number.isFinite(c.start)).sort((a, b) => a.start - b.start),
     };
