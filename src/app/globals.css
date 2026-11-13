@@ -559,7 +559,7 @@ details > summary { cursor: pointer; min-height: 32px; }
 @media (max-width: 640px) { :root { --foot-h: 44px; } .brandfoot { font-size: .75rem; padding-block: var(--s-3); } }
 
 /* anéis girando atrás do totem: dois anéis quebrados (arcos com vão), em sentidos opostos, em azul brilhante; cada arco sai da borda da bolinha */
-.orbits { position: absolute; left: 50%; top: 50%; width: min(96%, 540px); aspect-ratio: 1; transform: translate(-50%, -50%); pointer-events: none; z-index: -1; }
+.orbits { position: absolute; left: 50%; top: 50%; width: min(84%, 470px); aspect-ratio: 1; transform: translate(-50%, -50%); pointer-events: none; z-index: -1; }
 .orbit { position: absolute; inset: 0; width: 100%; height: 100%; fill: none; stroke: url(#orbit-grad); stroke-linecap: round; transform-origin: 50% 50%; filter: drop-shadow(0 0 5px rgba(76, 155, 255, .85)) drop-shadow(0 0 14px rgba(76, 155, 255, .45)); }
 .orbit path, .orbit circle { vector-effect: non-scaling-stroke; }
 .orbit-ext { opacity: .95; animation: orbit-spin 48s linear infinite; }
