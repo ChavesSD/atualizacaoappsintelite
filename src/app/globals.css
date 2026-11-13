@@ -533,9 +533,9 @@ details > summary { cursor: pointer; min-height: 32px; }
 
 
 /* ═════════ cartões padronizados: sempre dois, do tamanho máximo disponível; só o conteúdo de dentro se ajusta ═════════ */
-.done-card { display: grid; align-content: center; justify-items: start; gap: var(--s-3); border-color: color-mix(in srgb, var(--ok) 40%, var(--border)); background: var(--ok-soft); }
-.done-card .big { width: 56px; height: 56px; border-radius: 50%; background: var(--ok); color: #04210f; display: grid; place-items: center; }
-.done-card .big .icon { width: 28px; height: 28px; stroke-width: 3; }
+.done-card { display: grid; align-content: center; justify-items: center; text-align: center; gap: var(--s-4); border-color: color-mix(in srgb, var(--ok) 40%, var(--border)); background: var(--ok-soft); }
+.done-card .big { width: 88px; height: 88px; border-radius: 50%; background: var(--ok); color: #04210f; display: grid; place-items: center; }
+.done-card .big .icon { width: 44px; height: 44px; stroke-width: 3; }
 @media (min-width: 1000px) and (min-height: 640px) {
   .shell.cards-page { display: flex; flex-direction: column; height: calc(100dvh - var(--topbar-h) - var(--foot-h)); min-height: 0; padding-block: var(--s-3); overflow: hidden; }
   .shell.cards-page.no-top { height: calc(100dvh - var(--foot-h)); }
