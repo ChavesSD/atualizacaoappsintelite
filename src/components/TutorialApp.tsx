@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/client-api";
 import { CRITERIA, DEFAULT_SOLUTION, FIX_KEY, SOLUTIONS, STEPS } from "@/lib/flow";
 import type { GuideVideo as Guide } from "@/lib/videos";
-import { BrandBar } from "./Brand";
+import { BrandBar, BrandFooter } from "./Brand";
 import { GuideVideo, type GuidePlayer } from "./GuideVideo";
 import { Totem3D } from "./Totem3D";
 import { TvArt } from "./TvArt";
@@ -78,23 +78,23 @@ export function TutorialApp() {
   if (boot === "loading") {
     return (
       <>
-        <BrandBar />
         <main className="shell" aria-busy="true" aria-label="Carregando">
           <div className="stack" style={{ maxWidth: 560, paddingTop: 48 }}><Skeleton h={64} r={12} /><Skeleton h={64} w="70%" r={12} /><Skeleton h={20} w="50%" /><Skeleton h={220} r={28} /></div>
         </main>
+        <BrandFooter compact />
       </>
     );
   }
   if (boot === "error") {
     return (
       <>
-        <BrandBar />
         <main className="shell">
           <div className="narrow stack" style={{ paddingTop: 32 }}>
             <Alert tone="bad" role="alert"><strong>Não foi possível abrir a página.</strong><br />{bootError}</Alert>
             <button type="button" className="btn primary" onClick={load}>Tentar de novo</button>
           </div>
         </main>
+        <BrandFooter compact />
       </>
     );
   }
@@ -131,7 +131,7 @@ export function TutorialApp() {
           </ol>
         </nav>
       </BrandBar>
-      <main id="conteudo" className={`shell ${phase === 0 ? "fit-page" : ""}`} tabIndex={-1}>
+      <main id="conteudo" className={`shell ${phase === 0 ? "fit-page" : "cards-page"}`} tabIndex={-1}>
 
         {view.redo && phase !== 2 && (
           <div style={{ marginBottom: 20 }}><Alert tone="warn" role="alert">A equipe pediu uma nova foto da tela. <button type="button" className="btn sm" onClick={() => go(2)}>Enviar agora</button></Alert></div>
@@ -143,11 +143,38 @@ export function TutorialApp() {
         {phase === 2 && <PhotoPhase key="p2" head={headRef} content={byKey("fotos")} view={view} run={run} onView={setView} onBack={() => go(1)} onNext={() => patch({}, 3)} />}
         {phase === 3 && <FinishPhase key="p3" head={headRef} view={view} run={run} onView={setView} submitted={submitted} onBack={() => go(2)} onNew={async () => { await api("/api/submissions/reset", { method: "POST" }); setView(null); setError(null); }} />}
 
-        {phase !== 0 && <footer className="foot">
-          <span>Intelite Tecnologia · seu progresso fica salvo neste aparelho.</span>
-        </footer>}
       </main>
+      <BrandFooter compact />
     </>
+  );
+}
+
+// ───────── padrão de todas as etapas ─────────
+
+/** Título e subtítulo da etapa (sempre na mesma posição); `aside` fica à direita (ex.: situação da tela). */
+function PhaseHead({ head, title, sub, aside }: { head: React.RefObject<HTMLHeadingElement | null>; title: string; sub: React.ReactNode; aside?: React.ReactNode }) {
+  return (
+    <header className="phase-head">
+      <div className="phase-titles">
+        <h1 id="h-phase" ref={head} tabIndex={-1}>{title}</h1>
+        <p>{sub}</p>
+      </div>
+      {aside}
+    </header>
+  );
+}
+
+/** Barra de navegação da etapa: Voltar à esquerda; dica e botão principal à direita, sempre no mesmo lugar. */
+function NavRow({ onBack, backDisabled, hint, nextLabel, onNext, nextDisabled, nextPrimary = true, nextIcon = true }: {
+  onBack?: () => void; backDisabled?: boolean; hint?: React.ReactNode; nextLabel: string; onNext: () => void; nextDisabled?: boolean; nextPrimary?: boolean; nextIcon?: boolean;
+}) {
+  return (
+    <div className="nav-row">
+      {onBack ? <button type="button" className="btn ghost" disabled={backDisabled} onClick={onBack}><Icon name="arrowLeft" size={18} /> Voltar</button> : <span />}
+      <span className="grow" />
+      {hint && <span className="why" role="status">{hint}</span>}
+      <button type="button" className={`btn ${nextPrimary ? "primary" : ""}`} disabled={nextDisabled} onClick={onNext}>{nextLabel}{nextIcon && <> <Icon name="arrowRight" size={18} /></>}</button>
+    </div>
   );
 }
 
@@ -180,10 +207,9 @@ function Hero({ onCreated }: { onCreated: (v: View) => void }) {
   return (
     <>
       <a className="skip-link" href="#conteudo">Pular para o conteúdo</a>
-      <BrandBar />
-      <main id="conteudo" className="shell" tabIndex={-1}>
-        <div className="hero">
-          <div>
+      <main id="conteudo" className="shell cards-page no-top" tabIndex={-1}>
+        <div className="hero duo">
+          <div className="duo-card hero-left">
             <h1 className="display rise" style={{ "--i": 0 } as React.CSSProperties}>Quer atualizar seu app <em>Intelite</em>?</h1>
             <p className="lead rise" style={{ "--i": 1 } as React.CSSProperties}>Escolha a solução e siga o passo a passo em texto e vídeo. Leva poucos minutos.</p>
             <form className="start rise" style={{ "--i": 2 } as React.CSSProperties} onSubmit={submit} noValidate>
@@ -220,9 +246,10 @@ function Hero({ onCreated }: { onCreated: (v: View) => void }) {
               <p className="muted small" style={{ margin: 0 }}>Usamos seu nome, sua empresa e a foto da tela só para acompanhar esta atualização.</p>
             </form>
           </div>
-          <div className="hero-art rise" style={{ "--i": 3 } as React.CSSProperties}><Totem3D /></div>
+          <div className="duo-card hero-art rise" style={{ "--i": 3 } as React.CSSProperties}><Totem3D /></div>
         </div>
       </main>
+      <BrandFooter compact />
     </>
   );
 }
@@ -251,10 +278,7 @@ function UpdatePhase({ head, first, step, video, installed, busy, onInstalled, o
 
   return (
     <section className="phase fit" aria-labelledby="h-phase">
-      <header className="phase-head">
-        <h1 id="h-phase" ref={head} tabIndex={-1}>Atualizar o aplicativo</h1>
-        <p>Oi, <span className="user-text">{first}</span>! Assista ao vídeo ou leia: o passo ao lado acompanha o que está passando.</p>
-      </header>
+      <PhaseHead head={head} title="Atualizar o aplicativo" sub={<>Oi, <span className="user-text">{first}</span>! Assista ao vídeo ou leia: o passo ao lado acompanha o que está passando.</>} />
       <div className="fit-grid">
         <div className="fit-video">
           {video
@@ -292,19 +316,14 @@ function UpdatePhase({ head, first, step, video, installed, busy, onInstalled, o
                     <span>Terminei a atualização e o aplicativo abriu.</span>
                   </label>
                 ) : null}
-                <div className="stepbox-actions">
-                  <button type="button" className="btn" disabled={cur === 0} onClick={() => select(cur - 1)}><Icon name="arrowLeft" size={18} /> Anterior</button>
-                  <span className="grow" />
-                  {lastStep
-                    ? <button type="button" className="btn primary" disabled={busy || !installed} onClick={onNext}>Continuar <Icon name="arrowRight" size={18} /></button>
-                    : <button type="button" className="btn primary" onClick={() => select(cur + 1)}>Próximo passo <Icon name="arrowRight" size={18} /></button>}
-                </div>
-                {lastStep && !installed && <p className="why">Marque “Terminei a atualização” para continuar.</p>}
               </div>
             </>
           )}
         </section>
       </div>
+      <NavRow onBack={() => select(cur - 1)} backDisabled={cur === 0}
+        hint={lastStep && !installed ? "Marque “Terminei a atualização” para continuar." : undefined}
+        nextLabel={lastStep ? "Continuar" : "Próximo passo"} onNext={() => (lastStep ? onNext() : select(cur + 1))} nextDisabled={lastStep ? busy || !installed : false} />
     </section>
   );
 }
@@ -328,20 +347,13 @@ function CheckPhase({ head, intro, fix, state, confirmed, busy, onFraming, onBac
   const badge = FRAMING_BADGE[state];
   return (
     <section className="phase" aria-labelledby="h-phase">
-      <header className="phase-head">
-        <h1 id="h-phase" ref={head} tabIndex={-1}>{mode === "fix" ? "Minha tela está cortada ou desalinhada" : "Como sua tela está?"}</h1>
-        {mode === "check" && <p>Olhe para a tela do equipamento e escolha a imagem que mais se parece com ela.</p>}
-      </header>
+      <PhaseHead head={head} title={mode === "fix" ? "Minha tela está cortada ou desalinhada" : "Como sua tela está?"}
+        sub={mode === "fix" ? "Siga o tutorial de ajuste e depois confira a tela de novo." : "Olhe para a tela do equipamento e escolha a imagem que mais se parece com ela."}
+        aside={<span className={`badge ${badge.tone}`}><Icon name={badge.icon} />{badge.text}</span>} />
 
       {mode === "check" && (
         <>
-          <div className="row between" style={{ marginBottom: "var(--s-3)" }}>
-            <span className="muted small">Situação da tela</span>
-            <span className={`badge ${badge.tone}`}><Icon name={badge.icon} />{badge.text}</span>
-          </div>
-          {state === "CORRETO" && <div style={{ marginBottom: "var(--s-3)" }}><Alert tone="info">Obrigado! A equipe da Intelite vai conferir pela foto. {confirmed && <strong>A equipe já confirmou.</strong>}</Alert></div>}
-          <fieldset className="tvchoices">
-            <legend className="visually-hidden">Como sua tela está?</legend>
+          <div className="tvchoices" role="group" aria-label="Como sua tela está?">
             <button type="button" className="tvchoice bad" aria-pressed={state === "INCORRETO" || state === "PRECISA_SUPORTE"} disabled={busy} onClick={() => send("INCORRETO")}>
               <TvArt variant="cut" />
               <span className="tvchoice-text"><Icon name="alert" /><strong>Cortada ou desalinhada</strong><span className="d">Bordas escondidas, textos cortados ou a imagem fora do lugar. Mostramos como ajustar.</span></span>
@@ -350,25 +362,18 @@ function CheckPhase({ head, intro, fix, state, confirmed, busy, onFraming, onBac
               <TvArt variant="ok" />
               <span className="tvchoice-text"><Icon name="checkCircle" /><strong>Está tudo certo</strong><span className="d">Tudo aparece dentro da tela, com as quatro bordas visíveis. Siga para a foto.</span></span>
             </button>
-          </fieldset>
-          <details className="criteria">
-            <summary>O que conferir na tela</summary>
-            <p>{(intro?.instructions ?? []).map((l) => <span key={l} style={{ display: "block", marginBottom: 6 }}><Inline text={l} /></span>)}</p>
-            <ul className="info-list">{CRITERIA.map((c) => <li key={c}>{c}</li>)}</ul>
-          </details>
+          </div>
         </>
       )}
-      <div className="split">
+      <div className="duo">
         {mode === "fix" && (
           <>
-            <div className="stack">
-              <div className="row between">
-                <span className="muted small">Situação da tela</span>
-                <span className={`badge ${badge.tone}`}><Icon name={badge.icon} />{badge.text}</span>
-              </div>
+            <div className="stack duo-card" tabIndex={0} role="region" aria-label="Tutorial de ajuste da tela">
               <StepContent step={fix} />
             </div>
-            <div className="stack">
+            <div className="stack duo-card" tabIndex={0} role="region" aria-label="Depois de ajustar">
+              <h2 className="duo-title">Depois de ajustar</h2>
+              <p className="muted" style={{ margin: 0 }}>Volte e confira se agora a tela aparece inteira, com as quatro bordas visíveis. Se não conseguir ajustar, a equipe da Intelite ajuda.</p>
               <button type="button" className="btn primary lg block" disabled={busy} onClick={() => setMode("check")}>Já fiz o ajuste. Conferir a tela de novo</button>
               <button type="button" className="btn block" disabled={busy || state === "PRECISA_SUPORTE"} onClick={() => send("PRECISA_SUPORTE")}>{state === "PRECISA_SUPORTE" ? "Suporte solicitado: a equipe vai ajudar" : "Não consegui. Preciso de suporte"}</button>
             </div>
@@ -376,12 +381,9 @@ function CheckPhase({ head, intro, fix, state, confirmed, busy, onFraming, onBac
         )}
       </div>
 
-      <div className="nav-row">
-        <button type="button" className="btn ghost" onClick={onBack}><Icon name="arrowLeft" size={18} /> Voltar</button>
-        <span className="grow" />
-        {!canNext && <span className="why" style={{ margin: 0 }}>Escolha uma opção para continuar.</span>}
-        <button type="button" className="btn primary" disabled={busy || !canNext} onClick={onNext}>Continuar <Icon name="arrowRight" size={18} /></button>
-      </div>
+      <NavRow onBack={mode === "fix" ? () => setMode("check") : onBack}
+        hint={mode === "fix" ? "Termine o ajuste e confira a tela de novo." : state === "CORRETO" ? <>Obrigado! A equipe da Intelite vai conferir pela foto.{confirmed && <strong> A equipe já confirmou.</strong>}</> : !canNext ? "Escolha uma opção para continuar." : undefined}
+        nextLabel="Continuar" onNext={onNext} nextDisabled={busy || !canNext} />
     </section>
   );
 }
@@ -403,16 +405,13 @@ function PhotoPhase({ head, content, view, run, onView, onBack, onNext }: {
   const redo = view.photos.filter((p) => p.review === "REFAZER").at(-1);
   return (
     <section className="phase" aria-labelledby="h-phase">
-      <header className="phase-head">
-        <h1 id="h-phase" ref={head} tabIndex={-1}>Enviar uma foto</h1>
-        <p>A equipe confere o enquadramento pela foto da tela.</p>
-      </header>
-      <div className="split">
-        <div className="stack">
+      <PhaseHead head={head} title="Enviar uma foto" sub="A equipe confere o enquadramento pela foto da tela." />
+      <div className="duo">
+        <div className="stack duo-card" tabIndex={0} role="region" aria-label="Orientações para a foto">
           <StepContent step={content} />
           {view.redo && redo && <Alert tone="warn" role="alert"><strong>A equipe pediu outra foto: </strong><span className="user-text">{redo.reviewNote}</span></Alert>}
         </div>
-        <div className="stack">
+        <div className="stack duo-card" tabIndex={0} role="region" aria-label="Enviar a foto">
           <label className="drop" aria-disabled={uploading}>
             {uploading ? <span className="spinner" aria-hidden /> : <Icon name="camera" />}
             <strong>{uploading ? "Enviando…" : view.photos.length > 0 ? "Enviar outra foto" : "Tirar ou escolher uma foto"}</strong>
@@ -433,12 +432,7 @@ function PhotoPhase({ head, content, view, run, onView, onBack, onNext }: {
           )}
         </div>
       </div>
-      <div className="nav-row">
-        <button type="button" className="btn ghost" onClick={onBack}><Icon name="arrowLeft" size={18} /> Voltar</button>
-        <span className="grow" />
-        {!view.unlocked[3] && <span className="why" style={{ margin: 0 }}>Envie uma foto para continuar.</span>}
-        <button type="button" className="btn primary" disabled={!view.unlocked[3]} onClick={onNext}>Continuar <Icon name="arrowRight" size={18} /></button>
-      </div>
+      <NavRow onBack={onBack} hint={!view.unlocked[3] ? "Envie uma foto para continuar." : undefined} nextLabel="Continuar" onNext={onNext} nextDisabled={!view.unlocked[3]} />
     </section>
   );
 }
@@ -457,35 +451,42 @@ function FinishPhase({ head, view, run, onView, submitted, onBack, onNew }: {
     : s.framing === "PRECISA_SUPORTE" ? { tone: "bad", icon: "alert" as IconName, text: "Suporte solicitado" }
     : { tone: "", icon: "clock" as IconName, text: "Ainda não conferida" };
 
+  const sendRating = () => run(async () => onView(await api<View>("/api/submissions/me/submit", { body: { rating, comment: comment || undefined, hardestStep: hardest || undefined } })));
+
   if (submitted) {
     return (
-      <section className="phase narrow" aria-labelledby="h-phase">
-        <div className="done-panel" role="status">
-          <span className="big" aria-hidden><Icon name="check" /></span>
-          <h1 id="h-phase" ref={head} tabIndex={-1} style={{ fontSize: "clamp(1.75rem, 1.1rem + 2.4vw, 2.75rem)" }}>Recebemos o seu envio. Obrigado!</h1>
-          <p style={{ margin: 0 }}>{s.status === "APROVADO" ? "A equipe confirmou a atualização." : s.status === "PRECISA_AJUSTE" ? "A equipe pediu um ajuste. Veja o aviso no topo da página." : "A equipe da Intelite vai analisar a foto e confirmar. Se precisar de algo, avisaremos aqui: guarde este link."}</p>
-          <ul className="recap" style={{ width: "100%" }}>
-            <li><span>Aplicativo atualizado</span><span className="badge ok"><Icon name="checkCircle" />Feito</span></li>
-            <li><span>Tela</span><span className={`badge ${framing.tone}`}><Icon name={framing.icon} />{framing.text}</span></li>
-          </ul>
-          <button type="button" className="btn" onClick={() => confirm("Iniciar um novo envio neste aparelho (por exemplo, outra loja)? O envio atual continua registrado.") && run(onNew)}>Atualizar outra loja ou equipamento</button>
+      <section className="phase" aria-labelledby="h-phase">
+        <PhaseHead head={head} title="Recebemos o seu envio. Obrigado!" sub="Seu envio foi registrado." />
+        <div className="duo" role="status">
+          <div className="duo-card done-card">
+            <span className="big" aria-hidden><Icon name="check" /></span>
+            <p style={{ margin: 0 }}>{s.status === "APROVADO" ? "A equipe confirmou a atualização." : s.status === "PRECISA_AJUSTE" ? "A equipe pediu um ajuste. Veja o aviso no topo da página." : "A equipe da Intelite vai analisar a foto e confirmar. Se precisar de algo, avisaremos aqui: guarde este link."}</p>
+          </div>
+          <div className="duo-card stack" tabIndex={0} role="region" aria-label="Resumo">
+            <h2 className="duo-title">Resumo</h2>
+            <ul className="recap">
+              <li><span>Aplicativo atualizado</span><span className="badge ok"><Icon name="checkCircle" />Feito</span></li>
+              <li><span>Tela</span><span className={`badge ${framing.tone}`}><Icon name={framing.icon} />{framing.text}</span></li>
+            </ul>
+          </div>
         </div>
+        <NavRow nextLabel="Atualizar outra loja ou equipamento" nextPrimary={false} nextIcon={false} onNext={() => confirm("Iniciar um novo envio neste aparelho (por exemplo, outra loja)? O envio atual continua registrado.") && run(onNew)} />
       </section>
     );
   }
   return (
     <section className="phase" aria-labelledby="h-phase">
-      <header className="phase-head">
-        <h1 id="h-phase" ref={head} tabIndex={-1}>Finalizar</h1>
-        <p>Falta só avaliar. Conte como foi, em um toque.</p>
-      </header>
-      <div className="split">
-        <ul className="recap">
-          <li><span>Aplicativo atualizado</span><span className="badge ok"><Icon name="checkCircle" />Feito</span></li>
-          <li><span>Tela</span><span className={`badge ${framing.tone}`}><Icon name={framing.icon} />{framing.text}</span></li>
-          <li><span>Foto enviada</span><span className="badge ok"><Icon name="checkCircle" />{view.photos.length} foto{view.photos.length === 1 ? "" : "s"}</span></li>
-        </ul>
-        <div className="stack">
+      <PhaseHead head={head} title="Finalizar" sub="Falta só avaliar. Conte como foi, em um toque." />
+      <div className="duo">
+        <div className="duo-card" tabIndex={0} role="region" aria-label="Resumo">
+          <h2 className="duo-title">Resumo</h2>
+          <ul className="recap">
+            <li><span>Aplicativo atualizado</span><span className="badge ok"><Icon name="checkCircle" />Feito</span></li>
+            <li><span>Tela</span><span className={`badge ${framing.tone}`}><Icon name={framing.icon} />{framing.text}</span></li>
+            <li><span>Foto enviada</span><span className="badge ok"><Icon name="checkCircle" />{view.photos.length} foto{view.photos.length === 1 ? "" : "s"}</span></li>
+          </ul>
+        </div>
+        <div className="stack duo-card" tabIndex={0} role="region" aria-label="Avaliação">
           <fieldset className="stars">
             <legend>Como foi a experiência? Nota de 1 a 5</legend>
             {[1, 2, 3, 4, 5].map((n) => (
@@ -499,13 +500,9 @@ function FinishPhase({ head, view, run, onView, submitted, onBack, onNew }: {
           <label className="field"><span>Qual etapa foi mais difícil? (opcional)</span>
             <select value={hardest} onChange={(e) => setHardest(e.target.value)}><option value="">Nenhuma</option>{STEPS.slice(0, LAST).map((st) => <option key={st.key} value={st.title}>{st.title}</option>)}</select></label>
           <label className="field"><span>Comentário (opcional)</span><textarea value={comment} maxLength={2000} onChange={(e) => setComment(e.target.value)} /></label>
-          <div>
-            <button type="button" className="btn primary lg block" disabled={rating === 0} onClick={() => run(async () => onView(await api<View>("/api/submissions/me/submit", { body: { rating, comment: comment || undefined, hardestStep: hardest || undefined } })))}>Enviar</button>
-            {rating === 0 && <p className="why">Escolha uma nota para habilitar o envio.</p>}
-          </div>
         </div>
       </div>
-      <div className="nav-row"><button type="button" className="btn ghost" onClick={onBack}><Icon name="arrowLeft" size={18} /> Voltar</button></div>
+      <NavRow onBack={onBack} hint={rating === 0 ? "Escolha uma nota para habilitar o envio." : undefined} nextLabel="Enviar" nextIcon={false} onNext={sendRating} nextDisabled={rating === 0} />
     </section>
   );
 }

@@ -99,7 +99,7 @@ test("cliente conclui o guia no celular; equipe confirma; indicadores refletem",
   await expect(page.getByText("Escolha o formato")).toHaveCount(0); // texto e vídeo juntos: não há mais escolha de formato
   const overflowY = () => page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight);
   expect(await overflowY()).toBeLessThanOrEqual(2);
-  await expect(page.getByRole("button", { name: /Anterior/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /Voltar/ })).toBeDisabled();
   await page.getByRole("button", { name: /Próximo passo/ }).click();
   await expect(h2("Baixe o aplicativo")).toBeVisible();
   await expect(h2("Prepare o Mini PC")).toHaveCount(0);
@@ -136,8 +136,6 @@ test("cliente conclui o guia no celular; equipe confirma; indicadores refletem",
   // fase 2: conferir a tela (lista informativa; problema → tutorial de ajuste → conferir de novo)
   await expect(phaseTitle(page, "Como sua tela está?")).toBeVisible();
   await expect(page.getByRole("button", { name: /Está tudo certo/ })).toBeVisible();
-  await page.getByText("O que conferir na tela").click();
-  await expect(page.getByText("Textos, botões, logotipo e números das senhas não estão cortados.")).toBeVisible();
   await expect(page.locator("main input[type=checkbox]")).toHaveCount(0); // nada para marcar
   await expect(page.getByRole("button", { name: /^Continuar/ })).toBeDisabled();
   await page.getByRole("button", { name: /Cortada ou desalinhada/ }).click();
