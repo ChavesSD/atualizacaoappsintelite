@@ -157,7 +157,7 @@ export function Milly({ video, mouth: mouthSrc, onStart }: { video: HTMLVideoEle
     <div className="milly-wrap" ref={root}>
       <div className="milly">
         <button type="button" className="milly-avatar" onClick={onStart} aria-label="Ouvir a Milly explicar o passo a passo (iniciar o vídeo)">
-          <svg ref={svg} viewBox="0 0 940 1000" aria-hidden focusable="false">
+          <svg ref={svg} viewBox="40 0 860 800" aria-hidden focusable="false">
             <defs>
               <radialGradient id="m-fade" cx="0.5" cy="0.5" r="0.5"><stop offset="0.62" stopColor="#fff" /><stop offset="1" stopColor="#000" /></radialGradient>
               <mask id="m-headmask" maskUnits="userSpaceOnUse" x="0" y="0" width="940" height="1000">

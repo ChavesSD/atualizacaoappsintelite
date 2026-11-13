@@ -435,16 +435,13 @@ details > summary { cursor: pointer; min-height: 32px; }
 .fit .phase-head p { font-size: var(--fs-0); color: var(--muted); }
 .fit-grid { flex: 1 1 0; min-height: 0; display: grid; gap: var(--s-4); grid-template-rows: auto minmax(0, 1fr); }
 @media (min-width: 1000px) {
-  .fit-grid { grid-template-columns: minmax(0, 1fr) clamp(170px, 19vw, 270px); grid-template-rows: minmax(0, 1fr) auto; grid-template-areas: "video video" "text milly"; gap: var(--s-3) var(--s-6); }
-  .fit-video { grid-area: video; align-items: center; container-type: size; }
-  .fit-video .vfig { width: 100%; align-items: center; }
-  .fit-video .player { width: min(100%, calc((100cqh - 54px) * 16 / 9)); margin-inline: auto; }
-  .fit-video .chapters { justify-content: center; flex-wrap: wrap; overflow: visible; }
-  .stepbox { grid-area: text; max-height: 42dvh; }
-  .milly-wrap { grid-area: milly; }
+  .fit-grid { grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: var(--s-6); }
+  .fit-video { justify-content: center; }
   .fit .phase-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 var(--s-4); }
 }
 .fit-video { min-height: 0; min-width: 0; display: flex; flex-direction: column; justify-content: flex-start; }
+.fit-side { min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+.fit-side .stepbox { flex: 1 1 auto; position: relative; z-index: 1; }
 .vfig { margin: 0; display: flex; flex-direction: column; gap: var(--s-3); min-height: 0; }
 /* o vídeo cresce até caber: a largura acompanha a altura disponível (16:9) */
 @media (max-width: 999px) { .fit-video .player { width: min(100%, calc(32dvh * 16 / 9)); max-height: 32dvh; margin-inline: auto; border-radius: var(--r-lg); box-shadow: none; } }
@@ -455,22 +452,17 @@ details > summary { cursor: pointer; min-height: 32px; }
 .chapters button[aria-current="step"] .n { background: var(--brand); color: var(--brand-contrast); }
 .chapters button[aria-current="step"] .time { color: var(--brand-text); }
 
-/* Milly: guia animada, no canto inferior direito (só em telas largas) */
+/* Milly: guia animada, espiando por cima do passo a passo (só em telas largas) */
 .milly-wrap { display: none; }
 @media (min-width: 1000px) {
-  .milly-wrap { display: block; position: relative; container-type: size; min-height: 190px; }
-  .milly { position: absolute; inset: 0; }
-  .milly-avatar { position: absolute; right: 0; bottom: 0; height: min(100cqh, calc(100cqw * 1000 / 940)); aspect-ratio: 940 / 1000; }
+  .fit-side { position: relative; margin-top: clamp(40px, 7dvh, 64px); }
+  .milly-wrap { display: flex; justify-content: flex-end; position: absolute; right: var(--s-5); bottom: calc(100% - 20px); height: clamp(90px, 14dvh, 130px); }
+  .fit .phase-head { padding-right: 240px; }
+  .milly-avatar { height: 100%; aspect-ratio: 860 / 800; }
 }
 .milly-avatar { padding: 0; border: 0; background: none; cursor: pointer; border-radius: var(--r-lg); }
-.milly-avatar svg { display: block; height: 100%; width: 100%; overflow: visible; filter: drop-shadow(0 12px 24px rgba(0, 0, 0, .55)); }
+.milly-avatar svg { display: block; height: 100%; width: 100%; overflow: visible; filter: drop-shadow(0 8px 16px rgba(0, 0, 0, .5)); }
 .milly-avatar:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
-
-/* o passo a passo é o "balão de fala" da Milly: uma ponta sai da caixa em direção a ela */
-.stepbox { position: relative; }
-@media (min-width: 1000px) {
-  .stepbox.has-guide::before { content: ""; position: absolute; right: -11px; top: 34%; width: 20px; height: 20px; background: var(--surface); border-right: 1px solid var(--brand); border-top: 1px solid var(--brand); transform: rotate(45deg); border-top-right-radius: 4px; }
-}
 
 .stepbox { min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--brand); border-radius: var(--r-xl); padding: var(--s-4) var(--s-5); box-shadow: 0 0 0 1px var(--brand), 0 18px 50px -20px var(--brand-glow); }
 .stepbox-head { flex: 0 0 auto; display: flex; align-items: center; gap: var(--s-3); padding-bottom: var(--s-3); }

@@ -265,6 +265,7 @@ function UpdatePhase({ head, first, step, video, installed, busy, onInstalled, o
               : <div className="player-empty"><div><Icon name="play" size={32} /><p style={{ margin: "8px 0 0" }}><strong>O vídeo completo está sendo preparado.</strong><br />Enquanto isso, siga o passo a passo escrito.</p></div></div>}
         </div>
 
+        <div className="fit-side">
         {video && <Milly video={vid} mouth={video.mouth} onStart={() => { if (!vid || vid.paused) player.current?.seek(vid ? vid.currentTime : 0, true); else vid.pause(); }} />}
 
         <section className={`stepbox${video ? " has-guide" : ""}`} aria-label={block ? `Passo ${cur + 1} de ${total}: ${block.heading ?? ""}` : "Passo a passo"}>
@@ -307,6 +308,7 @@ function UpdatePhase({ head, first, step, video, installed, busy, onInstalled, o
             </>
           )}
         </section>
+        </div>
       </div>
     </section>
   );
