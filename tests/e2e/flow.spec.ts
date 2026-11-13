@@ -142,7 +142,7 @@ test("cliente conclui o guia no celular; equipe confirma; indicadores refletem",
   await expect(phaseTitle(page, "Minha tela está cortada ou desalinhada")).toBeVisible();
   await expect(page.getByText("Ajustar a proporção da tela (TV Box SmartPRO)")).toBeVisible();
   await expect(page.getByText("Ajuste necessário")).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Continuar/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /^Continuar/ })).toHaveCount(0); // em ajuste só há "Já fiz o ajuste" e "Preciso de suporte"
   await page.getByRole("button", { name: /Já fiz o ajuste/ }).click();
   await page.getByRole("button", { name: /Está tudo certo/ }).click();
   await expect(page.getByText(/A equipe da Intelite vai conferir/)).toBeVisible(); // declarado ≠ confirmado

@@ -7,7 +7,8 @@ import { BrandBar, BrandFooter } from "./Brand";
 import { GuideVideo, type GuidePlayer } from "./GuideVideo";
 import { Totem3D } from "./Totem3D";
 import { TvArt } from "./TvArt";
-import { Inline, Lines, StepContent, toBlocks, type PublicStep } from "./StepContent";
+import { Inline, Lines, StepContent, toBlocks, Video, type PublicStep } from "./StepContent";
+import { TUTORIAL_VIDEOS, isTutorialVideo, videoPoster, videoSrc, type TutorialVideo } from "@/lib/videos";
 import { Alert, Icon, Skeleton, type IconName } from "./ui";
 
 type Framing = "NAO_VERIFICADO" | "CORRETO" | "INCORRETO" | "PRECISA_SUPORTE";
@@ -174,14 +175,15 @@ function PhaseHead({ head, title, sub, aside }: { head: React.RefObject<HTMLHead
 }
 
 /** Barra de navegação da etapa: Voltar à esquerda; dica e botão principal à direita, sempre no mesmo lugar. */
-function NavRow({ onBack, backDisabled, hint, nextLabel, onNext, nextDisabled, nextPrimary = true, nextIcon = true }: {
-  onBack?: () => void; backDisabled?: boolean; hint?: React.ReactNode; nextLabel: string; onNext: () => void; nextDisabled?: boolean; nextPrimary?: boolean; nextIcon?: boolean;
+function NavRow({ onBack, backDisabled, hint, extra, nextLabel, onNext, nextDisabled, nextPrimary = true, nextIcon = true }: {
+  onBack?: () => void; backDisabled?: boolean; hint?: React.ReactNode; extra?: React.ReactNode; nextLabel: string; onNext: () => void; nextDisabled?: boolean; nextPrimary?: boolean; nextIcon?: boolean;
 }) {
   return (
     <div className="nav-row">
       {onBack ? <button type="button" className="btn ghost" disabled={backDisabled} onClick={onBack}><Icon name="arrowLeft" size={18} /> Voltar</button> : <span />}
       <span className="grow" />
       {hint && <span className="why" role="status">{hint}</span>}
+      {extra}
       <button type="button" className={`btn ${nextPrimary ? "primary" : ""}`} disabled={nextDisabled} onClick={onNext}>{nextLabel}{nextIcon && <> <Icon name="arrowRight" size={18} /></>}</button>
     </div>
   );
@@ -374,6 +376,11 @@ function CheckPhase({ head, intro, fix, state, confirmed, busy, onFraming, onBac
   const [mode, setMode] = useState<"check" | "fix">(state === "INCORRETO" || state === "PRECISA_SUPORTE" ? "fix" : "check");
   const send = (outcome: "CORRETO" | "INCORRETO" | "PRECISA_SUPORTE") => { onFraming(outcome); setMode(outcome === "CORRETO" ? "check" : "fix"); };
   const badge = FRAMING_BADGE[state];
+  // etapa de ajuste: o vídeo vai sozinho no cartão da esquerda e o passo a passo escrito no da direita
+  const fixLines = fix?.instructions ?? [];
+  const fixVideoSlug = fixLines.map((l) => /^\[\[video:([a-z]+)\]\]$/.exec(l)?.[1]).find((v): v is TutorialVideo => !!v && isTutorialVideo(v));
+  const fixVideo = fixVideoSlug ? { kind: "file" as const, src: videoSrc(fixVideoSlug), title: TUTORIAL_VIDEOS[fixVideoSlug].title, note: TUTORIAL_VIDEOS[fixVideoSlug].note, poster: videoPoster(fixVideoSlug) } : null;
+  const fixBlock = toBlocks(fixLines.filter((l) => !/^\[\[video:[a-z]+\]\]$/.test(l)))[0];
   return (
     <section className="phase" aria-labelledby="h-phase">
       <PhaseHead head={head} title={mode === "fix" ? "Minha tela está cortada ou desalinhada" : "Como sua tela está?"}
@@ -395,24 +402,38 @@ function CheckPhase({ head, intro, fix, state, confirmed, busy, onFraming, onBac
         </>
       )}
       <div className="duo">
+        {mode === "fix" && fixVideo && (
+          <div className="fit-video">
+            <Video video={fixVideo} />
+          </div>
+        )}
         {mode === "fix" && (
-          <>
-            <div className="stack duo-card" tabIndex={0} role="region" aria-label="Tutorial de ajuste da tela">
-              <StepContent step={fix} />
+          <section className="stepbox" aria-label="Passo a passo do ajuste da tela">
+            <div className="stepbox-head">
+              <span className="sub-num" aria-hidden><Icon name="tv" size={20} /></span>
+              <div className="grow">
+                <span className="stepbox-count">Ajuste da tela</span>
+                <h2>{fixBlock?.heading ?? "Ajustar a proporção da tela"}</h2>
+              </div>
             </div>
-            <div className="stack duo-card" tabIndex={0} role="region" aria-label="Depois de ajustar">
-              <h2 className="duo-title">Depois de ajustar</h2>
-              <p className="muted" style={{ margin: 0 }}>Volte e confira se agora a tela aparece inteira, com as quatro bordas visíveis. Se não conseguir ajustar, a equipe da Intelite ajuda.</p>
-              <button type="button" className="btn primary lg block" disabled={busy} onClick={() => setMode("check")}>Já fiz o ajuste. Conferir a tela de novo</button>
-              <button type="button" className="btn block" disabled={busy || state === "PRECISA_SUPORTE"} onClick={() => send("PRECISA_SUPORTE")}>{state === "PRECISA_SUPORTE" ? "Suporte solicitado: a equipe vai ajudar" : "Não consegui. Preciso de suporte"}</button>
+            <div className="stepbox-body" tabIndex={0} role="region" aria-label="Instruções do ajuste da tela">
+              {!fix && <Alert tone="info">O conteúdo desta etapa ainda está sendo preparado pela equipe da Intelite.</Alert>}
+              {fixBlock && <Lines items={fixBlock.items} className="steps" />}
+              {fix?.warning && <Alert tone="warn" role="note"><strong>Atenção: </strong><Inline text={fix.warning} /></Alert>}
             </div>
-          </>
+          </section>
         )}
       </div>
 
-      <NavRow onBack={mode === "fix" ? () => setMode("check") : onBack}
-        hint={mode === "fix" ? "Termine o ajuste e confira a tela de novo." : state === "CORRETO" ? <>Obrigado! A equipe da Intelite vai conferir pela foto.{confirmed && <strong> A equipe já confirmou.</strong>}</> : !canNext ? "Escolha uma opção para continuar." : undefined}
-        nextLabel="Continuar" onNext={onNext} nextDisabled={busy || !canNext} />
+      {mode === "fix" ? (
+        <NavRow onBack={() => setMode("check")}
+          extra={<button type="button" className="btn" disabled={busy || state === "PRECISA_SUPORTE"} onClick={() => send("PRECISA_SUPORTE")}>{state === "PRECISA_SUPORTE" ? "Suporte solicitado: a equipe vai ajudar" : "Não consegui. Preciso de suporte"}</button>}
+          nextLabel="Já fiz o ajuste. Conferir a tela de novo" onNext={() => setMode("check")} nextDisabled={busy} />
+      ) : (
+        <NavRow onBack={onBack}
+          hint={state === "CORRETO" ? <>Obrigado! A equipe da Intelite vai conferir pela foto.{confirmed && <strong> A equipe já confirmou.</strong>}</> : !canNext ? "Escolha uma opção para continuar." : undefined}
+          nextLabel="Continuar" onNext={onNext} nextDisabled={busy || !canNext} />
+      )}
     </section>
   );
 }
