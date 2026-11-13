@@ -1,7 +1,7 @@
 """Grava de uma vez o fluxo completo no Mini PC (Preparar → Baixar → Instalar → Abrir) e registra cada toque.
 
   python take.py reset                         # volta o aparelho ao ponto de partida (app ANTIGO instalado, Chrome sem permissão de armazenamento)
-  python take.py run --url is.gd/aihib19       # grava o fluxo inteiro (~110 s) e salva raw/take.mp4 + raw/take.taps.json
+  python take.py run --url is.gd/aihib20       # grava o fluxo inteiro (~110 s) e salva raw/take.mp4 + raw/take.taps.json
   python take.py split                         # corta raw/take.mp4 em raw/<capítulo>.mp4 e re-base dos toques por capítulo
 
 Os toques usam coordenadas do Proeletronic PROSB5000 (1280x720). Os tempos são do relógio deste script; a calibração com o
@@ -163,7 +163,7 @@ def run(a):
     c.wait(2.5); c.tap(480, 248, "arquivo baixado")
     c.wait(2.5); c.tap(861, 426, "Aceitar")
     c.wait(5.0); c.tap(857, 412, "Instalar")
-    ok = wait_version("1.19", 60)
+    ok = wait_version("1.20", 60)
     c.wait(4.0); c.log(f"instalado={ok}"); c.tap(869, 412, "Abrir (App instalado)")
     c.wait(1.5); c.mark("instalar")
     # ── Abrir: primeira abertura (MAC e versão → "abrir sozinho ao ligar" → permissão de mídia → baixa o conteúdo → conteúdo rodando) ──
@@ -184,6 +184,6 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     sp = ap.add_subparsers(dest="cmd", required=True)
     sp.add_parser("reset").set_defaults(f=reset)
-    p = sp.add_parser("run"); p.add_argument("--url", default="is.gd/aihib19"); p.add_argument("--snack", type=float, default=5.5); p.add_argument("--limit", type=int, default=155); p.set_defaults(f=run)
+    p = sp.add_parser("run"); p.add_argument("--url", default="is.gd/aihib20"); p.add_argument("--snack", type=float, default=5.5); p.add_argument("--limit", type=int, default=155); p.set_defaults(f=run)
     a = ap.parse_args()
     a.f(a)

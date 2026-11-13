@@ -8,12 +8,13 @@ import path from "node:path";
  */
 export const APP = {
   label: "Atendimento Inteligente",
-  version: "1.19" as string | null,
-  file: "ai-hibrido-1.19.apk" as string | null,
-  filename: "AI_Hibrido_1.19.apk" as string | null,
-  defaultLinks: ["https://is.gd/aihib19", "https://v.gd/aihib19"],
+  version: "1.20" as string | null,
+  file: "ai-hibrido-1.20.apk" as string | null,
+  filename: "AI_Hibrido_1.20.apk" as string | null,
+  defaultLinks: ["https://is.gd/aihib20", "https://v.gd/aihib20"],
   /** Padrões de antes da unificação (totem/painel separados): se o banco ainda tiver exatamente estes, passam para o atual. */
   legacyLinks: [
+    ["https://is.gd/aihib19", "https://v.gd/aihib19"],
     ["https://bit.ly/aihib15", "https://shre.ink/aihib15"],
     ["https://bit.ly/aitotem26", "https://shre.ink/aitotem26"],
     ["https://bit.ly/aipainel26", "https://shre.ink/aipainel26"],

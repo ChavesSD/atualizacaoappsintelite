@@ -10,7 +10,7 @@ const phaseTitle = (p: Page, name: string) => p.getByRole("heading", { level: 1,
 test("download do aplicativo: links, APK direto com Range e links editáveis", async ({ request }) => {
   const info = await (await request.get("/api/downloads")).json();
   // aplicativo híbrido: um só, para totem e painel
-  expect(info.links).toEqual(["https://is.gd/aihib19", "https://v.gd/aihib19"]);
+  expect(info.links).toEqual(["https://is.gd/aihib20", "https://v.gd/aihib20"]);
   expect(info.direct).toBe("/api/download");
   expect(info.sizeBytes).toBeGreaterThan(1_000_000);
 
@@ -62,7 +62,7 @@ test("download do aplicativo: links, APK direto com Range e links editáveis", a
   try {
     await prisma.setting.deleteMany({ where: { key: "appLinks" } });
     await prisma.setting.upsert({ where: { key: "downloadLinks" }, update: { value: JSON.stringify({ totem: ["https://bit.ly/aitotem26", "https://shre.ink/aitotem26"], painel: ["https://bit.ly/aipainel26", "https://shre.ink/aipainel26"] }) }, create: { key: "downloadLinks", value: JSON.stringify({ totem: ["https://bit.ly/aitotem26", "https://shre.ink/aitotem26"], painel: ["https://bit.ly/aipainel26", "https://shre.ink/aipainel26"] }) } });
-    expect((await (await request.get("/api/downloads")).json()).links).toEqual(["https://is.gd/aihib19", "https://v.gd/aihib19"]);
+    expect((await (await request.get("/api/downloads")).json()).links).toEqual(["https://is.gd/aihib20", "https://v.gd/aihib20"]);
     await prisma.setting.update({ where: { key: "downloadLinks" }, data: { value: JSON.stringify({ totem: ["https://exemplo.com/editado"], painel: [] }) } });
     expect((await (await request.get("/api/downloads")).json()).links).toEqual(["https://exemplo.com/editado"]);
     await prisma.setting.delete({ where: { key: "downloadLinks" } });
@@ -103,8 +103,8 @@ test("cliente conclui o guia no celular; equipe confirma; indicadores refletem",
   await page.getByRole("button", { name: /Próximo passo/ }).click();
   await expect(h2("Baixe o aplicativo")).toBeVisible();
   await expect(h2("Prepare o Mini PC")).toHaveCount(0);
-  await expect(page.getByRole("link", { name: /is\.gd\/aihib19/ })).toBeVisible(); // opção 1
-  await expect(page.getByRole("link", { name: /v\.gd\/aihib19/ })).toBeVisible(); // opção 2
+  await expect(page.getByRole("link", { name: /is\.gd\/aihib20/ })).toBeVisible(); // opção 1
+  await expect(page.getByRole("link", { name: /v\.gd\/aihib20/ })).toBeVisible(); // opção 2
   await expect(page.getByText("É o mesmo aplicativo para o totem e para o painel").first()).toBeVisible();
   await expect(page.getByRole("link", { name: /Baixar direto desta página/ })).toBeVisible(); // opção 3
   await expect(page.getByText(/copie o APK para um pendrive/)).toBeVisible();

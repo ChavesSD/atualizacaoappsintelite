@@ -1,6 +1,6 @@
 """Regrava só o capítulo "Abrir" do tutorial de atualização (primeira abertura do app), agora com "Tornar app inicial".
 
-  python take_abrir.py reset    # desinstala e reinstala o app 1.19 (volta o "app inicial" ao padrão do aparelho) e vai para a tela inicial
+  python take_abrir.py reset    # desinstala e reinstala o app 1.20 (volta o "app inicial" ao padrão do aparelho) e vai para a tela inicial
   python take_abrir.py run      # grava com o scrcpy: abre o app → "Tornar app inicial" → AI Híbrido → "Definir como padrão" → Permitir → conteúdo
   python take_abrir.py restore  # desinstala o app (o aparelho volta ao Nova Launcher como tela inicial)
 
@@ -14,7 +14,7 @@ import take as base
 HERE = pathlib.Path(__file__).resolve().parent
 RAW = HERE / "raw"
 ADB = base.ADB
-APK = HERE.parent / "downloads" / "ai-hibrido-1.19.apk"
+APK = HERE.parent / "downloads" / "ai-hibrido-1.20.apk"
 PKG = "com.intelite.aihibrido"
 LAT = 1.35      # atraso do `input tap` até o toque chegar ao app
 # (instante do toque no relógio do script a partir do `am start`, x, y, nota); o aviso "Abrir sozinho ao ligar" some sozinho ~11,5 s depois de abrir
