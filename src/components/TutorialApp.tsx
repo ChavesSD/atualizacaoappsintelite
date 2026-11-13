@@ -78,23 +78,25 @@ export function TutorialApp() {
   if (boot === "loading") {
     return (
       <>
+        <BrandBar />
         <main className="shell" aria-busy="true" aria-label="Carregando">
           <div className="stack" style={{ maxWidth: 560, paddingTop: 48 }}><Skeleton h={64} r={12} /><Skeleton h={64} w="70%" r={12} /><Skeleton h={20} w="50%" /><Skeleton h={220} r={28} /></div>
         </main>
-        <BrandFooter compact />
+        <BrandFooter />
       </>
     );
   }
   if (boot === "error") {
     return (
       <>
+        <BrandBar />
         <main className="shell">
           <div className="narrow stack" style={{ paddingTop: 32 }}>
             <Alert tone="bad" role="alert"><strong>Não foi possível abrir a página.</strong><br />{bootError}</Alert>
             <button type="button" className="btn primary" onClick={load}>Tentar de novo</button>
           </div>
         </main>
-        <BrandFooter compact />
+        <BrandFooter />
       </>
     );
   }
@@ -144,7 +146,7 @@ export function TutorialApp() {
         {phase === 3 && <FinishPhase key="p3" head={headRef} view={view} run={run} onView={setView} submitted={submitted} onBack={() => go(2)} onNew={async () => { await api("/api/submissions/reset", { method: "POST" }); setView(null); setError(null); }} />}
 
       </main>
-      <BrandFooter compact />
+      <BrandFooter />
     </>
   );
 }
@@ -207,9 +209,10 @@ function Hero({ onCreated }: { onCreated: (v: View) => void }) {
   return (
     <>
       <a className="skip-link" href="#conteudo">Pular para o conteúdo</a>
-      <main id="conteudo" className="shell cards-page no-top" tabIndex={-1}>
-        <div className="hero duo">
-          <div className="duo-card hero-left">
+      <BrandBar />
+      <main id="conteudo" className="shell" tabIndex={-1}>
+        <div className="hero">
+          <div>
             <h1 className="display rise" style={{ "--i": 0 } as React.CSSProperties}>Quer atualizar seu app <em>Intelite</em>?</h1>
             <p className="lead rise" style={{ "--i": 1 } as React.CSSProperties}>Escolha a solução e siga o passo a passo em texto e vídeo. Leva poucos minutos.</p>
             <form className="start rise" style={{ "--i": 2 } as React.CSSProperties} onSubmit={submit} noValidate>
@@ -246,10 +249,10 @@ function Hero({ onCreated }: { onCreated: (v: View) => void }) {
               <p className="muted small" style={{ margin: 0 }}>Usamos seu nome, sua empresa e a foto da tela só para acompanhar esta atualização.</p>
             </form>
           </div>
-          <div className="duo-card hero-art rise" style={{ "--i": 3 } as React.CSSProperties}><Totem3D /></div>
+          <div className="hero-art rise" style={{ "--i": 3 } as React.CSSProperties}><Totem3D /></div>
         </div>
       </main>
-      <BrandFooter compact />
+      <BrandFooter />
     </>
   );
 }

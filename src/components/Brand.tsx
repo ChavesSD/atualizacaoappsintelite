@@ -1,20 +1,21 @@
-/** Barra de topo: só a barra de progresso (`children`), centralizada. Sem `children` não mostra nada. */
+/** Cabeçalho: logo da Intelite (branca, fundo transparente) centralizada; `children` (a barra de progresso) fica logo abaixo dela. */
 export function BrandBar({ children }: { children?: React.ReactNode }) {
-  if (!children) return null;
   return (
     <header className="topbar">
-      <div className="topbar-in">{children}</div>
+      <div className="topbar-in">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img className="logo" src="/logo-intelite.webp" alt="Intelite Tecnologia" width={162} height={60} />
+        {children}
+      </div>
     </header>
   );
 }
 
-/** Rodapé: logo da Intelite (branca, fundo transparente) centralizada; `compact` esconde o texto. */
-export function BrandFooter({ compact }: { compact?: boolean }) {
+/** Rodapé: direitos autorais. */
+export function BrandFooter() {
   return (
     <footer className="brandfoot">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img className="logo" src="/logo-intelite.webp" alt="Intelite Tecnologia" width={162} height={60} />
-      {!compact && <span>Seu progresso fica salvo neste aparelho.</span>}
+      <span>© {new Date().getFullYear()} Intelite Tecnologia. Todos os direitos reservados.</span>
     </footer>
   );
 }

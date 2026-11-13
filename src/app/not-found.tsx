@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { BrandFooter } from "@/components/Brand";
+import { BrandBar, BrandFooter } from "@/components/Brand";
 
 export default function NotFound() {
   return (
     <>
+      <BrandBar />
       <main className="container" style={{ paddingTop: 32 }}>
         <div className="card stack">
           <h1>Página não encontrada</h1>

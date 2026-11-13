@@ -75,7 +75,7 @@ export const GuideVideo = forwardRef<GuidePlayer, { video: Guide; active: number
           {video.chapters.map((c, i) => (
             <li key={c.title}>
               <button type="button" aria-current={active === i ? "step" : undefined} onClick={() => { seek(c.start, true); onChapter(i); }}>
-                <span className="n">{i + 1}</span>{c.title} <span className="time">{mmss(c.start)}</span>
+                <span className="ch-top"><span className="n">{i + 1}</span> <span className="ch-title">{c.title}</span></span> <span className="time">{mmss(c.start)}</span>
               </button>
             </li>
           ))}
