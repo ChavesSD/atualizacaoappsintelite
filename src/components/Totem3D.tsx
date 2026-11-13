@@ -70,8 +70,8 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
   scene.environmentIntensity = 1.25;
 
   const camera = new THREE.PerspectiveCamera(22, 1, 0.1, 50);
-  camera.position.set(0, 1.0, 4.9);
-  camera.lookAt(0, 0.64, 0);
+  camera.position.set(0, 1.1, 5.5);
+  camera.lookAt(0, 0.76, 0);
 
   // preto sobre preto precisa de luz de contorno: principal suave, recortes azul (marca) e frio, e luz de chão
   const key = new THREE.DirectionalLight(0xffffff, 1.9); key.position.set(-2.6, 3.4, 3.2); scene.add(key);
@@ -116,70 +116,104 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
   totem.position.y = 0.022; // pezinhos de borracha sob a base
   scene.add(totem);
 
-  // ── medidas (em metros, a partir das fotos): coluna à frente, base larga e baixa para trás ──
-  const COL_W = 0.36, COL_D = 0.1, COL_H = 0.8, BASE_Y = 0.05, COL_TOP = BASE_Y + COL_H, FRONT_Z = COL_D / 2;
-  const ALPHA = 0.58; // inclinação da cabeça para trás (~33°)
-  const HL = 0.66, HW = COL_W, HT = COL_D; // base, tronco e cabeça: mesma largura (frente) e tronco com a mesma espessura da cabeça (lateral)
-
-  // corpo em peça única: o perfil lateral (base + tronco + cabeça inclinada) é extrudado na largura, com cantos suavizados,
-  // sem emendas entre base, tronco e tela
-  const BASE_L = 0.56, ZB = FRONT_Z - BASE_L, sa = Math.sin(ALPHA), ca = Math.cos(ALPHA);
+  // ── novo modelo do totem (a partir do vídeo do projeto), em branco: chapa dobrada com cabeça inclinada e cantos superiores arredondados,
+  // coluna reta com a janela de saída da senha, base em L para trás ──
+  const COL_W = 0.4, COL_D = 0.11, COL_H = 0.8, BASE_Y = 0.045, COL_TOP = BASE_Y + COL_H, FRONT_Z = COL_D / 2;
+  const ALPHA = 0.36; // inclinação da cabeça para trás (~21°)
+  const HL = 0.8, HW = COL_W, HT = COL_D;
+  const BEV = 0.004;
+  const white = track(new THREE.MeshPhysicalMaterial({ color: 0xf2f3f6, roughness: 0.34, metalness: 0.04, clearcoat: 0.55, clearcoatRoughness: 0.22, envMapIntensity: 1.1 }));
+  const rrShape = (w: number, h: number, rTop: number, rBot: number) => {
+    const sh = new THREE.Shape(); const x0 = -w / 2, x1 = w / 2;
+    sh.moveTo(x0 + rBot, 0); sh.lineTo(x1 - rBot, 0);
+    if (rBot > 0) sh.quadraticCurveTo(x1, 0, x1, rBot); sh.lineTo(x1, h - rTop);
+    if (rTop > 0) sh.quadraticCurveTo(x1, h, x1 - rTop, h); sh.lineTo(x0 + rTop, h);
+    if (rTop > 0) sh.quadraticCurveTo(x0, h, x0, h - rTop); sh.lineTo(x0, rBot);
+    if (rBot > 0) sh.quadraticCurveTo(x0, 0, x0 + rBot, 0);
+    return sh;
+  };
+  const slab = (shape: import("three").Shape, depth: number) => {
+    const g = track(new THREE.ExtrudeGeometry(shape, { depth: depth - BEV * 2, bevelEnabled: true, bevelThickness: BEV, bevelSize: BEV, bevelOffset: -BEV, bevelSegments: 3, curveSegments: 10 }));
+    g.translate(0, 0, BEV); g.computeVertexNormals(); return g;
+  };
+  const BASE_L = 0.5, ZB = FRONT_Z - BASE_L, sa = Math.sin(ALPHA), ca = Math.cos(ALPHA);
+  // núcleo: perfil lateral da coluna com um pedaço da cabeça (dá a dobra limpa), extrudado na largura
+  const STUB = 0.14;
   const K: [number, number] = [FRONT_Z, COL_TOP];
-  const P2: [number, number] = [K[0] - HL * sa, K[1] + HL * ca];            // topo da face da tela
-  const P3: [number, number] = [P2[0] - HT * ca, P2[1] - HT * sa];          // topo do verso da cabeça
-  const sBack = (-COL_D / 2 - P3[0]) / sa;                                   // onde o verso da cabeça encontra o verso do tronco
+  const P2: [number, number] = [K[0] - STUB * sa, K[1] + STUB * ca];
+  const P3: [number, number] = [P2[0] - HT * ca, P2[1] - HT * sa];
+  const sBack = (-COL_D / 2 - P3[0]) / sa;
   const J: [number, number] = [-COL_D / 2, P3[1] - sBack * ca];
   const prof = new THREE.Shape();
-  prof.moveTo(ZB, 0); prof.lineTo(FRONT_Z, 0); prof.lineTo(K[0], K[1]); prof.lineTo(P2[0], P2[1]); prof.lineTo(P3[0], P3[1]);
-  prof.lineTo(J[0], J[1]); prof.lineTo(-COL_D / 2, BASE_Y); prof.lineTo(ZB, BASE_Y); prof.closePath();
-  const BEV = 0.007;
-  const bodyGeo = track(new THREE.ExtrudeGeometry(prof, { depth: COL_W - BEV * 2, bevelEnabled: true, bevelThickness: BEV, bevelSize: BEV, bevelOffset: -BEV, bevelSegments: 4, curveSegments: 4 }));
-  bodyGeo.translate(0, 0, -(COL_W - BEV * 2) / 2);
-  bodyGeo.computeVertexNormals();
-  const bodyMesh = new THREE.Mesh(bodyGeo, metal);
-  bodyMesh.rotation.y = -Math.PI / 2; // o perfil (x = profundidade, y = altura) passa a ficar no plano z–y, extrudado em x
-  totem.add(bodyMesh);
+  prof.moveTo(-COL_D / 2, 0); prof.lineTo(FRONT_Z, 0); prof.lineTo(K[0], K[1]); prof.lineTo(P2[0], P2[1]); prof.lineTo(P3[0], P3[1]); prof.lineTo(J[0], J[1]); prof.closePath();
+  const coreGeo = track(new THREE.ExtrudeGeometry(prof, { depth: COL_W - BEV * 2, bevelEnabled: true, bevelThickness: BEV, bevelSize: BEV, bevelOffset: -BEV, bevelSegments: 3, curveSegments: 4 }));
+  coreGeo.translate(0, 0, -(COL_W - BEV * 2) / 2); coreGeo.computeVertexNormals();
+  const core = new THREE.Mesh(coreGeo, white); core.rotation.y = -Math.PI / 2; totem.add(core);
+  // base: placa com os cantos de trás arredondados
+  const baseShape = new THREE.Shape(); const bw = COL_W / 2, br = 0.06;
+  baseShape.moveTo(-bw, 0); baseShape.lineTo(bw, 0); baseShape.lineTo(bw, -BASE_L + br); baseShape.quadraticCurveTo(bw, -BASE_L, bw - br, -BASE_L);
+  baseShape.lineTo(-bw + br, -BASE_L); baseShape.quadraticCurveTo(-bw, -BASE_L, -bw, -BASE_L + br); baseShape.closePath();
+  const baseGeo = track(new THREE.ExtrudeGeometry(baseShape, { depth: BASE_Y - BEV * 2, bevelEnabled: true, bevelThickness: BEV, bevelSize: BEV, bevelOffset: -BEV, bevelSegments: 3, curveSegments: 10 }));
+  baseGeo.rotateX(Math.PI / 2); baseGeo.translate(0, BASE_Y - BEV, FRONT_Z); baseGeo.computeVertexNormals();
+  totem.add(new THREE.Mesh(baseGeo, white));
+  // parafusos da base
+  const screwMat = track(new THREE.MeshStandardMaterial({ color: 0x9aa0ab, roughness: 0.5, metalness: 0.6 }));
+  for (const [sx, sz] of [[-0.17, ZB + 0.03], [0.17, ZB + 0.03], [-0.17, FRONT_Z - 0.06], [0.17, FRONT_Z - 0.06]]) {
+    const sc2 = new THREE.Mesh(track(new THREE.CylinderGeometry(0.006, 0.006, 0.002, 12)), screwMat); sc2.position.set(sx, BASE_Y + 0.001, sz); totem.add(sc2);
+  }
   // quatro pezinhos de borracha sob a base
-  for (const sx of [-0.14, 0.14]) for (const z of [FRONT_Z - 0.05, ZB + 0.05]) {
+  for (const sx of [-0.15, 0.15]) for (const z of [FRONT_Z - 0.05, ZB + 0.05]) {
     const f = new THREE.Mesh(track(new THREE.CylinderGeometry(0.016, 0.016, 0.022, 14)), rubber); f.position.set(sx, -0.011, z); totem.add(f);
   }
 
-  // janela de saída da senha (retângulo escuro, com moldura levemente mais clara)
-  totem.add(rbox(0.098, 0.064, 0.006, 0.004, lip, 0, 0.695, FRONT_Z));
-  totem.add(rbox(0.082, 0.048, 0.008, 0.003, glossBlack, 0, 0.695, FRONT_Z + 0.0005));
+  // cabeça: placa inclinada com os cantos de cima arredondados, apoiada no alto da coluna
+  const head = new THREE.Group(); head.position.set(0, COL_TOP, FRONT_Z); head.rotation.x = -ALPHA; totem.add(head);
+  const headGeo = slab(rrShape(HW, HL, 0.07, 0), HT); headGeo.translate(0, 0, -HT);
+  head.add(new THREE.Mesh(headGeo, white));
 
-  // logo da Intelite em branco, empilhada (ícone acima, nome abaixo), como na pintura da coluna
+  // janela de saída da senha (retângulo escuro, com moldura mais clara)
+  const SLOT_Y_ = COL_TOP - 0.17;
+  totem.add(rbox(0.108, 0.046, 0.004, 0.003, lip, 0, SLOT_Y_, FRONT_Z + 0.0005));
+  totem.add(rbox(0.09, 0.03, 0.006, 0.002, glossBlack, 0, SLOT_Y_, FRONT_Z + 0.001));
+
+  // logo da Intelite (escura sobre a chapa branca), empilhada: ícone acima, nome abaixo
   if (logoImg) {
-    const w = 1000, ih = logoImg.naturalHeight, iw = logoImg.naturalWidth;
+    const w = 1000, iw = logoImg.naturalWidth;
     const k = iw / 2000; // fatores a partir do arquivo 2000×738
     const lc = document.createElement("canvas"); lc.width = w; lc.height = 800;
     const lg = lc.getContext("2d")!;
-    const ic = 560 * k * 1; // lado do ícone no original
-    lg.drawImage(logoImg, 0, 60 * k, ic, ic, 270, 0, 460, 460);
+    lg.drawImage(logoImg, 0, 60 * k, 560 * k, 560 * k, 270, 0, 460, 460);
     const tw = 1150 * k, th = 370 * k;
     lg.drawImage(logoImg, 640 * k, 190 * k, tw, th, 0, 480, 1000, 1000 * th / tw);
-    void ih;
+    lg.globalCompositeOperation = "source-in"; lg.fillStyle = "#16233f"; lg.fillRect(0, 0, w, 800);
     const logoTex = track(new THREE.CanvasTexture(lc)); logoTex.colorSpace = THREE.SRGBColorSpace; logoTex.anisotropy = 8;
-    const lw = 0.21;
-    totem.add(plane(lw, lw * 0.8, track(new THREE.MeshBasicMaterial({ map: logoTex, transparent: true, color: 0xf2f2f2, toneMapped: false })), 0, 0.43, FRONT_Z + 0.0008));
+    const lw = 0.2;
+    totem.add(plane(lw, lw * 0.8, track(new THREE.MeshBasicMaterial({ map: logoTex, transparent: true, toneMapped: false })), 0, 0.36, FRONT_Z + 0.0008));
   }
 
-  // caixa de aço atrás da coluna (computador e impressora), com aletas de ventilação e etiqueta
-  const back = new THREE.Group(); back.position.set(0, 0.47, -COL_D / 2 - 0.055); totem.add(back);
-  back.add(rbox(0.2, 0.38, 0.11, 0.004, metalBox, 0, 0, 0));
-  const slotMat = track(new THREE.MeshBasicMaterial({ color: 0x000000 }));
+  // caixa atrás da coluna (computador e impressora), com aletas de ventilação e etiqueta
+  const back = new THREE.Group(); back.position.set(0, 0.52, -COL_D / 2 - 0.055); totem.add(back);
+  back.add(rbox(0.2, 0.34, 0.11, 0.004, white, 0, 0, 0));
+  const slotMat = track(new THREE.MeshBasicMaterial({ color: 0x20232b }));
   for (let i = 0; i < 9; i++) for (const sx of [-1, 1]) {
-    const v = plane(0.0035, 0.07, slotMat, sx * (0.1 + 0.0007), -0.05, (i - 4) * 0.0105); v.rotation.y = (sx * Math.PI) / 2; back.add(v);
+    const v = plane(0.0035, 0.07, slotMat, sx * (0.1 + 0.0007), -0.04, (i - 4) * 0.0105); v.rotation.y = (sx * Math.PI) / 2; back.add(v);
   }
-  const label = plane(0.052, 0.066, track(new THREE.MeshStandardMaterial({ color: 0xaeb3bd, roughness: 0.8 })), 0.0, -0.085, -0.0555); label.rotation.y = Math.PI; back.add(label);
-  const emblem = plane(0.03, 0.03, track(new THREE.MeshBasicMaterial({ color: 0x1b1c21 })), 0, 0.06, -0.0555); emblem.rotation.y = Math.PI; back.add(emblem);
+  const label = plane(0.052, 0.066, track(new THREE.MeshStandardMaterial({ color: 0xcfd3db, roughness: 0.8 })), 0.0, -0.075, -0.0555); label.rotation.y = Math.PI; back.add(label);
 
-  // cabeça: placa inclinada para trás, apoiada no alto da coluna
-  const head = new THREE.Group(); head.position.set(0, COL_TOP, FRONT_Z); head.rotation.x = -ALPHA; totem.add(head);
-  // abertura da tela: moldura rebaixada, vidro e a imagem
-  const SW = 0.27, SH = 0.481, SC = 0.345; // proporção da imagem da tela (996×1775)
-  head.add(rbox(SW + 0.018, SH + 0.018, 0.004, 0.004, lip, 0, SC, 0.0012));
-  // a tela emite luz própria: cores fiéis à imagem, sem passar pela iluminação nem pelo tone mapping (sem brilho nem contraste exagerados)
+  // frente da cabeça: perfuração do alto-falante, barra de luz, abertura da tela e fenda de leitura
+  const FZ = 0.0008;
+  const dotMat = track(new THREE.MeshBasicMaterial({ color: 0x2a2d36 }));
+  const dotGeo = track(new THREE.CircleGeometry(0.0022, 8));
+  const dots = new THREE.InstancedMesh(dotGeo, dotMat, 13 * 4);
+  { const m4 = new THREE.Matrix4(); let n = 0; for (let r = 0; r < 4; r++) for (let c = 0; c < 13; c++) { m4.makeTranslation(-0.105 + c * 0.0175 + (r % 2) * 0.0087, HL - 0.125 + r * 0.0165, FZ); dots.setMatrixAt(n++, m4); } dots.instanceMatrix.needsUpdate = true; }
+  head.add(dots);
+  head.add(plane(0.27, 0.0035, track(new THREE.MeshBasicMaterial({ color: 0x7fb5ff, toneMapped: false })), 0, HL - 0.055, FZ));
+  head.add(rbox(0.31, 0.0045, 0.004, 0.0015, glossBlack, 0, 0.062, FZ));            // fenda de leitura sob a tela
+  head.add(plane(0.3, 0.0016, track(new THREE.MeshBasicMaterial({ color: 0xb9bdc8 })), 0, 0.098, FZ));
+  // abertura da tela: moldura escura rebaixada, a imagem e o vidro com reflexo
+  const SW = 0.27, SH = 0.481, SC = 0.385; // proporção da imagem da tela (996×1775)
+  head.add(rbox(SW + 0.02, SH + 0.02, 0.004, 0.004, glossBlack, 0, SC, 0.0012));
+  // a tela emite luz própria: cores fiéis à imagem, sem passar pela iluminação nem pelo tone mapping
   const screenMat = track(new THREE.MeshBasicMaterial({ map: screenTex ?? null, color: screenTex ? 0xf2f2f2 : 0x14295c, toneMapped: false }));
   const screenPlane = plane(SW, SH, screenMat, 0, SC, 0.0042);
   head.add(screenPlane);
@@ -188,10 +222,26 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
   const printPlane = plane(SW, SH, printMat, 0, SC, 0.0047);
   printPlane.visible = false;
   head.add(printPlane);
-  head.add(plane(SW, SH, track(new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.012, roughness: 0.2, metalness: 0, clearcoat: 0.2, clearcoatRoughness: 0.3, envMapIntensity: 0.15 })), 0, SC, 0.0052));
-  // ventilação no verso da cabeça
-  for (const gx of [-1, 1]) for (let i = 0; i < 12; i++) {
-    const v = plane(0.0035, 0.085, slotMat, gx * 0.1 + (i - 5.5) * 0.011, 0.26, -HT - 0.0004); v.rotation.y = Math.PI; head.add(v);
+  // vidro: reflexo do ambiente (muda ao girar) + faixas de brilho que deslizam pela tela com o movimento
+  head.add(plane(SW, SH, track(new THREE.MeshPhysicalMaterial({ color: 0x000000, transparent: true, opacity: 0.1, roughness: 0.04, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 1.6 })), 0, SC, 0.0052));
+  const sheenCanvas = document.createElement("canvas"); sheenCanvas.width = 512; sheenCanvas.height = 512;
+  { const g = sheenCanvas.getContext("2d")!;
+    const lin = g.createLinearGradient(0, 0, 512, 0);
+    lin.addColorStop(0.00, "rgba(255,255,255,0)"); lin.addColorStop(0.30, "rgba(255,255,255,0)"); lin.addColorStop(0.40, "rgba(255,255,255,.55)");
+    lin.addColorStop(0.46, "rgba(255,255,255,.18)"); lin.addColorStop(0.52, "rgba(255,255,255,.42)"); lin.addColorStop(0.62, "rgba(255,255,255,0)"); lin.addColorStop(1.00, "rgba(255,255,255,0)");
+    g.fillStyle = lin; g.fillRect(0, 0, 512, 512); }
+  const sheenTex = track(new THREE.CanvasTexture(sheenCanvas)); sheenTex.wrapS = sheenTex.wrapT = THREE.RepeatWrapping; sheenTex.center.set(0.5, 0.5); sheenTex.rotation = 0.62; sheenTex.repeat.set(1.4, 1.4);
+  const sheenMat = track(new THREE.MeshBasicMaterial({ map: sheenTex, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  head.add(plane(SW, SH, sheenMat, 0, SC, 0.0056));
+  const glowCanvas = document.createElement("canvas"); glowCanvas.width = glowCanvas.height = 256;
+  { const g = glowCanvas.getContext("2d")!; const rg = g.createRadialGradient(70, 40, 6, 70, 40, 230);
+    rg.addColorStop(0, "rgba(255,255,255,.26)"); rg.addColorStop(0.5, "rgba(255,255,255,.06)"); rg.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = rg; g.fillRect(0, 0, 256, 256); }
+  const glowTex = track(new THREE.CanvasTexture(glowCanvas));
+  head.add(plane(SW, SH, track(new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })), 0, SC, 0.0058));
+  // porta de acesso no verso da cabeça, com furos de ventilação
+  const door = plane(0.34, 0.66, track(new THREE.MeshStandardMaterial({ color: 0xe4e6ea, roughness: 0.5 })), 0, 0.38, -HT - 0.0004); door.rotation.y = Math.PI; head.add(door);
+  for (const gx of [-1, 1]) for (let i = 0; i < 10; i++) {
+    const v = plane(0.0035, 0.07, slotMat, gx * 0.08 + (i - 4.5) * 0.011, 0.55, -HT - 0.0008); v.rotation.y = Math.PI; head.add(v);
   }
 
   // luz de piso e sombra de contato
@@ -213,7 +263,7 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
   type Ticket = { g: import("three").Group; mesh: import("three").Mesh; mat: import("three").MeshBasicMaterial; tex: import("three").Texture;
     state: "print" | "float" | "hold" | "leave"; t: number; p0: import("three").Vector3; q0: import("three").Quaternion; s0: number };
   const tickets: Ticket[] = [];
-  const PW = 0.078, PH = 0.088, SLOT_Y = 0.695;
+  const PW = 0.078, PH = 0.088, SLOT_Y = COL_TOP - 0.17;
   let counter = 1, queued = 0;                              // a tela de impressão mostra D2: a primeira senha emitida é a D2
   const paperGeo = track(new THREE.PlaneGeometry(PW, PH)); paperGeo.translate(0, -PH / 2, 0); // a origem é a borda de cima (a que sai da janela)
   let QR: ((text: string) => { n: number; dark: (r: number, c: number) => boolean }) | null = null;
@@ -356,8 +406,8 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
     const w = host.clientWidth || 1, h = host.clientHeight || 1;
     renderer.setSize(w, h, false); dom.style.width = "100%"; dom.style.height = "100%";
     camera.aspect = w / h;
-    camera.position.z = clamp(4.9 * (0.72 / Math.min(camera.aspect, 1)) ** 0.7, 4.4, 8);
-    camera.lookAt(0, 0.64, 0);
+    camera.position.z = clamp(5.5 * (0.72 / Math.min(camera.aspect, 1)) ** 0.7, 4.9, 9);
+    camera.lookAt(0, 0.76, 0);
     camera.updateProjectionMatrix();
   };
   const ro = new ResizeObserver(() => { resize(); renderOnce(); });
@@ -366,7 +416,7 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
 
   // o ponto de apoio da rotação é o centro da base/coluna
   const pivot = new THREE.Group(); scene.add(pivot); pivot.add(totem); totem.position.z = 0.1;
-  const apply = () => { pivot.rotation.y = yaw; pivot.rotation.x = pitch; shadow.rotation.z = -yaw * 0.1; renderer.render(scene, camera); };
+  const apply = () => { sheenTex.offset.x = -yaw * 0.42 + pitch * 1.5; sheenMat.opacity = 0.34 + 0.26 * Math.abs(Math.sin(yaw * 1.3 + 0.4)); pivot.rotation.y = yaw; pivot.rotation.x = pitch; shadow.rotation.z = -yaw * 0.1; renderer.render(scene, camera); };
   const renderOnce = () => apply();
   let raf = 0, visible = true;
   const t0 = performance.now();
