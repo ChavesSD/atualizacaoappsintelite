@@ -203,12 +203,7 @@ fieldset legend { padding: 0; font-weight: 600; font-size: var(--fs-0); color: v
 .topbar-in { max-width: 1200px; margin: 0 auto; padding: var(--s-3) var(--s-4) var(--s-2); display: flex; flex-direction: column; align-items: center; gap: var(--s-2); }
 .logo { height: 40px; width: auto; display: block; flex: 0 0 auto; }
 .brandfoot { max-width: 1200px; margin: 0 auto; padding: var(--s-4) var(--s-4) calc(var(--s-4) + env(safe-area-inset-bottom)); text-align: center; color: var(--faint); font-size: var(--fs-0); min-height: var(--foot-h); display: grid; place-items: center; }
-/* progresso no lugar do cabeçalho: logo à esquerda e as quatro etapas ao lado */
-.topbar nav { width: 100%; max-width: 820px; min-width: 0; }
-.topbar .stepper { margin: 0; gap: var(--s-3); }
-.topbar .stepper button { padding-top: var(--s-2); min-height: 40px; flex-direction: row; align-items: baseline; gap: var(--s-2); }
-.topbar .stepper .n, .topbar .stepper .t { font-size: .8125rem; }
-:root { --topbar-h: 110px; --foot-h: 56px; }
+:root { --topbar-h: 61px; --foot-h: 56px; }
 .topbar .where { color: var(--muted); font-size: var(--fs-0); display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); min-width: 0; }
 .topbar .where .who { max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .shell { max-width: 1200px; margin: 0 auto; padding: var(--s-5) var(--s-4) var(--s-8); }
@@ -242,22 +237,25 @@ fieldset legend { padding: 0; font-weight: 600; font-size: var(--fs-0); color: v
 @media (max-width: 959px) { .hero-art { display: none; } }
 
 /* etapas (fases) */
-.stepper { list-style: none; margin: 0 0 var(--s-6); padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-2); counter-reset: ph; }
-.stepper li { position: relative; }
-.stepper button { position: relative; width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-2); text-align: left; padding: var(--s-4) 0 0; background: transparent; border: 0; color: var(--muted); font: inherit; cursor: pointer; min-height: 44px; transition: color var(--t-med) var(--ease-out); }
-.stepper button::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px; border-radius: 2px; background: var(--border-strong); transition: background-color var(--t-med) var(--ease-out); }
+/* barra de progresso: círculo com o ícone da etapa, linhas entre os círculos e o nome centralizado embaixo */
+.steps-nav { flex: 0 0 auto; margin: var(--s-2) 0 var(--s-4); }
+.stepper { list-style: none; margin: 0 auto; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); max-width: 820px; }
+.stepper li { min-width: 0; }
+.stepper button { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 0; background: transparent; border: 0; color: var(--faint); font: inherit; cursor: pointer; min-height: 44px; }
 .stepper button[aria-disabled="true"] { cursor: not-allowed; }
-.stepper .n { font-size: var(--fs-0); color: var(--faint); font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 6px; }
-.stepper .t { font-weight: 600; font-size: var(--fs-0); overflow-wrap: anywhere; min-width: 0; }
-.stepper li.done button { color: var(--text-2); }
-.stepper li.done button::before { background: var(--ok); }
-.stepper li.done .n { color: var(--ok); }
-.stepper li.current button { color: var(--text); }
-.stepper li.current button::before { background: var(--brand); box-shadow: 0 0 14px var(--brand-glow); }
-.stepper li.current .n { color: var(--brand-text); }
-@media (hover: hover) and (pointer: fine) { .stepper button:hover:not([aria-disabled="true"]) { color: var(--text); } }
+.stp-row { width: 100%; display: flex; align-items: center; }
+.stp-line { flex: 1 1 0; height: 3px; border-radius: 0; background: var(--border-strong); transition: background-color var(--t-med) var(--ease-out); }
+.stp-line.on { background: var(--ok); }
+.stp-line.hide { visibility: hidden; }
+.stp-dot { flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--border-strong); background: var(--surface); color: var(--faint); transition: background-color var(--t-med) var(--ease-out), border-color var(--t-med) var(--ease-out), color var(--t-med) var(--ease-out); }
+.stepper .t { font-weight: 600; font-size: var(--fs-0); text-align: center; overflow-wrap: anywhere; min-width: 0; }
+.stepper li.done .stp-dot { border-color: var(--ok); background: var(--ok-soft); color: var(--ok); }
+.stepper li.done .t { color: var(--text-2); }
+.stepper li.current .stp-dot { border-color: var(--brand); background: var(--brand); color: var(--brand-contrast); box-shadow: 0 0 18px var(--brand-glow); }
+.stepper li.current .t { color: var(--text); }
+@media (hover: hover) and (pointer: fine) { .stepper button:hover:not([aria-disabled="true"]) .t { color: var(--text); } .stepper button:hover:not([aria-disabled="true"]) .stp-dot { border-color: var(--border-input); } }
 .stepper button:focus-visible { outline-offset: 2px; }
-@media (max-width: 560px) { .stepper .t { font-size: .8125rem; } .topbar .stepper li:not(.current) .t { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } .topbar .stepper { gap: var(--s-2); } }
+@media (max-width: 560px) { .stp-dot { width: 38px; height: 38px; } .stepper .t { font-size: .75rem; } }
 
 .phase { display: block; }
 @media (prefers-reduced-motion: no-preference) { .phase { animation: phase-in 360ms var(--ease-out) both; } }

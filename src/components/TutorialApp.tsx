@@ -114,16 +114,22 @@ export function TutorialApp() {
   return (
     <>
       <a className="skip-link" href="#conteudo">Pular para o conteúdo</a>
-      <BrandBar>
-        <nav aria-label="Etapas">
+      <BrandBar />
+      <main id="conteudo" className={`shell ${phase === 0 ? "fit-page" : "cards-page"}`} tabIndex={-1}>
+        <nav aria-label="Etapas" className="steps-nav">
           <ol className="stepper">
             {STEPS.map((st, i) => {
               const locked = !view.unlocked[i];
               const isDone = submitted || (view.done[i] && i !== phase);
+              const reached = (k: number) => submitted || !!view.done[k];
               return (
                 <li key={st.key} className={`${i === phase ? "current" : ""} ${isDone ? "done" : ""}`}>
                   <button type="button" aria-current={i === phase ? "step" : undefined} aria-disabled={locked} onClick={() => !locked && go(i)}>
-                    <span className="n">{isDone ? <Icon name="check" size={14} /> : locked ? <Icon name="lock" size={13} /> : null}{String(i + 1).padStart(2, "0")}</span>
+                    <span className="stp-row" aria-hidden>
+                      <span className={`stp-line ${i === 0 ? "hide" : reached(i - 1) ? "on" : ""}`} />
+                      <span className="stp-dot"><Icon name={STEP_ICONS[i]} size={20} /></span>
+                      <span className={`stp-line ${i === STEPS.length - 1 ? "hide" : reached(i) ? "on" : ""}`} />
+                    </span>
                     <span className="t">{st.short}</span>
                     <span className="visually-hidden">{locked ? " (bloqueada: conclua a etapa anterior)" : isDone ? " (concluída)" : ""}</span>
                   </button>
@@ -132,8 +138,6 @@ export function TutorialApp() {
             })}
           </ol>
         </nav>
-      </BrandBar>
-      <main id="conteudo" className={`shell ${phase === 0 ? "fit-page" : "cards-page"}`} tabIndex={-1}>
 
         {view.redo && phase !== 2 && (
           <div style={{ marginBottom: 20 }}><Alert tone="warn" role="alert">A equipe pediu uma nova foto da tela. <button type="button" className="btn sm" onClick={() => go(2)}>Enviar agora</button></Alert></div>
@@ -152,6 +156,9 @@ export function TutorialApp() {
 }
 
 // ───────── padrão de todas as etapas ─────────
+
+/** Ícone de cada etapa na barra de progresso. */
+const STEP_ICONS: IconName[] = ["download", "tv", "camera", "flag"];
 
 /** Título e subtítulo da etapa (sempre na mesma posição); `aside` fica à direita (ex.: situação da tela). */
 function PhaseHead({ head, title, sub, aside }: { head: React.RefObject<HTMLHeadingElement | null>; title: string; sub: React.ReactNode; aside?: React.ReactNode }) {

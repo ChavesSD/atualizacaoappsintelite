@@ -25,6 +25,7 @@ const PATHS: Record<string, ReactNode> = {
   totem: <><rect x="6" y="2" width="12" height="16" rx="2" /><path d="M9 6h6" /><path d="M9 10h6" /><path d="M12 18v3" /><path d="M8 22h8" /></>,
   tv: <><rect x="2" y="4" width="20" height="13" rx="2" /><path d="M8 21h8" /><path d="M12 17v4" /><path d="M7 9h4" /><path d="M7 12h2" /></>,
   clock: <><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></>,
+  flag: <><path d="M4 22V4" /><path d="M4 4h13l-2.5 4.5L17 13H4" /></>,
 };
 
 export type IconName = keyof typeof PATHS;
