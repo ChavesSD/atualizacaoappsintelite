@@ -206,7 +206,7 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
     from: import("three").Vector3; to: import("three").Vector3; rot0: number; yaw: number; restAt: number };
   const tickets: Ticket[] = [];
   const PW = 0.058, PH = 0.16, SLOT_Y = 0.695, FLOOR_Y = -0.022; // a base do totem fica em y = -0.022 (no sistema local do totem)
-  let counter = 45, lastLanding = 0;
+  let counter = 45, lastLanding = 0, queued = 0;
   const paperGeo = track(new THREE.PlaneGeometry(PW, PH)); paperGeo.translate(0, -PH / 2, 0); // a origem é a borda de cima (a que sai da janela)
   const makePaperTexture = (n: number) => {
     const c = document.createElement("canvas"); c.width = 232; c.height = 640;
@@ -225,8 +225,14 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
     g.fillStyle = "#6b7488"; g.font = "500 17px system-ui, sans-serif"; g.fillText("Aguarde ser chamado", 116, 560);
     const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; return tex;
   };
+  // um papel por vez na janela: se ainda há um saindo ou pendurado, ele cai primeiro e só então sai a próxima senha
   const print = () => {
     if (reduce) return;
+    const busy = tickets.some((o) => o.state === "print" || o.state === "hang");
+    if (busy) { queued = Math.min(queued + 1, 3); tickets.forEach((o) => { if (o.state === "print" || o.state === "hang") startFall(o); }); return; }
+    emit();
+  };
+  const emit = () => {
     counter += 1;
     const tex = makePaperTexture(counter);
     const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, metalness: 0, side: THREE.DoubleSide, emissive: 0x2a2a28, transparent: true });
@@ -235,6 +241,14 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
     g.position.set(0, SLOT_Y - 0.018, FRONT_Z + 0.004); g.rotation.x = -1.3; mesh.scale.y = 0.06;
     totem.add(g);
     tickets.push({ g, mesh, mat, tex, state: "print", t: 0, from: new THREE.Vector3(), to: new THREE.Vector3(), rot0: 0, yaw: 0, restAt: 0 });
+  };
+  const startFall = (k: Ticket) => {
+    k.state = "fall"; k.t = 0;
+    const stack = tickets.filter((o) => o.state === "rest" || o.state === "fall").length - 1;
+    k.from.copy(k.g.position);
+    k.yaw = (Math.random() - 0.5) * 2.4;
+    k.to.set((Math.random() - 0.5) * 0.34, FLOOR_Y + 0.001 + Math.max(0, stack) * 0.0009, FRONT_Z + 0.07 + Math.random() * 0.26);
+    k.rot0 = k.g.rotation.x;
   };
   const stepTickets = (dt: number, now: number) => {
     const ease = (x: number) => 1 - Math.pow(1 - x, 3);
@@ -247,14 +261,7 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
         if (p >= 1) { k.state = "hang"; k.t = 0; }
       } else if (k.state === "hang") {                 // fica pendurado, balançando um pouco
         k.g.rotation.x = -0.12 + Math.sin(k.t * 5) * 0.025 * Math.exp(-k.t * 0.8);
-        if (k.t > 2.2) {
-          k.state = "fall"; k.t = 0;
-          const stack = tickets.filter((o) => o.state === "rest").length;
-          k.from.copy(k.g.position);
-          k.yaw = (Math.random() - 0.5) * 2.4;
-          k.to.set((Math.random() - 0.5) * 0.34, FLOOR_Y + 0.001 + stack * 0.0009, FRONT_Z + 0.07 + Math.random() * 0.26);
-          k.rot0 = k.g.rotation.x;
-        }
+        if (k.t > 1.2) startFall(k);
       } else if (k.state === "fall") {                 // cai girando e pousa de barriga para cima
         const T = 0.75, p = Math.min(1, k.t / T);
         k.g.position.x = k.from.x + (k.to.x - k.from.x) * p;
@@ -268,8 +275,9 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
         if (k.mat.opacity <= 0) { totem.remove(k.g); k.mat.dispose(); k.tex.dispose(); tickets.splice(i, 1); }
       }
     }
+    if (queued > 0 && !tickets.some((o) => o.state === "print" || o.state === "hang") && tickets.every((o) => o.state !== "fall" || o.t > 0.3)) { queued -= 1; emit(); }
     // depois de um tempinho sem papel novo no chão, some tudo
-    if (lastLanding && now - lastLanding > 7000 && tickets.length && tickets.every((o) => o.state === "rest")) {
+    if (lastLanding && !queued && now - lastLanding > 7000 && tickets.length && tickets.every((o) => o.state === "rest")) {
       tickets.forEach((o) => { o.state = "fade"; o.t = 0; }); lastLanding = 0;
     }
   };
