@@ -201,85 +201,118 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
   const shadow = plane(1.15, 1.35, track(new THREE.MeshBasicMaterial({ map: track(new THREE.CanvasTexture(sc)), transparent: true, depthWrite: false })), 0, 0.0025, -0.12);
   shadow.rotation.x = -Math.PI / 2; scene.add(shadow);
 
-  // ── senhas: tocar na tela imprime uma senha pela janela; o papel cai no chão, acumula e, depois de um tempo, some tudo ──
-  type Ticket = { g: import("three").Group; mesh: import("three").Mesh; mat: import("three").MeshStandardMaterial; tex: import("three").Texture; state: "print" | "hang" | "fall" | "rest" | "fade"; t: number;
-    from: import("three").Vector3; to: import("three").Vector3; rot0: number; yaw: number; restAt: number };
+  // ── senhas: tocar na tela imprime uma senha (no modelo real do totem) pela janela; o papel sai, flutua até a frente da câmera
+  // e cresce para dar para ler; depois sobe e some. Um papel por vez: tocar de novo dispensa o atual e imprime a próxima ──
+  type Ticket = { g: import("three").Group; mesh: import("three").Mesh; mat: import("three").MeshBasicMaterial; tex: import("three").Texture;
+    state: "print" | "float" | "hold" | "leave"; t: number; p0: import("three").Vector3; q0: import("three").Quaternion; s0: number };
   const tickets: Ticket[] = [];
-  const PW = 0.058, PH = 0.16, SLOT_Y = 0.695, FLOOR_Y = -0.022; // a base do totem fica em y = -0.022 (no sistema local do totem)
-  let counter = 45, lastLanding = 0, queued = 0;
+  const PW = 0.078, PH = 0.088, SLOT_Y = 0.695;
+  let counter = 0, queued = 0;
   const paperGeo = track(new THREE.PlaneGeometry(PW, PH)); paperGeo.translate(0, -PH / 2, 0); // a origem é a borda de cima (a que sai da janela)
+  let QR: ((text: string) => { n: number; dark: (r: number, c: number) => boolean }) | null = null;
+  import("qrcode-generator").then((m) => {
+    const make = (m.default ?? m) as unknown as (t: number, l: string) => { addData: (d: string) => void; make: () => void; getModuleCount: () => number; isDark: (r: number, c: number) => boolean };
+    QR = (text: string) => { const q = make(0, "M"); q.addData(text); q.make(); return { n: q.getModuleCount(), dark: (r, c) => q.isDark(r, c) }; };
+  }).catch(() => { /* sem QR, o resto da senha continua igual */ });
+
+  /** Senha no modelo real: logo, dados da empresa, tipo de atendimento, número, data/hora, QR code e endereço de acompanhamento. */
   const makePaperTexture = (n: number) => {
-    const c = document.createElement("canvas"); c.width = 232; c.height = 640;
+    const W = 600, H = 680;
+    const c = document.createElement("canvas"); c.width = W; c.height = H;
     const g = c.getContext("2d")!;
-    g.fillStyle = "#f6f5f1"; g.fillRect(0, 0, 232, 640);
-    g.fillStyle = "#1b2433"; g.textAlign = "center";
-    g.font = "700 30px system-ui, sans-serif"; g.fillText("INTELITE", 116, 62);
-    g.fillStyle = "#6b7488"; g.font = "500 18px system-ui, sans-serif"; g.fillText("Atendimento Inteligente", 116, 92);
-    g.strokeStyle = "#c9ccd4"; g.setLineDash([6, 6]); g.lineWidth = 2; g.beginPath(); g.moveTo(18, 120); g.lineTo(214, 120); g.stroke(); g.setLineDash([]);
-    g.fillStyle = "#6b7488"; g.font = "600 20px system-ui, sans-serif"; g.fillText("SUA SENHA", 116, 176);
-    g.fillStyle = "#1b2433"; g.font = "800 92px system-ui, sans-serif"; g.fillText("A", 116, 288);
-    g.font = "800 84px system-ui, sans-serif"; g.fillText(String(n).padStart(3, "0"), 116, 380);
-    g.fillStyle = "#6b7488"; g.font = "500 20px system-ui, sans-serif"; g.fillText("Atendimento médico", 116, 440);
-    g.fillText(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }), 116, 474);
-    g.strokeStyle = "#c9ccd4"; g.setLineDash([6, 6]); g.beginPath(); g.moveTo(18, 520); g.lineTo(214, 520); g.stroke(); g.setLineDash([]);
-    g.fillStyle = "#6b7488"; g.font = "500 17px system-ui, sans-serif"; g.fillText("Aguarde ser chamado", 116, 560);
-    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; return tex;
+    g.fillStyle = "#fdfdfc"; g.fillRect(0, 0, W, H);
+    const ink = "#14171f";
+    if (logoImg) {                                         // logo branca → escura (papel branco)
+      const lw = 190, lh = lw * logoImg.naturalHeight / logoImg.naturalWidth;
+      const t = document.createElement("canvas"); t.width = Math.round(lw * 2); t.height = Math.round(lh * 2);
+      const tg = t.getContext("2d")!; tg.drawImage(logoImg, 0, 0, t.width, t.height);
+      tg.globalCompositeOperation = "source-in"; tg.fillStyle = "#1c2a4a"; tg.fillRect(0, 0, t.width, t.height);
+      g.drawImage(t, (W - lw) / 2, 16, lw, lh);
+    }
+    g.fillStyle = ink; g.textAlign = "center";
+    const now = new Date();
+    const line = (txt: string, y: number, font: string) => { g.font = font; g.fillText(txt, W / 2, y); };
+    const sans = "system-ui, 'Segoe UI', Arial, sans-serif";
+    line("CNPJ: 31.953.393/0001-81", 142, `500 25px ${sans}`);
+    line("INTELITE", 172, `500 25px ${sans}`);
+    line("R. CARTEIRO OLIVIO PONTES 575", 202, `500 25px ${sans}`);
+    line("Telefones: (83) 3512 5222", 232, `500 25px ${sans}`);
+    line("ATENDIMENTO MÉDICO", 292, `800 33px ${sans}`);
+    line(`D${n}`, 382, `800 96px ${sans}`);
+    const dd = now.toLocaleDateString("pt-BR"), hh = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    line(`Emitida em ${dd} às ${hh}`, 426, `500 24px ${sans}`);
+    if (QR) {                                              // QR code real, apontando para o acompanhamento da senha
+      const q = QR("https://www.atendimentointeligente.com.br");
+      const size = 150, cell = size / (q.n + 2), x0 = (W - size) / 2, y0 = 442;
+      g.fillStyle = "#fff"; g.fillRect(x0, y0, size, size); g.fillStyle = "#000";
+      for (let r = 0; r < q.n; r++) for (let cc = 0; cc < q.n; cc++) if (q.dark(r, cc)) g.fillRect(x0 + (cc + 1) * cell, y0 + (r + 1) * cell, cell + 0.4, cell + 0.4);
+    }
+    g.fillStyle = ink;
+    line("Escaneie para acompanhar sua senha", 624, `500 23px ${sans}`);
+    line("www.atendimentointeligente.com.br", 654, `500 23px ${sans}`);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8; return tex;
   };
-  // um papel por vez na janela: se ainda há um saindo ou pendurado, ele cai primeiro e só então sai a próxima senha
   const print = () => {
     if (reduce) return;
-    const busy = tickets.some((o) => o.state === "print" || o.state === "hang");
-    if (busy) { queued = Math.min(queued + 1, 3); tickets.forEach((o) => { if (o.state === "print" || o.state === "hang") startFall(o); }); return; }
+    const active = tickets.filter((o) => o.state !== "leave");
+    if (active.length) { queued = 1; active.forEach(dismiss); return; }
+    if (tickets.length) { queued = 1; return; }           // o anterior ainda está saindo: imprime logo depois
     emit();
   };
+  const dismiss = (k: Ticket) => { if (k.state === "leave") return; k.state = "leave"; k.t = 0; if (!k.g.parent || k.g.parent === totem) scene.attach(k.g); k.p0.copy(k.g.position); k.s0 = k.g.scale.x; };
   const emit = () => {
     counter += 1;
     const tex = makePaperTexture(counter);
-    const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, metalness: 0, side: THREE.DoubleSide, emissive: 0x2a2a28, transparent: true });
+    const mat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide, transparent: true, toneMapped: false });
     const mesh = new THREE.Mesh(paperGeo, mat);
     const g = new THREE.Group(); g.rotation.order = "YXZ"; g.add(mesh);
     g.position.set(0, SLOT_Y - 0.018, FRONT_Z + 0.004); g.rotation.x = -1.3; mesh.scale.y = 0.06;
     totem.add(g);
-    tickets.push({ g, mesh, mat, tex, state: "print", t: 0, from: new THREE.Vector3(), to: new THREE.Vector3(), rot0: 0, yaw: 0, restAt: 0 });
+    tickets.push({ g, mesh, mat, tex, state: "print", t: 0, p0: new THREE.Vector3(), q0: new THREE.Quaternion(), s0: 1 });
   };
-  const startFall = (k: Ticket) => {
-    k.state = "fall"; k.t = 0;
-    const stack = tickets.filter((o) => o.state === "rest" || o.state === "fall").length - 1;
-    k.from.copy(k.g.position);
-    k.yaw = (Math.random() - 0.5) * 2.4;
-    k.to.set((Math.random() - 0.5) * 0.34, FLOOR_Y + 0.001 + Math.max(0, stack) * 0.0009, FRONT_Z + 0.07 + Math.random() * 0.26);
-    k.rot0 = k.g.rotation.x;
+  const camDir = new THREE.Vector3(), camUp = new THREE.Vector3(), tgt = new THREE.Vector3();
+  const FLOAT_S = 5.0, HOLD_DIST = 2.2;                    // tamanho final (5x) e distância da câmera
+  /** Posição (borda de cima do papel) para o papel ficar centrado, de frente para a câmera. */
+  const holdPos = (bob: number, out: import("three").Vector3) => {
+    camera.getWorldDirection(camDir); camUp.set(0, 1, 0).applyQuaternion(camera.quaternion);
+    return out.copy(camera.position).addScaledVector(camDir, HOLD_DIST).addScaledVector(camUp, PH * FLOAT_S / 2 + bob);
   };
-  const stepTickets = (dt: number, now: number) => {
+  const stepTickets = (dt: number) => {
     const ease = (x: number) => 1 - Math.pow(1 - x, 3);
+    const inout = (x: number) => x * x * (3 - 2 * x);
     for (let i = tickets.length - 1; i >= 0; i--) {
       const k = tickets[i]; k.t += dt;
-      if (k.state === "print") {                       // sai pela janela, esticando para fora e caindo para baixo
-        const p = Math.min(1, k.t / 1.1);
+      if (k.state === "print") {                       // sai pela janela e se solta para baixo
+        const p = Math.min(1, k.t / 0.9);
         k.mesh.scale.y = 0.06 + 0.94 * ease(p);
-        k.g.rotation.x = -1.3 + 1.18 * ease(p);
-        if (p >= 1) { k.state = "hang"; k.t = 0; }
-      } else if (k.state === "hang") {                 // fica pendurado, balançando um pouco
-        k.g.rotation.x = -0.12 + Math.sin(k.t * 5) * 0.025 * Math.exp(-k.t * 0.8);
-        if (k.t > 1.2) startFall(k);
-      } else if (k.state === "fall") {                 // cai girando e pousa de barriga para cima
-        const T = 0.75, p = Math.min(1, k.t / T);
-        k.g.position.x = k.from.x + (k.to.x - k.from.x) * p;
-        k.g.position.z = k.from.z + (k.to.z - k.from.z) * ease(p);
-        k.g.position.y = k.from.y + (k.to.y - k.from.y) * p * p + Math.sin(p * Math.PI) * 0.02; // gravidade (parábola) com um leve "balão"
-        k.g.rotation.x = k.rot0 + (-Math.PI / 2 - k.rot0) * ease(p);
-        k.g.rotation.y = k.yaw * ease(p);
-        if (p >= 1) { k.state = "rest"; k.t = 0; lastLanding = now; }
-      } else if (k.state === "fade") {
-        k.mat.opacity = Math.max(0, 1 - k.t / 0.8);
-        if (k.mat.opacity <= 0) { totem.remove(k.g); k.mat.dispose(); k.tex.dispose(); tickets.splice(i, 1); }
+        k.g.rotation.x = -1.3 + 1.15 * ease(p);
+        if (p >= 1) {
+          k.state = "float"; k.t = 0;
+          scene.attach(k.g);                           // passa para o espaço do mundo (para ir até a câmera)
+          k.p0.copy(k.g.position); k.q0.copy(k.g.quaternion); k.s0 = k.g.scale.x;
+        }
+      } else if (k.state === "float") {                // flutua até a frente da câmera, girando para ficar de frente e crescendo
+        const p = inout(Math.min(1, k.t / 1.5));
+        holdPos(0, tgt);
+        k.g.position.lerpVectors(k.p0, tgt, p);
+        k.g.quaternion.slerpQuaternions(k.q0, camera.quaternion, p);
+        k.g.scale.setScalar(k.s0 + (FLOAT_S - k.s0) * p);
+        if (p >= 1) { k.state = "hold"; k.t = 0; }
+      } else if (k.state === "hold") {                 // fica flutuando suavemente, legível
+        holdPos(Math.sin(k.t * 1.8) * 0.012, tgt);
+        k.g.position.copy(tgt);
+        k.g.quaternion.copy(camera.quaternion);
+        k.g.rotateY(Math.sin(k.t * 1.1) * 0.05); k.g.rotateX(Math.sin(k.t * 0.9 + 1) * 0.02);
+        if (k.t > 4.5) dismiss(k);
+      } else if (k.state === "leave") {                // sobe e some
+        const p = Math.min(1, k.t / 0.7);
+        k.mat.opacity = 1 - inout(p);
+        k.g.position.y = k.p0.y + 0.25 * ease(p);
+        k.g.scale.setScalar(k.s0 * (1 + 0.06 * p));
+        if (p >= 1) { scene.remove(k.g); k.mat.dispose(); k.tex.dispose(); tickets.splice(i, 1); }
       }
     }
-    if (queued > 0 && !tickets.some((o) => o.state === "print" || o.state === "hang") && tickets.every((o) => o.state !== "fall" || o.t > 0.3)) { queued -= 1; emit(); }
-    // depois de um tempinho sem papel novo no chão, some tudo
-    if (lastLanding && !queued && now - lastLanding > 7000 && tickets.length && tickets.every((o) => o.state === "rest")) {
-      tickets.forEach((o) => { o.state = "fade"; o.t = 0; }); lastLanding = 0;
-    }
+    if (queued > 0 && tickets.length === 0) { queued = 0; emit(); }
   };
 
   // ── movimento e interação ──
@@ -335,7 +368,7 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
     raf = requestAnimationFrame(tick);
     const dt = Math.min(0.05, (now - prevNow) / 1000); prevNow = now;
     if (!visible || document.hidden) return;
-    stepTickets(dt, now);
+    stepTickets(dt);
     if (!dragging) {
       if (Math.abs(vel) > 0.0004) { yaw = clamp(yaw + vel, -LIM, LIM); vel *= 0.93; }
       else if (!reduce && now - idleSince > 1800) { // volta a balançar devagar, retomando de onde parou
