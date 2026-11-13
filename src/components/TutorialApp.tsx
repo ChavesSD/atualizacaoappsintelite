@@ -6,6 +6,7 @@ import type { GuideVideo as Guide } from "@/lib/videos";
 import { BrandBar } from "./Brand";
 import { GuideVideo, type GuidePlayer } from "./GuideVideo";
 import { Totem3D } from "./Totem3D";
+import { TvArt } from "./TvArt";
 import { Inline, Lines, StepContent, toBlocks, type PublicStep } from "./StepContent";
 import { Alert, Icon, Skeleton, type IconName } from "./ui";
 
@@ -328,34 +329,36 @@ function CheckPhase({ head, intro, fix, state, confirmed, busy, onFraming, onBac
   return (
     <section className="phase" aria-labelledby="h-phase">
       <header className="phase-head">
-        <h1 id="h-phase" ref={head} tabIndex={-1}>{mode === "fix" ? "Minha tela está cortada ou desalinhada" : "Conferir a tela"}</h1>
-        {mode === "check" && <p>{(intro?.instructions ?? []).map((l) => <span key={l} style={{ display: "block", marginBottom: 6 }}><Inline text={l} /></span>)}</p>}
+        <h1 id="h-phase" ref={head} tabIndex={-1}>{mode === "fix" ? "Minha tela está cortada ou desalinhada" : "Como sua tela está?"}</h1>
+        {mode === "check" && <p>Olhe para a tela do equipamento e escolha a imagem que mais se parece com ela.</p>}
       </header>
 
+      {mode === "check" && (
+        <>
+          <div className="row between" style={{ marginBottom: "var(--s-3)" }}>
+            <span className="muted small">Situação da tela</span>
+            <span className={`badge ${badge.tone}`}><Icon name={badge.icon} />{badge.text}</span>
+          </div>
+          {state === "CORRETO" && <div style={{ marginBottom: "var(--s-3)" }}><Alert tone="info">Obrigado! A equipe da Intelite vai conferir pela foto. {confirmed && <strong>A equipe já confirmou.</strong>}</Alert></div>}
+          <fieldset className="tvchoices">
+            <legend className="visually-hidden">Como sua tela está?</legend>
+            <button type="button" className="tvchoice bad" aria-pressed={state === "INCORRETO" || state === "PRECISA_SUPORTE"} disabled={busy} onClick={() => send("INCORRETO")}>
+              <TvArt variant="cut" />
+              <span className="tvchoice-text"><Icon name="alert" /><strong>Cortada ou desalinhada</strong><span className="d">Bordas escondidas, textos cortados ou a imagem fora do lugar. Mostramos como ajustar.</span></span>
+            </button>
+            <button type="button" className="tvchoice good" aria-pressed={state === "CORRETO"} disabled={busy} onClick={() => send("CORRETO")}>
+              <TvArt variant="ok" />
+              <span className="tvchoice-text"><Icon name="checkCircle" /><strong>Está tudo certo</strong><span className="d">Tudo aparece dentro da tela, com as quatro bordas visíveis. Siga para a foto.</span></span>
+            </button>
+          </fieldset>
+          <details className="criteria">
+            <summary>O que conferir na tela</summary>
+            <p>{(intro?.instructions ?? []).map((l) => <span key={l} style={{ display: "block", marginBottom: 6 }}><Inline text={l} /></span>)}</p>
+            <ul className="info-list">{CRITERIA.map((c) => <li key={c}>{c}</li>)}</ul>
+          </details>
+        </>
+      )}
       <div className="split">
-        {mode === "check" && (
-          <>
-            <div className="stack">
-              <div className="row between">
-                <span className="muted small">Situação da tela</span>
-                <span className={`badge ${badge.tone}`}><Icon name={badge.icon} />{badge.text}</span>
-              </div>
-              {state === "CORRETO" && <Alert tone="info">Obrigado! A equipe da Intelite vai conferir pela foto. {confirmed && <strong>A equipe já confirmou.</strong>}</Alert>}
-              <div className="subcard">
-                <h2 style={{ fontSize: "var(--fs-2)", margin: "0 0 var(--s-4)" }}>O que precisa estar correto</h2>
-                <ul className="info-list">{CRITERIA.map((c) => <li key={c}>{c}</li>)}</ul>
-              </div>
-            </div>
-            <div className="verdicts">
-              <button type="button" className="verdict good" disabled={busy} onClick={() => send("CORRETO")}>
-                <Icon name="checkCircle" /><strong>Está tudo certo</strong><span className="d">Todos os itens da lista estão corretos na tela.</span>
-              </button>
-              <button type="button" className="verdict bad" disabled={busy} onClick={() => send("INCORRETO")}>
-                <Icon name="alert" /><strong>Minha tela está cortada ou desalinhada</strong><span className="d">Mostramos como ajustar, passo a passo.</span>
-              </button>
-            </div>
-          </>
-        )}
         {mode === "fix" && (
           <>
             <div className="stack">

@@ -321,6 +321,23 @@ ol.steps > li.free::before { display: none; }
 @media (hover: hover) and (pointer: fine) { .dl .opt-link:hover { background: var(--surface-3); padding-inline: var(--s-3); } .dl .opt-link.direct:hover { background: var(--brand-hover); padding-inline: var(--s-4); } }
 
 /* conferir a tela */
+.tvchoices { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: var(--s-4); }
+@media (min-width: 720px) { .tvchoices { grid-template-columns: 1fr 1fr; } }
+.tvchoice { text-align: left; display: flex; flex-direction: column; gap: var(--s-3); padding: var(--s-4); border-radius: var(--r-xl); border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; min-width: 0; transition: border-color var(--t-fast) var(--ease-out), background-color var(--t-fast) var(--ease-out), transform var(--t-fast) var(--ease-out); }
+.tvchoice:active:not([disabled]) { transform: scale(.99); }
+.tvchoice .tvart { display: block; width: 100%; height: auto; }
+.tvchoice-text { display: grid; grid-template-columns: auto 1fr; column-gap: var(--s-3); row-gap: 2px; align-items: start; }
+.tvchoice-text .icon { grid-row: span 2; width: 28px; height: 28px; margin-top: 2px; }
+.tvchoice-text strong { font-size: var(--fs-2); letter-spacing: -.01em; }
+.tvchoice-text .d { color: var(--muted); font-size: var(--fs-0); }
+.tvchoice.good { border-color: color-mix(in srgb, var(--ok) 45%, var(--border)); }
+.tvchoice.good .icon { color: var(--ok); }
+.tvchoice.bad .icon { color: var(--warn); }
+@media (hover: hover) and (pointer: fine) { .tvchoice:hover:not([disabled]) { background: var(--surface-2); } .tvchoice.good:hover:not([disabled]) { border-color: var(--ok); } .tvchoice.bad:hover:not([disabled]) { border-color: var(--warn); } }
+.tvchoice[aria-pressed="true"].good { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok); background: var(--ok-soft); }
+.tvchoice[aria-pressed="true"].bad { border-color: var(--warn); box-shadow: 0 0 0 1px var(--warn); background: var(--warn-soft); }
+.criteria { margin-top: var(--s-4); color: var(--text-2); }
+.criteria summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
 .verdicts { display: grid; gap: var(--s-3); margin-top: var(--s-5); }
 @media (min-width: 640px) { .verdicts { grid-template-columns: 1fr 1fr; } }
 .verdict { text-align: left; display: flex; flex-direction: column; gap: var(--s-2); padding: var(--s-5); border-radius: var(--r-lg); border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font: inherit; cursor: pointer; min-height: 132px; transition: border-color var(--t-fast) var(--ease-out), background-color var(--t-fast) var(--ease-out), transform var(--t-fast) var(--ease-out); }
@@ -425,6 +442,7 @@ details > summary { cursor: pointer; min-height: 32px; }
 .split .verdicts { grid-template-columns: 1fr; margin-top: 0; }
 
 .split > * { min-width: 0; }
+.split:empty { display: none; }
 
 /* ═════════ fase "Atualizar": tudo numa tela, sem rolagem vertical ═════════
    O texto mostra só o passo em andamento (o do capítulo que está tocando ou o escolhido); vídeo e passo ocupam a altura que sobra. */

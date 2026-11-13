@@ -134,12 +134,13 @@ test("cliente conclui o guia no celular; equipe confirma; indicadores refletem",
   await next(page);
 
   // fase 2: conferir a tela (lista informativa; problema → tutorial de ajuste → conferir de novo)
-  await expect(phaseTitle(page, "Conferir a tela")).toBeVisible();
-  await expect(page.getByText("O que precisa estar correto")).toBeVisible();
+  await expect(phaseTitle(page, "Como sua tela está?")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Está tudo certo/ })).toBeVisible();
+  await page.getByText("O que conferir na tela").click();
   await expect(page.getByText("Textos, botões, logotipo e números das senhas não estão cortados.")).toBeVisible();
   await expect(page.locator("main input[type=checkbox]")).toHaveCount(0); // nada para marcar
   await expect(page.getByRole("button", { name: /^Continuar/ })).toBeDisabled();
-  await page.getByRole("button", { name: /Minha tela está cortada ou desalinhada/ }).click();
+  await page.getByRole("button", { name: /Cortada ou desalinhada/ }).click();
   await expect(phaseTitle(page, "Minha tela está cortada ou desalinhada")).toBeVisible();
   await expect(page.getByText("Ajustar a proporção da tela (TV Box SmartPRO)")).toBeVisible();
   await expect(page.getByText("Ajuste necessário")).toBeVisible();

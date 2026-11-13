@@ -54,10 +54,10 @@ test("acessibilidade automática: cliente e admin, claro e escuro", async ({ pag
 
   await api.patch("/api/submissions/me", { data: { installed: true, step: 1 } });
   await page.reload();
-  await page.getByText("O que precisa estar correto").waitFor();
+  await page.getByRole("button", { name: /Está tudo certo/ }).waitFor();
   await scan(page, project, "cliente: conferir a tela");
 
-  await page.getByRole("button", { name: /Minha tela está cortada ou desalinhada/ }).click();
+  await page.getByRole("button", { name: /Cortada ou desalinhada/ }).click();
   await page.getByText("Ajuste necessário").waitFor();
   await scan(page, project, "cliente: ajuste de tela");
 
