@@ -558,15 +558,15 @@ details > summary { cursor: pointer; min-height: 32px; }
 @media (max-width: 640px) { .nav-row { flex-wrap: wrap; } .nav-row .why { order: 5; flex: 1 0 100%; text-align: left; } }
 @media (max-width: 640px) { :root { --foot-h: 44px; } .brandfoot { font-size: .75rem; padding-block: var(--s-3); } }
 
-/* círculos girando atrás do totem: dois anéis quebrados (arcos com vão), em sentidos opostos, como no selo do login do Aidate */
-.orbits { position: absolute; left: 50%; top: 50%; width: min(118%, 680px); aspect-ratio: 1; transform: translate(-50%, -50%); pointer-events: none; z-index: -1; }
-.orbit { position: absolute; inset: 0; width: 100%; height: 100%; fill: none; stroke: #fff; transform-origin: 50% 50%; }
+/* anéis girando atrás do totem: dois anéis quebrados (arcos com vão), em sentidos opostos, em azul brilhante; cada arco sai da borda da bolinha */
+.orbits { position: absolute; left: 50%; top: 50%; width: min(96%, 540px); aspect-ratio: 1; transform: translate(-50%, -50%); pointer-events: none; z-index: -1; }
+.orbit { position: absolute; inset: 0; width: 100%; height: 100%; fill: none; stroke: url(#orbit-grad); stroke-linecap: round; transform-origin: 50% 50%; filter: drop-shadow(0 0 5px rgba(76, 155, 255, .85)) drop-shadow(0 0 14px rgba(76, 155, 255, .45)); }
 .orbit path, .orbit circle { vector-effect: non-scaling-stroke; }
-.orbit-ext { opacity: .5; animation: orbit-spin 48s linear infinite; }
-.orbit-ext path { stroke-width: 2.5px; }
-.orbit-ext circle { stroke-width: 2px; }
-.orbit-int { opacity: .3; animation: orbit-spin 68s linear infinite reverse; }
-.orbit-int path { stroke-width: 2px; }
+.orbit-ext { opacity: .95; animation: orbit-spin 48s linear infinite; }
+.orbit-ext path { stroke-width: 5px; }
+.orbit-ext circle { stroke-width: 3.5px; }
+.orbit-int { opacity: .7; animation: orbit-spin 68s linear infinite reverse; }
+.orbit-int path { stroke-width: 4px; }
 @keyframes orbit-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .orbit { animation: none; } }
 .hero { overflow-x: clip; }

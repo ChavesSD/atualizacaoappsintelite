@@ -252,12 +252,15 @@ function Hero({ onCreated }: { onCreated: (v: View) => void }) {
           <div className="hero-art rise" style={{ "--i": 3 } as React.CSSProperties}>
             <div className="orbits" aria-hidden>
               <svg className="orbit orbit-ext" viewBox="0 0 200 200">
-                <path d="M100.00,12.00 A88,88 0 0 1 186.66,115.28" />
-                <path d="M176.21,144.00 A88,88 0 0 1 43.43,167.41" />
-                <path d="M23.79,144.00 A88,88 0 0 1 69.90,17.31" />
-                <circle cx="100.00" cy="12.00" r="4" />
-                <circle cx="176.21" cy="144.00" r="4" />
-                <circle cx="23.79" cy="144.00" r="4" />
+                <defs>
+                  <linearGradient id="orbit-grad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="200" y2="200"><stop offset="0" stopColor="#2f7bff" /><stop offset=".5" stopColor="#7cc4ff" /><stop offset="1" stopColor="#3b8cff" /></linearGradient>
+                </defs>
+                <path d="M105.00,12.14 A88,88 0 0 1 186.66,115.28" />
+                <path d="M173.59,148.26 A88,88 0 0 1 43.43,167.41" />
+                <path d="M21.41,139.60 A88,88 0 0 1 69.90,17.31" />
+                <circle cx="100.00" cy="12.00" r="5" />
+                <circle cx="176.21" cy="144.00" r="5" />
+                <circle cx="23.79" cy="144.00" r="5" />
               </svg>
               <svg className="orbit orbit-int" viewBox="0 0 200 200">
                 <path d="M100.00,32.00 A68,68 0 0 1 134.00,158.89" />
