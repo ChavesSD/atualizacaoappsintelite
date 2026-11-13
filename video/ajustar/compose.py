@@ -27,32 +27,32 @@ OK_C, WARN_C, BAD_C = (74, 222, 128), (251, 191, 36), (255, 138, 128)
 PANEL_IMG = ROOT / "public" / "painel-tela.webp"
 
 # ── linha do tempo (s do vídeo final), medida nos quadros da gravação ──
-PRESSES = [(19.6, "HOME"), (23.9, "DOWN"), (24.05, "DOWN"), (24.2, "DOWN"), (25.85, "OK"),
-           (28.4, "DOWN"), (28.55, "DOWN"), (29.8, "DOWN"), (31.2, "OK"),
-           *[(32.5 + 0.09 * i, "DOWN") for i in range(5)], (34.0, "OK"), (35.7, "DOWN"), (41.3, "OK"),
+PRESSES = [(17.2, "HOME"), (23.5, "DOWN"), (23.65, "DOWN"), (23.8, "DOWN"), (26.7, "OK"),
+           (27.3, "DOWN"), (27.45, "DOWN"), (28.6, "DOWN"), (31.65, "OK"),
+           *[(32.5 + 0.09 * i, "DOWN") for i in range(5)], (34.5, "OK"), (35.7, "DOWN"), (41.9, "OK"),
            *[(55.1 + 0.33 * i, "LEFT") for i in range(12)], *[(59.9 + 0.5 * i, "DOWN") for i in range(12)],
-           (69.1, "RIGHT"), (70.5, "UP"), (80.05, "BACK"), (81.8, "BACK"), (83.45, "BACK"), (84.8, "BACK")]
+           (69.1, "RIGHT"), (70.5, "UP"), (80.7, "BACK"), (82.55, "BACK"), (84.15, "BACK")]
 # toques/cliques mostrados com cursor e anel (coordenadas da tela do Mini PC, 1280x720): instante do efeito → posição
-OK_POS = {21.35: (640, 290), 85.8: (840, 600), 87.65: (724, 220)}
-CURSOR_WINDOWS = {21.35: (-1.6, 0.5), 85.8: (-1.6, 0.5), 87.65: (-1.6, 0.5)}
+OK_POS = {21.35: (640, 290), 85.45: (840, 600), 88.35: (893, 220)}
+CURSOR_WINDOWS = {21.35: (-1.6, 0.5), 85.45: (-1.6, 0.5), 88.35: (-1.6, 0.5)}
 # trechos em que o letreiro de notícias do painel (barra de baixo da gravação) é coberto
-TICKER_COVER = [(0.0, 19.5), (89.5, 120.0)]
+TICKER_COVER = [(0.0, 17.0, 0, 664, 1280, 56, "0x08090c"), (88.6, 120.0, 0, 664, 1280, 56, "0x08090c"), (26.7, 31.7, 980, 281, 215, 20, "0x1f2024")]  # inclui o nome da rede Wi-Fi nas Configurações
 # texto da ação (a partir de t): (título, subtítulo, tecla do ícone)
 ACTIONS = [
     (0.0, "Painel aberto na TV", "Comece com o painel do Atendimento Inteligente em execução.", None),
-    (19.0, "Aperte HOME", "Mostra \"Voltando ao painel…\" por alguns segundos.", "HOME"),
-    (21.0, "Toque no logo da Intelite", "Sai do painel e vai para a tela inicial do sistema.", None),
-    (23.6, "Abra CONFIGURAÇÕES", "Seta para baixo até Configurações e aperte OK.", "OK"),
-    (28.0, "Vá até PREFERÊNCIAS DO DISPOSITIVO", "Use a seta para baixo e aperte OK.", "DOWN"),
+    (16.7, "Aperte HOME", "Mostra \"Voltando ao painel…\" por alguns segundos.", "HOME"),
+    (20.6, "Toque no logo da Intelite", "Sai do painel e vai para a tela inicial do sistema.", None),
+    (23.2, "Abra CONFIGURAÇÕES", "Seta para baixo até Configurações e aperte OK.", "OK"),
+    (27.1, "Vá até PREFERÊNCIAS DO DISPOSITIVO", "Use a seta para baixo e aperte OK.", "DOWN"),
     (32.2, "Vá até EXIBIÇÃO", "Seta para baixo até Exibição e aperte OK.", "DOWN"),
-    (35.4, "Escolha AJUSTE DE PROPORÇÃO DE TELA", "A primeira opção, em Configurações HDMI. Aperte OK.", "OK"),
-    (42.0, "Ajuste as bordas da imagem", "Acompanhe o resultado na TV, aqui ao lado.", None),
+    (35.2, "Escolha AJUSTE DE PROPORÇÃO DE TELA", "A primeira opção, em Configurações HDMI. Aperte OK.", "OK"),
+    (42.4, "Ajuste as bordas da imagem", "Acompanhe o resultado na TV, aqui ao lado.", None),
     (54.8, "Seta para a esquerda", "Reduz a largura da imagem, aos poucos.", "LEFT"),
     (59.6, "Seta para baixo", "Reduz a altura. Pare quando as bordas pretas aparecerem.", "DOWN"),
     (68.8, "Pequenos ajustes", "Seta para a direita e seta para cima aumentam a imagem.", "RIGHT"),
     (72.0, "Pare quando tudo estiver visível", "Sem cortes em nenhuma das quatro bordas.", None),
-    (79.7, "Aperte VOLTAR", "Repita até voltar à tela inicial.", "BACK"),
-    (85.4, "Abra a Galeria de apps e o AI Híbrido", "O painel volta para a tela.", None),
+    (80.3, "Aperte VOLTAR", "Repita até voltar à tela inicial.", "BACK"),
+    (85.0, "Abra a Galeria de apps e o AI Híbrido", "O painel volta para a tela.", None),
     (91.5, "Confira a tela", "Deve aparecer inteira, com as quatro bordas visíveis.", None),
 ]
 KEY_LABEL = {"HOME": "Home", "BACK": "Voltar", "OK": "OK", "UP": "Seta para cima", "DOWN": "Seta para baixo", "LEFT": "Seta para a esquerda", "RIGHT": "Seta para a direita"}
@@ -140,7 +140,7 @@ def make_assets(d, chapters, title):
 # ───────── segmentos (tela do Mini PC + moldura + barra + narração) ─────────
 
 def build_segment(ch, start, dur, assets, work, total, offset, lead, intro, clip, hold):
-    covers = "".join(f",drawbox=x=16:y=514:w=990:h=48:color=0x05060f:t=fill:enable='between(t,{max(a - offset, 0):.2f},{b - offset:.2f})'" for a, b in TICKER_COVER if b > offset and a < offset + dur)
+    covers = "".join(f",drawbox=x={x}:y={y}:w={w}:h={h}:color={c}:t=fill:enable='between(t,{max(a - offset, 0):.2f},{b - offset:.2f})'" for a, b, x, y, w, h, c in TICKER_COVER if b > offset and a < offset + dur)
     seg = work / f"seg_{ch['id']}.mp4"
     inputs = ["-ss", f"{start:.3f}", "-t", f"{dur:.3f}", "-i", str(clip)]
     for f in ("bg.png", "mask.png", f"bar_{ch['id']}.png", "intro.png"):
@@ -226,8 +226,8 @@ class Scene:
         if fit: label, color = "Ajustada: tudo visível", OK_C
         elif bars: label, color = "Passou um pouco: bordas pretas", WARN_C
         elif sx < 1.006 and sy < 1.006: label, color = "Ajustando…", BRAND_TEXT
-        elif t > 41.5: label, color = "Ajustando…", BRAND_TEXT
-        if t < 41.3: label, color = "Cortada: bordas escondidas", WARN_C
+        elif t > 42.0: label, color = "Ajustando…", BRAND_TEXT
+        if t < 41.9: label, color = "Cortada: bordas escondidas", WARN_C
         f = font("SemiBold", 24)
         w = int(d.textlength(label, font=f)) + 56
         bx, by = (RW - w) // 2, 58 + self.TVHH + 54

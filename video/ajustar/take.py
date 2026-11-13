@@ -45,7 +45,7 @@ SCHEDULE = [
     (84.0, ["BACK"]),
     (85.5, ["BACK"]),
     (86.4, ("tap", 840, 600)),        # Galeria de apps
-    (89.0, ("tap", 724, 220)),        # AI Híbrido: o painel volta
+    (89.0, ("tap", 893, 220)),        # AI Híbrido: o painel volta
 ]
 TOTAL = 104.0
 LAT_HOME, LAT_TAP = 3.35, 1.8          # atrasos medidos de Home e de `input tap` (o das setas/OK é LAT)
