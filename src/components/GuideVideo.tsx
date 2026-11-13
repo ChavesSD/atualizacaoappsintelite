@@ -14,7 +14,7 @@ const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).
  * (vindo do vídeo ou escolhido no texto) e destaca o capítulo correspondente.
  * O arquivo só é baixado depois do toque em ▶ (economiza dados no celular).
  */
-export const GuideVideo = forwardRef<GuidePlayer, { video: Guide; active: number; onChapter: (index: number) => void; onVideo?: (el: HTMLVideoElement | null) => void }>(function GuideVideo({ video, active, onChapter, onVideo }, ref) {
+export const GuideVideo = forwardRef<GuidePlayer, { video: Guide; active: number; onChapter: (index: number) => void }>(function GuideVideo({ video, active, onChapter }, ref) {
   const el = useRef<HTMLVideoElement>(null);
   const pending = useRef<number | null>(null);
   const last = useRef(-1);
@@ -41,10 +41,8 @@ export const GuideVideo = forwardRef<GuidePlayer, { video: Guide; active: number
   }, [chapterAt]);
   useImperativeHandle(ref, () => ({ seek }), [seek]);
 
-  const onVideoRef = useRef(onVideo); onVideoRef.current = onVideo;
   const setNode = useCallback((node: HTMLVideoElement | null) => {
     el.current = node;
-    onVideoRef.current?.(node); // a Milly acompanha o relógio do vídeo
     if (node && pending.current !== null) {
       const t = pending.current; pending.current = null;
       node.addEventListener("loadedmetadata", () => { node.currentTime = t; node.play().catch(() => {}); }, { once: true });

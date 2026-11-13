@@ -17,9 +17,3 @@ Requisitos: Python 3, `pip install edge-tts pillow`, `ffmpeg`/`ffprobe` no PATH,
 4. **Montagem**: ajuste os cortes/zooms em `shots.json` e rode `python assemble.py --shots shots.json --out out`; copie `out/tutorial.*`
    para `downloads/videos/`. A duração de cada capítulo é a da narração + respiros; a gravação é acelerada até 1,4x ou tem o último quadro congelado.
 
-## Milly (avatar animado)
-
-A Milly aparece sob o vídeo do tutorial e acompanha o áudio (boca, piscar, acenos).
-- `python video/milly_assets.py <imagem-original.webp>` gera `public/milly/*` (imagem base e rosto sem boca/olhos).
-- `python video/lipsync.py downloads/videos/tutorial.mp4 downloads/videos/tutorial.mouth.json` gera a linha do tempo da boca a partir do áudio. **Rode de novo sempre que o vídeo for regravado.**
-- A animação está em `src/components/Milly.tsx` (guiada pelo `currentTime` do vídeo).

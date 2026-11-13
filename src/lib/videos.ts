@@ -21,8 +21,6 @@ export interface GuideVideo {
   src: string;
   poster: string | null;
   captions: string | null;
-  /** Linha do tempo da boca e dos gestos da Milly (gerada do áudio por video/lipsync.py). */
-  mouth: string | null;
   durationSec: number;
   chapters: { title: string; start: number }[];
 }

@@ -434,14 +434,17 @@ details > summary { cursor: pointer; min-height: 32px; }
 .fit .phase-head h1 { font-size: clamp(1.5rem, 1rem + 1.6vw, 2.25rem); margin: 0 0 2px; }
 .fit .phase-head p { font-size: var(--fs-0); color: var(--muted); }
 .fit-grid { flex: 1 1 0; min-height: 0; display: grid; gap: var(--s-4); grid-template-rows: auto minmax(0, 1fr); }
+/* telas largas: vídeo grande e centralizado no alto; o passo a passo ocupa toda a largura embaixo */
 @media (min-width: 1000px) {
-  .fit-grid { grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: var(--s-6); }
-  .fit-video { justify-content: center; }
+  .fit-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: var(--s-3); }
+  .fit-video { container-type: size; align-items: center; }
+  .fit-video .player { width: min(100%, calc((100cqh - 54px) * 16 / 9)); margin-inline: auto; }
+  .fit-video .chapters { justify-content: center; flex-wrap: wrap; overflow: visible; }
+  .fit-video .vfig { width: 100%; }
+  .stepbox { height: clamp(290px, 46dvh, 430px); }  /* altura fixa: o vídeo não muda de tamanho de um passo para o outro */
   .fit .phase-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 var(--s-4); }
 }
 .fit-video { min-height: 0; min-width: 0; display: flex; flex-direction: column; justify-content: flex-start; }
-.fit-side { min-height: 0; min-width: 0; display: flex; flex-direction: column; }
-.fit-side .stepbox { flex: 1 1 auto; position: relative; z-index: 1; }
 .vfig { margin: 0; display: flex; flex-direction: column; gap: var(--s-3); min-height: 0; }
 /* o vídeo cresce até caber: a largura acompanha a altura disponível (16:9) */
 @media (max-width: 999px) { .fit-video .player { width: min(100%, calc(32dvh * 16 / 9)); max-height: 32dvh; margin-inline: auto; border-radius: var(--r-lg); box-shadow: none; } }
@@ -451,18 +454,6 @@ details > summary { cursor: pointer; min-height: 32px; }
 .chapters button[aria-current="step"] { background: var(--brand-soft); border-color: var(--brand); color: var(--brand-text); }
 .chapters button[aria-current="step"] .n { background: var(--brand); color: var(--brand-contrast); }
 .chapters button[aria-current="step"] .time { color: var(--brand-text); }
-
-/* Milly: guia animada, espiando por cima do passo a passo (só em telas largas) */
-.milly-wrap { display: none; }
-@media (min-width: 1000px) {
-  .fit-side { position: relative; margin-top: clamp(40px, 7dvh, 64px); }
-  .milly-wrap { display: flex; justify-content: flex-end; position: absolute; right: var(--s-5); bottom: calc(100% - 20px); height: clamp(90px, 14dvh, 130px); }
-  .fit .phase-head { padding-right: 240px; }
-  .milly-avatar { height: 100%; aspect-ratio: 860 / 800; }
-}
-.milly-avatar { padding: 0; border: 0; background: none; cursor: pointer; border-radius: var(--r-lg); }
-.milly-avatar svg { display: block; height: 100%; width: 100%; overflow: visible; filter: drop-shadow(0 8px 16px rgba(0, 0, 0, .5)); }
-.milly-avatar:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
 
 .stepbox { min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--brand); border-radius: var(--r-xl); padding: var(--s-4) var(--s-5); box-shadow: 0 0 0 1px var(--brand), 0 18px 50px -20px var(--brand-glow); }
 .stepbox-head { flex: 0 0 auto; display: flex; align-items: center; gap: var(--s-3); padding-bottom: var(--s-3); }
