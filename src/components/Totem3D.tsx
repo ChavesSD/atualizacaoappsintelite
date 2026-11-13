@@ -97,10 +97,12 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
 
   const texLoader = new THREE.TextureLoader();
   const loadTex = (src: string) => new Promise<import("three").Texture | null>((res) => texLoader.load(src, (t) => res(t), undefined, () => res(null)));
-  const [screenTex, logoImg] = await Promise.all([
+  const [screenTex, logoImg, printTex] = await Promise.all([
     loadTex("/totem-tela.png"),
     new Promise<HTMLImageElement | null>((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = "/logo-intelite.webp"; }),
+    loadTex("/totem-impressao.png"),
   ]);
+  if (printTex) { printTex.colorSpace = THREE.SRGBColorSpace; printTex.anisotropy = renderer.capabilities.getMaxAnisotropy(); track(printTex); }
   if (screenTex) { screenTex.colorSpace = THREE.SRGBColorSpace; screenTex.anisotropy = renderer.capabilities.getMaxAnisotropy(); track(screenTex); }
 
   const rbox = (w: number, h: number, d: number, r: number, mat: import("three").Material, x = 0, y = 0, z = 0) => {
@@ -181,6 +183,11 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
   const screenMat = track(new THREE.MeshBasicMaterial({ map: screenTex ?? null, color: screenTex ? 0xf2f2f2 : 0x14295c, toneMapped: false }));
   const screenPlane = plane(SW, SH, screenMat, 0, SC, 0.0042);
   head.add(screenPlane);
+  // tela de impressão da senha: aparece por cima da tela do app quando alguém toca na tela do totem
+  const printMat = track(new THREE.MeshBasicMaterial({ map: printTex ?? null, color: 0xf2f2f2, transparent: true, opacity: 0, toneMapped: false, depthWrite: false }));
+  const printPlane = plane(SW, SH, printMat, 0, SC, 0.0047);
+  printPlane.visible = false;
+  head.add(printPlane);
   head.add(plane(SW, SH, track(new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.012, roughness: 0.2, metalness: 0, clearcoat: 0.2, clearcoatRoughness: 0.3, envMapIntensity: 0.15 })), 0, SC, 0.0052));
   // ventilação no verso da cabeça
   for (const gx of [-1, 1]) for (let i = 0; i < 12; i++) {
@@ -207,7 +214,7 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
     state: "print" | "float" | "hold" | "leave"; t: number; p0: import("three").Vector3; q0: import("three").Quaternion; s0: number };
   const tickets: Ticket[] = [];
   const PW = 0.078, PH = 0.088, SLOT_Y = 0.695;
-  let counter = 0, queued = 0;
+  let counter = 1, queued = 0;                              // a tela de impressão mostra D2: a primeira senha emitida é a D2
   const paperGeo = track(new THREE.PlaneGeometry(PW, PH)); paperGeo.translate(0, -PH / 2, 0); // a origem é a borda de cima (a que sai da janela)
   let QR: ((text: string) => { n: number; dark: (r: number, c: number) => boolean }) | null = null;
   import("qrcode-generator").then((m) => {
@@ -369,6 +376,11 @@ async function build(THREE: Three, RoomEnvironment: RoomEnv, RoundedBoxGeometry:
     const dt = Math.min(0.05, (now - prevNow) / 1000); prevNow = now;
     if (!visible || document.hidden) return;
     stepTickets(dt);
+    if (printTex) {                                    // transição suave entre a tela do app e a tela de impressão
+      const want = tickets.length > 0 ? 1 : 0;
+      printMat.opacity += (want - printMat.opacity) * Math.min(1, dt * 9);
+      printPlane.visible = printMat.opacity > 0.01;
+    }
     if (!dragging) {
       if (Math.abs(vel) > 0.0004) { yaw = clamp(yaw + vel, -LIM, LIM); vel *= 0.93; }
       else if (!reduce && now - idleSince > 1800) { // volta a balançar devagar, retomando de onde parou
